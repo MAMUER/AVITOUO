@@ -1,8 +1,13 @@
 package ui
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/jpeg"
 	"io"
 	"net/http"
 	"os"
@@ -22,6 +27,7 @@ type App struct {
 	usedIDs    map[string]bool
 	usedTitles map[string]bool
 	mu         sync.RWMutex
+	uploadPath string
 }
 
 func NewApp() *App {
@@ -42,11 +48,14 @@ func NewApp() *App {
 	mux.HandleFunc("/api/settings", app.handleSettings)
 	mux.HandleFunc("/api/validate", app.handleValidate)
 	mux.HandleFunc("/api/generate-id", app.handleGenerateID)
+	mux.HandleFunc("/api/generate-mass", app.handleGenerateMass)
 	mux.HandleFunc("/api/shuffle", app.handleShuffle)
 	mux.HandleFunc("/api/upload", app.handleUpload)
+	mux.HandleFunc("/api/sheet", app.handleSheet)
 	mux.HandleFunc("/api/save", app.handleSave)
 	mux.HandleFunc("/api/export", app.handleExport)
 	mux.HandleFunc("/api/columns", app.handleColumns)
+	mux.HandleFunc("/api/uniquify-image", app.handleUniquifyImage)
 
 	return app
 }
@@ -113,30 +122,12 @@ const htmlTemplate = `<!DOCTYPE html>
 
 	<div class="container">
 		<div class="tabs">
-			<button class="tab-btn active" onclick="showTab('instructions')">📋 Инструкция</button>
-			<button class="tab-btn" onclick="showTab('settings')">⚙️ Настройки</button>
+			<button class="tab-btn active" onclick="showTab('settings')">⚙️ Настройки</button>
 			<button class="tab-btn" onclick="showTab('editor')">✏️ Редактор</button>
 			<button class="tab-btn" onclick="showTab('export')">📦 Фото и Экспорт</button>
 		</div>
 
-		<div id="instructions" class="tab active">
-			<div class="card">
-				<h2>Как использовать шаблон</h2>
-				<div class="instructions">
-					<ol>
-						<li>Лист "Инструкция" переименовывать нельзя.</li>
-						<li>В листах категорий строки 1–4 защищены от удаления, изменения и смены порядка.</li>
-						<li>Заполнение данных начинается строго с 5-й строки.</li>
-						<li>Каждое объявление в отдельной строке, объединение ячеек запрещено.</li>
-						<li>Лимит: не более 50 000 объявлений в файле.</li>
-						<li>Уникальный идентификатор генерируется автоматически.</li>
-						<li>Описание автоматически оборачивается в &lt;![CDATA[ ... ]]&gt;, переносы строк заменяются на &lt;br&gt;.</li>
-					</ol>
-				</div>
-			</div>
-		</div>
-
-		<div id="settings" class="tab">
+		<div id="settings" class="tab active">
 			<div class="card">
 				<h2>Настройки по умолчанию</h2>
 				<div class="form-group">
@@ -150,6 +141,10 @@ const htmlTemplate = `<!DOCTYPE html>
 				<div class="form-group">
 					<label>Адреса (каждый с новой строки):</label>
 					<textarea id="addresses" rows="3"></textarea>
+					<div class="checkbox-group">
+						<input type="checkbox" id="disableAddress">
+						<label for="disableAddress" style="margin:0">Отключить автозаполнение адреса</label>
+					</div>
 				</div>
 				<div class="form-group">
 					<label>Название компании:</label>
@@ -159,16 +154,12 @@ const htmlTemplate = `<!DOCTYPE html>
 					<label>Почта:</label>
 					<input type="text" id="emails" placeholder="Например: info@example.com">
 				</div>
-				<div class="checkbox-group">
-					<input type="checkbox" id="disableAddress">
-					<label for="disableAddress" style="margin:0">Отключить автозаполнение адреса</label>
-				</div>
 				<button onclick="saveSettings()">💾 Сохранить настройки</button>
 				<div id="settings-msg"></div>
 			</div>
 		</div>
 
-		<div id="editor" class="tab">
+		<div id="editor" class="tab active">
 			<div class="card">
 				<h2>Загрузка шаблона</h2>
 				<div class="upload-area" onclick="document.getElementById('file-input').click()">
@@ -179,6 +170,13 @@ const htmlTemplate = `<!DOCTYPE html>
 			</div>
 
 			<div id="editor-content" class="hidden">
+				<div class="card">
+					<h2>Лист</h2>
+					<div class="form-group">
+						<select id="sheet-select" onchange="loadSheet(this.value)"></select>
+					</div>
+				</div>
+
 				<div class="card">
 					<h2>Статистика</h2>
 					<div class="stats">
@@ -198,7 +196,7 @@ const htmlTemplate = `<!DOCTYPE html>
 				</div>
 
 				<div class="card">
-					<h2>Редактирование объявления</h2>
+					<h2>Создание объявления</h2>
 					<div class="form-group">
 						<label>Уникальный ID:</label>
 						<div style="display:flex;gap:10px">
@@ -216,26 +214,18 @@ const htmlTemplate = `<!DOCTYPE html>
 						<textarea id="ad-description" rows="6" maxlength="7500" oninput="updateDescCount()"></textarea>
 						<div style="font-size:12px;color:#666;margin-top:5px">Осталось символов: <span id="desc-count">7500</span></div>
 					</div>
-					<div class="toolbar">
-						<button onclick="validateTitle()">✓ Проверить название</button>
-						<button onclick="shuffleTitle()">🔀 Перемешать слова</button>
-						<button onclick="validateDescription()">✓ Проверить описание</button>
-						<button onclick="addRow()">➕ Добавить строку</button>
-						<button onclick="saveCurrentRow()">💾 Сохранить строку</button>
+					<div class="form-group">
+						<label>Шаблон для массовой генерации:</label>
+						<textarea id="mass-template" rows="4" placeholder="Например: {Купить|Продать} {брус|доска} {в Мытищах|с доставкой}"></textarea>
+						<div style="font-size:12px;color:#666;margin-top:5px">Используйте фигурные скобки с вариантами: {вариант1|вариант2}</div>
 					</div>
+					<div class="form-group">
+						<label>Количество вариантов:</label>
+						<input type="number" id="mass-count" value="10" min="1" max="1000" style="width:120px">
+					</div>
+					<button onclick="generateMassAds()">🚀 Сгенерировать варианты</button>
+					<div id="mass-result"></div>
 					<div id="editor-msg"></div>
-				</div>
-
-				<div class="card">
-					<h2>Данные файла</h2>
-					<div style="overflow-x:auto">
-						<table id="data-table">
-							<thead>
-								<tr id="table-header"></tr>
-							</thead>
-							<tbody id="table-body"></tbody>
-						</table>
-					</div>
 				</div>
 			</div>
 		</div>
@@ -258,6 +248,8 @@ const htmlTemplate = `<!DOCTYPE html>
 		let currentFile = null;
 		let currentData = [];
 		let currentHeaders = [];
+		let currentSheets = [];
+		let currentActiveSheet = '';
 
 		function showTab(id) {
 			document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -274,6 +266,12 @@ const htmlTemplate = `<!DOCTYPE html>
 		function updateDescCount() {
 			const desc = document.getElementById('ad-description').value;
 			document.getElementById('desc-count').textContent = 7500 - desc.length;
+		}
+
+		function updateStats() {
+			document.getElementById('stat-total').textContent = currentData.length;
+			document.getElementById('stat-ads').textContent = currentData.filter(r => r.some(v => v)).length;
+			document.getElementById('stat-categories').textContent = currentSheets.length;
 		}
 
 		async function loadSettings() {
@@ -322,13 +320,43 @@ const htmlTemplate = `<!DOCTYPE html>
 				msgEl.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
 			} else {
 				currentFile = data;
+				currentSheets = data.sheets || [];
+				currentActiveSheet = data.active_sheet || currentSheets[0] || '';
 				currentData = data.rows || [];
 				currentHeaders = data.headers || [];
+				populateSheetSelect();
 				document.getElementById('editor-content').classList.remove('hidden');
 				renderTable();
 				updateStats();
 				msgEl.innerHTML = '<div class="success">✅ Файл загружен: ' + file.name + '</div>';
 			}
+		}
+
+		function populateSheetSelect() {
+			const select = document.getElementById('sheet-select');
+			select.innerHTML = '';
+			currentSheets.forEach(name => {
+				const opt = document.createElement('option');
+				opt.value = name;
+				opt.textContent = name;
+				if (name === currentActiveSheet) opt.selected = true;
+				select.appendChild(opt);
+			});
+		}
+
+		async function loadSheet(sheetName) {
+			if (!currentFile) return;
+			currentActiveSheet = sheetName;
+			const res = await fetch('/api/sheet?name=' + encodeURIComponent(sheetName));
+			const data = await res.json();
+			if (data.error) {
+				alert(data.error);
+				return;
+			}
+			currentHeaders = data.headers || [];
+			currentData = data.rows || [];
+			renderTable();
+			updateStats();
 		}
 
 		function renderTable() {
@@ -341,85 +369,27 @@ const htmlTemplate = `<!DOCTYPE html>
 			'</tr>').join('');
 		}
 
-		function updateStats() {
-			document.getElementById('stat-total').textContent = currentData.length;
-			document.getElementById('stat-ads').textContent = currentData.filter(r => r.some(v => v)).length;
-		}
-
 		async function generateID() {
 			const res = await fetch('/api/generate-id');
 			const data = await res.json();
 			document.getElementById('ad-id').value = data.id;
 		}
 
-		async function validateTitle() {
-			const title = document.getElementById('ad-title').value;
-			const res = await fetch('/api/validate', {
+		async function generateMassAds() {
+			const template = document.getElementById('mass-template').value;
+			const count = parseInt(document.getElementById('mass-count').value) || 10;
+			const res = await fetch('/api/generate-mass', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title })
+				body: JSON.stringify({ template, count })
 			});
 			const data = await res.json();
-			document.getElementById('editor-msg').innerHTML = data.error ?
-				'<div class="error">❌ ' + data.error + '</div>' :
-				'<div class="success">✅ Название корректно</div>';
-		}
-
-		async function shuffleTitle() {
-			const title = document.getElementById('ad-title').value;
-			const res = await fetch('/api/shuffle', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title })
-			});
-			const data = await res.json();
+			const msgEl = document.getElementById('mass-result');
 			if (data.error) {
-				document.getElementById('editor-msg').innerHTML = '<div class="error">❌ ' + data.error + '</div>';
+				msgEl.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
 			} else {
-				document.getElementById('ad-title').value = data.title;
-				document.getElementById('editor-msg').innerHTML = '<div class="success">✅ Слова перемешаны</div>';
+				msgEl.innerHTML = '<div class="success">✅ Сгенерировано: ' + data.generated + ' вариантов</div>';
 			}
-		}
-
-		async function validateDescription() {
-			const desc = document.getElementById('ad-description').value;
-			const res = await fetch('/api/validate', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ description: desc })
-			});
-			const data = await res.json();
-			document.getElementById('editor-msg').innerHTML = data.error ?
-				'<div class="error">❌ ' + data.error + '</div>' :
-				'<div class="success">✅ Описание корректно</div>';
-		}
-
-		async function addRow() {
-			currentData.push(new Array(currentHeaders.length).fill(''));
-			renderTable();
-			updateStats();
-		}
-
-		async function saveCurrentRow() {
-			const id = document.getElementById('ad-id').value;
-			const title = document.getElementById('ad-title').value;
-			const description = document.getElementById('ad-description').value;
-
-			if (!id || !title) {
-				document.getElementById('editor-msg').innerHTML = '<div class="error">❌ ID и Название обязательны</div>';
-				return;
-			}
-
-			const row = currentData[0] || new Array(currentHeaders.length).fill('');
-			const idIdx = currentHeaders.indexOf('ID');
-			const titleIdx = currentHeaders.indexOf('Название');
-			const descIdx = currentHeaders.indexOf('Описание');
-
-			if (idIdx >= 0) row[idIdx] = id;
-			if (titleIdx >= 0) row[titleIdx] = title;
-			if (descIdx >= 0) row[descIdx] = description;
-
-			document.getElementById('editor-msg').innerHTML = '<div class="success">✅ Строка сохранена</div>';
 		}
 
 		async function createZip() {
@@ -541,6 +511,39 @@ func (app *App) handleGenerateID(w http.ResponseWriter, r *http.Request) {
 	app.jsonResponse(w, map[string]string{"id": id})
 }
 
+func (app *App) handleGenerateMass(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Template string `json:"template"`
+		Count    int    `json:"count"`
+	}
+	if err := app.decodeJSON(r, &req); err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
+		return
+	}
+	if req.Count <= 0 {
+		req.Count = 10
+	}
+	if req.Count > 1000 {
+		req.Count = 1000
+	}
+
+	gen := core.NewTextGenerator()
+	results, err := gen.GenerateVariations(req.Template, req.Count)
+	if err != nil {
+		app.jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	app.jsonResponse(w, map[string]interface{}{
+		"generated": len(results),
+		"results":   results,
+	})
+}
+
 func (app *App) handleShuffle(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -605,38 +608,51 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Ошибка закрытия временного файла: %v\n", closeErr)
 	}
 
+	app.mu.Lock()
+	if old := app.uploadPath; old != "" {
+		if removeErr := os.Remove(old); removeErr != nil {
+			fmt.Printf("Ошибка удаления старого временного файла: %v\n", removeErr)
+		}
+	}
+	app.uploadPath = tmpPath
+	app.mu.Unlock()
+
 	f, err := storage.LoadTemplate(tmpPath)
 	if err != nil {
-		if removeErr := os.Remove(tmpPath); removeErr != nil {
-			fmt.Printf("Ошибка удаления временного файла: %v\n", removeErr)
-		}
 		app.jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {
-		if removeErr := os.Remove(tmpPath); removeErr != nil {
-			fmt.Printf("Ошибка удаления временного файла: %v\n", removeErr)
-		}
 		app.jsonError(w, http.StatusBadRequest, "Файл не содержит листов")
 		return
 	}
 
-	rows, err := f.GetRows(sheets[0])
-	if err != nil {
-		if removeErr := os.Remove(tmpPath); removeErr != nil {
-			fmt.Printf("Ошибка удаления временного файла: %v\n", removeErr)
+	categorySheets := make([]string, 0, len(sheets))
+	for _, s := range sheets {
+		if s == "Инструкция" {
+			continue
 		}
+		rows, _ := f.GetRows(s)
+		if len(rows) > 1 {
+			categorySheets = append(categorySheets, s)
+		}
+	}
+	if len(categorySheets) == 0 {
+		app.jsonError(w, http.StatusBadRequest, "В файле нет категорийных листов")
+		return
+	}
+
+	activeSheet := categorySheets[0]
+	rows, err := f.GetRows(activeSheet)
+	if err != nil {
 		app.jsonError(w, http.StatusBadRequest, "Ошибка чтения листа")
 		return
 	}
 
 	if len(rows) == 0 {
-		if removeErr := os.Remove(tmpPath); removeErr != nil {
-			fmt.Printf("Ошибка удаления временного файла: %v\n", removeErr)
-		}
-		app.jsonError(w, http.StatusBadRequest, "Файл пустой")
+		app.jsonError(w, http.StatusBadRequest, "Лист пустой")
 		return
 	}
 
@@ -650,14 +666,60 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 		data = append(data, row)
 	}
 
-	if removeErr := os.Remove(tmpPath); removeErr != nil {
-		fmt.Printf("Ошибка удаления временного файла: %v\n", removeErr)
+	app.jsonResponse(w, map[string]interface{}{
+		"headers":      headers,
+		"rows":         data,
+		"sheets":       categorySheets,
+		"active_sheet": activeSheet,
+	})
+}
+
+func (app *App) handleSheet(w http.ResponseWriter, r *http.Request) {
+	sheetName := r.URL.Query().Get("name")
+	if sheetName == "" {
+		app.jsonError(w, http.StatusBadRequest, "Лист не указан")
+		return
+	}
+
+	app.mu.RLock()
+	path := app.uploadPath
+	app.mu.RUnlock()
+
+	if path == "" {
+		app.jsonError(w, http.StatusBadRequest, "Файл не загружен")
+		return
+	}
+
+	f, err := storage.LoadTemplate(path)
+	if err != nil {
+		app.jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Ошибка чтения листа")
+		return
+	}
+
+	if len(rows) == 0 {
+		app.jsonResponse(w, map[string]interface{}{"headers": []string{}, "rows": [][]string{}})
+		return
+	}
+
+	headers := rows[0]
+	data := make([][]string, 0, len(rows)-1)
+	for i := 1; i < len(rows); i++ {
+		row := make([]string, len(headers))
+		for j := 0; j < len(headers) && j < len(rows[i]); j++ {
+			row[j] = rows[i][j]
+		}
+		data = append(data, row)
 	}
 
 	app.jsonResponse(w, map[string]interface{}{
 		"headers": headers,
 		"rows":    data,
-		"sheets":  sheets,
 	})
 }
 
@@ -743,7 +805,7 @@ func (app *App) handleExport(w http.ResponseWriter, r *http.Request) {
 func (app *App) handleColumns(w http.ResponseWriter, r *http.Request) {
 	columns := map[string]interface{}{
 		"placement_method": []string{"Package"},
-		"contact_method":   []string{"По телефону и в сообщениях", "По телефону", "В сообщениях"},
+		"contact_method":   []string{"По телефону и в сообщениям", "По телефону", "В сообщениях"},
 		"ad_type":          []string{"Товар от производителя", "Товар приобретен на продажу"},
 		"condition":        []string{"Новое", "Б/у"},
 		"availability":     []string{"В наличии", "Под заказ"},
@@ -770,6 +832,73 @@ func (app *App) handleColumns(w http.ResponseWriter, r *http.Request) {
 		"door_type":        []string{"Межкомнатные", "Входные", "Фурнитура", "Перегородки", "Другое"},
 	}
 	app.jsonResponse(w, columns)
+}
+
+func (app *App) handleUniquifyImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Ошибка парсинга формы")
+		return
+	}
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Файл не найден")
+		return
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			fmt.Printf("Ошибка закрытия файла: %v\n", closeErr)
+		}
+	}()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка чтения файла")
+		return
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Не удалось decode изображение: "+err.Error())
+		return
+	}
+
+	uniqueImg := uniquifyImage(img)
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, uniqueImg, &jpeg.Options{Quality: 90}); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка кодирования")
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Disposition", `attachment; filename="unique.jpg"`)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		fmt.Printf("Ошибка записи изображения: %v\n", err)
+	}
+}
+
+func uniquifyImage(img image.Image) image.Image {
+	bounds := img.Bounds()
+	dst := image.NewRGBA(bounds)
+	draw.Draw(dst, bounds, img, image.Point{}, draw.Src)
+
+	for i := 0; i < bounds.Dx(); i++ {
+		for j := 0; j < bounds.Dy(); j++ {
+			if i == 0 && j == 0 {
+				r, g, b, a := dst.At(i, j).RGBA()
+				r = (r + 1) & 0xFF
+				g = (g + 1) & 0xFF
+				b = (b + 1) & 0xFF
+				dst.SetRGBA(i, j, color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a >> 8)})
+			}
+		}
+	}
+
+	return dst
 }
 
 func (app *App) jsonResponse(w http.ResponseWriter, data interface{}) {
