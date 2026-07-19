@@ -21,13 +21,16 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+const PhotosDir = "photos"
+
 type App struct {
-	server     *http.Server
-	port       string
-	usedIDs    map[string]bool
-	usedTitles map[string]bool
-	mu         sync.RWMutex
-	uploadPath string
+	server         *http.Server
+	port           string
+	usedIDs        map[string]bool
+	usedTitles     map[string]bool
+	mu             sync.RWMutex
+	uploadPath     string
+	sheetNameMap   map[string]string
 }
 
 func NewApp() *App {
@@ -38,10 +41,11 @@ func NewApp() *App {
 
 	mux := http.NewServeMux()
 	app := &App{
-		server:     &http.Server{Addr: ":" + port, Handler: mux},
-		port:       port,
-		usedIDs:    make(map[string]bool),
-		usedTitles: make(map[string]bool),
+		server:       &http.Server{Addr: ":" + port, Handler: mux},
+		port:         port,
+		usedIDs:      make(map[string]bool),
+		usedTitles:   make(map[string]bool),
+		sheetNameMap: make(map[string]string),
 	}
 
 	mux.HandleFunc("/", app.handleIndex)
@@ -56,6 +60,10 @@ func NewApp() *App {
 	mux.HandleFunc("/api/export", app.handleExport)
 	mux.HandleFunc("/api/columns", app.handleColumns)
 	mux.HandleFunc("/api/uniquify-image", app.handleUniquifyImage)
+	mux.HandleFunc("/api/photos", app.handlePhotosList)
+	mux.HandleFunc("/api/photos/upload", app.handlePhotosUpload)
+	mux.HandleFunc("/api/photos/delete", app.handlePhotosDelete)
+	mux.HandleFunc("/api/photos/download", app.handlePhotosDownload)
 
 	return app
 }
@@ -111,6 +119,13 @@ const htmlTemplate = `<!DOCTYPE html>
 		.stat { background: #f5f5f5; padding: 10px 15px; border-radius: 4px; }
 		.stat-label { font-size: 12px; color: #666; }
 		.stat-value { font-size: 20px; font-weight: bold; color: #1976d2; }
+		.photo-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+		.photo-item { border: 1px solid #ddd; border-radius: 6px; padding: 8px; text-align: center; cursor: pointer; background: #fafafa; transition: box-shadow .2s; }
+		.photo-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+		.photo-item img { width: 100%; height: 120px; object-fit: cover; border-radius: 4px; }
+		.photo-item .photo-name { font-size: 12px; color: #333; margin-top: 6px; word-break: break-all; }
+		.photo-item .photo-actions { margin-top: 6px; display: flex; gap: 6px; justify-content: center; }
+		.photo-item button { padding: 4px 8px; font-size: 12px; }
 	</style>
 </head>
 <body>
@@ -233,12 +248,68 @@ const htmlTemplate = `<!DOCTYPE html>
 		<div id="export" class="tab">
 			<div class="card">
 				<h2>Фотографии</h2>
-				<p>Разместите фото в папке: <code>Фото_авито/[ID_объявления]/</code></p>
+				<p>Папка для фото: <code>photos/[категория_or_ID]/</code></p>
 				<div class="form-group">
-					<label>Путь к папке с фото:</label>
-					<input type="text" id="photo-dir" placeholder="Фото_авито/av-123456">
+					<label>Подпапка:</label>
+					<input type="text" id="photo-dir" placeholder="Например: Для дома" value="">
 				</div>
-				<button onclick="createZip()">📦 Создать ZIP-архив</button>
+				<div class="upload-area" onclick="document.getElementById('photo-file-input').click()">
+					<p>📷 Нажмите для загрузки фото или перетащите сюда</p>
+					<input type="file" id="photo-file-input" accept="image/*" multiple style="display:none" onchange="uploadPhoto(event)">
+				</div>
+				<div id="photo-upload-msg"></div>
+			</div>
+
+			<div class="card">
+				<h2>Галерея</h2>
+				<div id="photo-gallery" class="photo-gallery">
+					<p style="color:#666">Фото не загружены</p>
+				</div>
+			</div>
+
+			<div id="photo-editor" class="card hidden">
+				<h2>Редактирование фото</h2>
+				<div style="display:flex;gap:20px;flex-wrap:wrap">
+					<div style="flex:1;min-width:280px">
+						<img id="editor-preview" style="max-width:100%;border:1px solid #ddd;border-radius:4px">
+					</div>
+					<div style="width:260px">
+						<div class="form-group">
+							<label>Яркость: <span id="brightness-val">100</span>%</label>
+							<input type="range" id="brightness" min="0" max="200" value="100" oninput="updateFilterPreview()">
+						</div>
+						<div class="form-group">
+							<label>Контраст: <span id="contrast-val">100</span>%</label>
+							<input type="range" id="contrast" min="0" max="200" value="100" oninput="updateFilterPreview()">
+						</div>
+						<div class="form-group">
+							<label>Насыщенность: <span id="saturate-val">100</span>%</label>
+							<input type="range" id="saturate" min="0" max="200" value="100" oninput="updateFilterPreview()">
+						</div>
+						<div class="form-group">
+							<label>Размытие: <span id="blur-val">0</span>px</label>
+							<input type="range" id="blur" min="0" max="10" value="0" step="0.5" oninput="updateFilterPreview()">
+						</div>
+						<div class="form-group">
+							<label>Оттенки серого:</label>
+							<input type="range" id="grayscale" min="0" max="100" value="0" oninput="updateFilterPreview()">
+						</div>
+						<div class="form-group">
+							<label>Сепия: <span id="sepia-val">0</span>%</label>
+							<input type="range" id="sepia" min="0" max="100" value="0" oninput="updateFilterPreview()">
+						</div>
+						<div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+							<button onclick="downloadEditedPhoto()">💾 Скачать</button>
+							<button onclick="resetFilters()">🔄 Сбросить</button>
+							<button onclick="deleteCurrentPhoto()" style="background:#d32f2f">🗑 Удалить</button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="card">
+				<h2>Экспорт</h2>
+				<button onclick="createZip()">📦 Создать ZIP-архив из photos/</button>
 				<div id="export-msg"></div>
 			</div>
 		</div>
@@ -410,6 +481,169 @@ const htmlTemplate = `<!DOCTYPE html>
 			div.textContent = text;
 			return div.innerHTML;
 		}
+
+		let currentPhotoDir = '';
+		let currentPhotoName = '';
+
+		async function uploadPhoto(event) {
+			const files = event.target.files;
+			if (!files || files.length === 0) return;
+
+			const dir = document.getElementById('photo-dir').value.trim();
+			if (!dir) {
+				document.getElementById('photo-upload-msg').innerHTML = '<div class="error">❌ Укажите подпапку</div>';
+				return;
+			}
+
+			currentPhotoDir = dir;
+			const formData = new FormData();
+			for (let i = 0; i < files.length; i++) {
+				formData.append('file', files[i]);
+			}
+			formData.append('dir', dir);
+
+			const res = await fetch('/api/photos/upload', { method: 'POST', body: formData });
+			const data = await res.json();
+			const msgEl = document.getElementById('photo-upload-msg');
+			if (data.error) {
+				msgEl.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
+			} else {
+				msgEl.innerHTML = '<div class="success">✅ Загружено: ' + files.length + ' файл(ов)</div>';
+				loadPhotoGallery();
+			}
+			event.target.value = '';
+		}
+
+		async function loadPhotoGallery() {
+			const dir = document.getElementById('photo-dir').value.trim();
+			if (!dir) return;
+
+			const res = await fetch('/api/photos?dir=' + encodeURIComponent(dir));
+			const data = await res.json();
+			const gallery = document.getElementById('photo-gallery');
+
+			if (data.error || !data.files || data.files.length === 0) {
+				gallery.innerHTML = '<p style="color:#666">Фото не загружены</p>';
+				return;
+			}
+
+			gallery.innerHTML = data.files.map(function(name) {
+				return '<div class="photo-item" onclick="openPhotoEditor(\'' + escapeHtml(name).replace(/'/g, '&#39;') + '\')">' +
+					'<img src="/api/photos/download?path=' + encodeURIComponent(dir + '/' + name) + '" loading="lazy">' +
+					'<div class="photo-name">' + escapeHtml(name) + '</div>' +
+					'<div class="photo-actions">' +
+					'<button onclick="event.stopPropagation();downloadPhoto(\'' + escapeHtml(dir).replace(/'/g, '&#39;') + '\',\'' + escapeHtml(name).replace(/'/g, '&#39;') + '\')">&#9660;</button>' +
+					'<button onclick="event.stopPropagation();deletePhoto(\'' + escapeHtml(dir).replace(/'/g, '&#39;') + '\',\'' + escapeHtml(name).replace(/'/g, '&#39;') + '\')" style="background:#d32f2f">&#128465;</button>' +
+					'</div></div>';
+			}).join('');
+		}
+
+		async function openPhotoEditor(name) {
+			const dir = document.getElementById('photo-dir').value.trim();
+			currentPhotoDir = dir;
+			currentPhotoName = name;
+
+			const preview = document.getElementById('editor-preview');
+			preview.src = '/api/photos/download?path=' + encodeURIComponent(dir + '/' + name);
+			document.getElementById('photo-editor').classList.remove('hidden');
+			resetFilters();
+		}
+
+		function updateFilterPreview() {
+			const brightness = document.getElementById('brightness').value;
+			const contrast = document.getElementById('contrast').value;
+			const saturate = document.getElementById('saturate').value;
+			const blur = document.getElementById('blur').value;
+			const grayscale = document.getElementById('grayscale').value;
+			const sepia = document.getElementById('sepia').value;
+
+			document.getElementById('brightness-val').textContent = brightness;
+			document.getElementById('contrast-val').textContent = contrast;
+			document.getElementById('saturate-val').textContent = saturate;
+			document.getElementById('blur-val').textContent = blur;
+			document.getElementById('sepia-val').textContent = sepia;
+
+			const preview = document.getElementById('editor-preview');
+			preview.style.filter = 'brightness(' + brightness + '%) contrast(' + contrast + '%) saturate(' + saturate + '%) blur(' + blur + 'px) grayscale(' + grayscale + '%) sepia(' + sepia + '%)';
+		}
+
+		function resetFilters() {
+			document.getElementById('brightness').value = 100;
+			document.getElementById('contrast').value = 100;
+			document.getElementById('saturate').value = 100;
+			document.getElementById('blur').value = 0;
+			document.getElementById('grayscale').value = 0;
+			document.getElementById('sepia').value = 0;
+			updateFilterPreview();
+		}
+
+		async function downloadEditedPhoto() {
+			if (!currentPhotoDir || !currentPhotoName) return;
+
+			const brightness = document.getElementById('brightness').value;
+			const contrast = document.getElementById('contrast').value;
+			const saturate = document.getElementById('saturate').value;
+			const blur = document.getElementById('blur').value;
+			const grayscale = document.getElementById('grayscale').value;
+			const sepia = document.getElementById('sepia').value;
+
+			const res = await fetch('/api/photos/download?path=' + encodeURIComponent(currentPhotoDir + '/' + currentPhotoName) + '&filter=' + encodeURIComponent(JSON.stringify({brightness, contrast, saturate, blur, grayscale, sepia})));
+			if (res.ok) {
+				const blob = await res.blob();
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = 'edited_' + currentPhotoName;
+				a.click();
+				URL.revokeObjectURL(url);
+			}
+		}
+
+		async function deleteCurrentPhoto() {
+			if (!currentPhotoDir || !currentPhotoName) return;
+			if (!confirm('Удалить фото ' + currentPhotoName + '?')) return;
+
+			const res = await fetch('/api/photos/delete?path=' + encodeURIComponent(currentPhotoDir + '/' + currentPhotoName), { method: 'DELETE' });
+			const data = await res.json();
+			if (data.error) {
+				alert(data.error);
+			} else {
+				document.getElementById('photo-editor').classList.add('hidden');
+				loadPhotoGallery();
+			}
+		}
+
+		async function deletePhoto(dir, name) {
+			if (!confirm('Удалить фото ' + name + '?')) return;
+
+			const res = await fetch('/api/photos/delete?path=' + encodeURIComponent(dir + '/' + name), { method: 'DELETE' });
+			const data = await res.json();
+			if (data.error) {
+				alert(data.error);
+			} else {
+				loadPhotoGallery();
+			}
+		}
+
+		async function downloadPhoto(dir, name) {
+			window.open('/api/photos/download?path=' + encodeURIComponent(dir + '/' + name), '_blank');
+		}
+
+		async function createZip() {
+			const dir = document.getElementById('photo-dir').value.trim();
+			if (!dir) {
+				document.getElementById('export-msg').innerHTML = '<div class="error">❌ Укажите подпапку</div>';
+				return;
+			}
+
+			const res = await fetch('/api/export?dir=' + encodeURIComponent(PhotosDir + '/' + dir));
+			const data = await res.json();
+			document.getElementById('export-msg').innerHTML = data.error ?
+				'<div class="error">❌ ' + data.error + '</div>' :
+				'<div class="success">✅ ZIP создан. Файлы: ' + (data.files || '') + '</div>';
+		}
+
+		document.getElementById('photo-dir').addEventListener('input', loadPhotoGallery);
 
 		loadSettings();
 	</script>
@@ -615,6 +849,7 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	app.uploadPath = tmpPath
+	app.sheetNameMap = make(map[string]string)
 	app.mu.Unlock()
 
 	f, err := storage.LoadTemplate(tmpPath)
@@ -624,27 +859,45 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sheets := f.GetSheetList()
+	fmt.Printf("Все листы файла: %v\n", sheets)
 	if len(sheets) == 0 {
 		app.jsonError(w, http.StatusBadRequest, "Файл не содержит листов")
 		return
 	}
 
 	categorySheets := make([]string, 0, len(sheets))
+	originalSheets := make([]string, 0, len(sheets))
+	seen := make(map[string]bool)
 	for _, s := range sheets {
-		if s == "Инструкция" {
+		if strings.EqualFold(s, "Инструкция") {
+			continue
+		}
+		if strings.HasPrefix(s, "Спр-") || strings.HasPrefix(s, "Спр") {
 			continue
 		}
 		rows, _ := f.GetRows(s)
-		if len(rows) > 1 {
-			categorySheets = append(categorySheets, s)
+		if len(rows) <= 1 {
+			continue
 		}
+		normalized := normalizeSheetName(s)
+		if normalized == "" {
+			continue
+		}
+		if seen[normalized] {
+			continue
+		}
+		seen[normalized] = true
+		categorySheets = append(categorySheets, normalized)
+		originalSheets = append(originalSheets, s)
 	}
+	fmt.Printf("Категорийные листы: %v (уникальных: %d)\n", categorySheets, len(categorySheets))
 	if len(categorySheets) == 0 {
 		app.jsonError(w, http.StatusBadRequest, "В файле нет категорийных листов")
 		return
 	}
 
-	activeSheet := categorySheets[0]
+	activeSheet := originalSheets[0]
+	activeSheetNormalized := categorySheets[0]
 	rows, err := f.GetRows(activeSheet)
 	if err != nil {
 		app.jsonError(w, http.StatusBadRequest, "Ошибка чтения листа")
@@ -666,11 +919,17 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 		data = append(data, row)
 	}
 
+	app.mu.Lock()
+	for i := range categorySheets {
+		app.sheetNameMap[categorySheets[i]] = originalSheets[i]
+	}
+	app.mu.Unlock()
+
 	app.jsonResponse(w, map[string]interface{}{
 		"headers":      headers,
 		"rows":         data,
 		"sheets":       categorySheets,
-		"active_sheet": activeSheet,
+		"active_sheet": activeSheetNormalized,
 	})
 }
 
@@ -683,11 +942,16 @@ func (app *App) handleSheet(w http.ResponseWriter, r *http.Request) {
 
 	app.mu.RLock()
 	path := app.uploadPath
+	originalName, ok := app.sheetNameMap[sheetName]
 	app.mu.RUnlock()
 
 	if path == "" {
 		app.jsonError(w, http.StatusBadRequest, "Файл не загружен")
 		return
+	}
+
+	if !ok {
+		originalName = sheetName
 	}
 
 	f, err := storage.LoadTemplate(path)
@@ -696,7 +960,7 @@ func (app *App) handleSheet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := f.GetRows(sheetName)
+	rows, err := f.GetRows(originalName)
 	if err != nil {
 		app.jsonError(w, http.StatusBadRequest, "Ошибка чтения листа")
 		return
@@ -787,8 +1051,9 @@ func (app *App) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fullDir := filepath.Join(PhotosDir, filepath.Clean(dir))
 	zipPath := "photos_" + core.GenerateUniqueID() + ".zip"
-	fileNames, err := storage.CreatePhotoZip(dir, zipPath)
+	fileNames, err := storage.CreatePhotoZip(fullDir, zipPath)
 	if err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания ZIP: "+err.Error())
 		return
@@ -881,6 +1146,208 @@ func (app *App) handleUniquifyImage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (app *App) handlePhotosList(w http.ResponseWriter, r *http.Request) {
+	dir := r.URL.Query().Get("dir")
+	if dir == "" {
+		app.jsonError(w, http.StatusBadRequest, "Папка не указана")
+		return
+	}
+
+	fullPath := filepath.Join(PhotosDir, filepath.Clean(dir))
+	entries, err := os.ReadDir(fullPath)
+	if err != nil {
+		app.jsonError(w, http.StatusNotFound, "Папка не найдена")
+		return
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if !entry.IsDir() && isImage(entry.Name()) {
+			files = append(files, entry.Name())
+		}
+	}
+
+	app.jsonResponse(w, map[string]interface{}{"files": files, "dir": dir})
+}
+
+func (app *App) handlePhotosUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Ошибка парсинга формы")
+		return
+	}
+
+	dir := r.FormValue("dir")
+	if dir == "" {
+		app.jsonError(w, http.StatusBadRequest, "Папка не указана")
+		return
+	}
+
+	fullDir := filepath.Join(PhotosDir, filepath.Clean(dir))
+	if err := os.MkdirAll(fullDir, 0755); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания папки")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Файл не найден")
+		return
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			fmt.Printf("Ошибка закрытия файла: %v\n", closeErr)
+		}
+	}()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка чтения файла")
+		return
+	}
+
+	ext := filepath.Ext(header.Filename)
+	if ext == "" {
+		ext = ".jpg"
+	}
+
+	savePath := filepath.Join(fullDir, header.Filename)
+	counter := 1
+	baseName := strings.TrimSuffix(header.Filename, ext)
+	for {
+		if _, err := os.Stat(savePath); os.IsNotExist(err) {
+			break
+		}
+		savePath = filepath.Join(fullDir, fmt.Sprintf("%s_%d%s", baseName, counter, ext))
+		counter++
+	}
+
+	if err := os.WriteFile(savePath, data, 0644); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения файла")
+		return
+	}
+
+	app.jsonResponse(w, map[string]string{"status": "ok", "path": savePath, "name": filepath.Base(savePath)})
+}
+
+func (app *App) handlePhotosDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		app.jsonError(w, http.StatusBadRequest, "Путь не указан")
+		return
+	}
+
+	fullPath := filepath.Join(PhotosDir, filepath.Clean(path))
+	if err := os.Remove(fullPath); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка удаления файла")
+		return
+	}
+
+	app.jsonResponse(w, map[string]string{"status": "ok"})
+}
+
+func (app *App) handlePhotosDownload(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		app.jsonError(w, http.StatusBadRequest, "Путь не указан")
+		return
+	}
+
+	fullPath := filepath.Join(PhotosDir, filepath.Clean(path))
+	file, err := os.Open(fullPath)
+	if err != nil {
+		app.jsonError(w, http.StatusNotFound, "Файл не найден")
+		return
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			fmt.Printf("Ошибка закрытия файла: %v\n", closeErr)
+		}
+	}()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка чтения файла")
+		return
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Не удалось decode изображение: "+err.Error())
+		return
+	}
+
+	filterStr := r.URL.Query().Get("filter")
+	var brightness, contrast, saturate, blur, grayscale, sepia int
+	brightness = 100
+	contrast = 100
+	saturate = 100
+	grayscale = 0
+	sepia = 0
+	if filterStr != "" {
+		var filters map[string]int
+		if err := json.Unmarshal([]byte(filterStr), &filters); err == nil {
+			if v, ok := filters["brightness"]; ok {
+				brightness = v
+			}
+			if v, ok := filters["contrast"]; ok {
+				contrast = v
+			}
+			if v, ok := filters["saturate"]; ok {
+				saturate = v
+			}
+			if v, ok := filters["blur"]; ok {
+				blur = v
+			}
+			if v, ok := filters["grayscale"]; ok {
+				grayscale = v
+			}
+			if v, ok := filters["sepia"]; ok {
+				sepia = v
+			}
+		}
+	}
+
+	if brightness != 100 || contrast != 100 || saturate != 100 || blur != 0 || grayscale != 0 || sepia != 0 {
+		img = applyFilters(img, brightness, contrast, saturate, blur, grayscale, sepia)
+	}
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка кодирования")
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filepath.Base(fullPath)+`"`)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		fmt.Printf("Ошибка записи изображения: %v\n", err)
+	}
+}
+
+func isImage(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp"
+}
+
+func normalizeSheetName(name string) string {
+	name = strings.TrimSpace(name)
+	name = strings.TrimPrefix(name, "Спр-")
+	name = strings.TrimPrefix(name, "Спр")
+	name = strings.TrimPrefix(name, "_xlnm.")
+	name = strings.TrimPrefix(name, "Print_Titles")
+	return strings.TrimSpace(name)
+}
+
 func uniquifyImage(img image.Image) image.Image {
 	bounds := img.Bounds()
 	dst := image.NewRGBA(bounds)
@@ -899,6 +1366,60 @@ func uniquifyImage(img image.Image) image.Image {
 	}
 
 	return dst
+}
+
+func applyFilters(img image.Image, brightness, contrast, saturate, blur, grayscale, sepia int) image.Image {
+	bounds := img.Bounds()
+	dst := image.NewRGBA(bounds)
+	draw.Draw(dst, bounds, img, image.Point{}, draw.Src)
+
+	brightnessFactor := float64(brightness) / 100.0
+	contrastFactor := float64(contrast) / 100.0
+	grayscaleFactor := float64(grayscale) / 100.0
+	sepiaFactor := float64(sepia) / 100.0
+
+	for y := 0; y < bounds.Dy(); y++ {
+		for x := 0; x < bounds.Dx(); x++ {
+			r, g, b, a := dst.At(x, y).RGBA()
+			rf := float64(r >> 8)
+			gf := float64(g >> 8)
+			bf := float64(b >> 8)
+
+			rf = clamp(rf * brightnessFactor)
+			gf = clamp(gf * brightnessFactor)
+			bf = clamp(bf * brightnessFactor)
+
+			rf = clamp(((rf - 128) * contrastFactor) + 128)
+			gf = clamp(((gf - 128) * contrastFactor) + 128)
+			bf = clamp(((bf - 128) * contrastFactor) + 128)
+
+			gray := 0.299*rf + 0.587*gf + 0.114*bf
+			rf = rf*(1-grayscaleFactor) + gray*grayscaleFactor
+			gf = gf*(1-grayscaleFactor) + gray*grayscaleFactor
+			bf = bf*(1-grayscaleFactor) + gray*grayscaleFactor
+
+			sR := 0.393*rf + 0.769*gf + 0.189*bf
+			sG := 0.349*rf + 0.686*gf + 0.168*bf
+			sB := 0.272*rf + 0.534*gf + 0.131*bf
+			rf = rf*(1-sepiaFactor) + sR*sepiaFactor
+			gf = gf*(1-sepiaFactor) + sG*sepiaFactor
+			bf = bf*(1-sepiaFactor) + sB*sepiaFactor
+
+			dst.SetRGBA(x, y, color.RGBA{R: uint8(clamp(rf)), G: uint8(clamp(gf)), B: uint8(clamp(bf)), A: uint8(a >> 8)})
+		}
+	}
+
+	return dst
+}
+
+func clamp(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return v
 }
 
 func (app *App) jsonResponse(w http.ResponseWriter, data interface{}) {
