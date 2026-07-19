@@ -1,17 +1,20 @@
 module AVITOUO
 
-go 1.26
-
-require github.com/xuri/excelize/v2 v2.11.0
+go 1.21
 
 require (
-	github.com/richardlehane/mscfb v1.0.7 // indirect
-	github.com/richardlehane/msoleps v1.0.6 // indirect
-	github.com/tiendc/go-deepcopy v1.7.2 // indirect
-	github.com/xuri/efp v0.0.1 // indirect
-	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
-	golang.org/x/crypto v0.54.0 // indirect
-	golang.org/x/image v0.44.0 // indirect
-	golang.org/x/net v0.57.0 // indirect
-	golang.org/x/text v0.40.0 // indirect
+	github.com/disintegration/imaging v1.6.2
+	github.com/xuri/excelize/v2 v2.8.0
+)
+
+require (
+	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/richardlehane/mscfb v1.0.4 // indirect
+	github.com/richardlehane/msoleps v1.0.3 // indirect
+	github.com/xuri/efp v0.0.0-20230802181842-ad255f2331ca // indirect
+	github.com/xuri/nfp v0.0.0-20230819163627-dc951e3ffe1a // indirect
+	golang.org/x/crypto v0.12.0 // indirect
+	golang.org/x/image v0.21.0 // indirect
+	golang.org/x/net v0.14.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
 )
