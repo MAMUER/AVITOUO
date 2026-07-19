@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"AVITOUO/core"
@@ -9,6 +10,8 @@ import (
 
 const settingsFile = "settings.json"
 
+// LoadSettings загружает настройки из JSON файла
+// Если файл не существует - возвращает настройки по умолчанию
 func LoadSettings() (*core.Settings, error) {
 	data, err := os.ReadFile(settingsFile)
 	if err != nil {
@@ -20,11 +23,16 @@ func LoadSettings() (*core.Settings, error) {
 			Emails:    []string{"stroyderevo-direct@yandex.ru"},
 		}, nil
 	}
+
 	var s core.Settings
-	err = json.Unmarshal(data, &s)
-	return &s, err
+	if err := json.Unmarshal(data, &s); err != nil {
+		return nil, fmt.Errorf("ошибка парсинга настроек: %w", err)
+	}
+
+	return &s, nil
 }
 
+// SaveSettings сохраняет настройки в JSON файл
 func SaveSettings(s *core.Settings) error {
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
