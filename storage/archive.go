@@ -27,7 +27,9 @@ func isImage(name string) bool {
 // PhotoGenerator генерирует уникальные копии изображений
 type PhotoGenerator struct{}
 
-// GenerateUniquePhotos создает N уникальных копий фото с изменением EXIF, пикселей и размером
+// GenerateUniquePhotos создает N наборов фото из папки.
+// Для каждого набора берется ВСЕ фото из папки, и КАЖДОЕ фото уникализируется.
+// Возвращает слайс строк, где каждая строка — имена фото для одного объявления через " | ".
 func (pg *PhotoGenerator) GenerateUniquePhotos(sourceDir string, count int) ([]string, error) {
 	fullDir := filepath.Join(PhotosDir, filepath.Clean(sourceDir))
 
@@ -47,39 +49,39 @@ func (pg *PhotoGenerator) GenerateUniquePhotos(sourceDir string, count int) ([]s
 		return nil, fmt.Errorf("в папке нет изображений")
 	}
 
-	fmt.Printf("[DEBUG] Found %d source images for duplication\n", len(sourceImages))
+	fmt.Printf("[DEBUG] Found %d source images in folder\n", len(sourceImages))
 
-	var generatedNames []string
 	id := core.GenerateUniqueID()[:8]
+	var result []string
 
-	for i := 0; i < count; i++ {
-		srcPath := sourceImages[i%len(sourceImages)]
-		ext := strings.ToLower(filepath.Ext(srcPath))
+	for adIdx := 0; adIdx < count; adIdx++ {
+		var names []string
+		for photoIdx, srcPath := range sourceImages {
+			ext := strings.ToLower(filepath.Ext(srcPath))
+			baseName := fmt.Sprintf("%s_ad%d_photo%d%s", id, adIdx+1, photoIdx+1, ext)
+			savePath := filepath.Join(fullDir, baseName)
 
-		photoName := fmt.Sprintf("%s_%d%s", id, i+1, ext)
-		savePath := filepath.Join(fullDir, photoName)
+			srcData, err := os.ReadFile(srcPath)
+			if err != nil {
+				return nil, fmt.Errorf("ошибка чтения фото: %w", err)
+			}
 
-		srcData, err := os.ReadFile(srcPath)
-		if err != nil {
-			return nil, fmt.Errorf("ошибка чтения исходного фото: %w", err)
+			img, err := imaging.Decode(strings.NewReader(string(srcData)))
+			if err != nil {
+				return nil, fmt.Errorf("ошибка декодирования изображения: %w", err)
+			}
+
+			uniqueImg := applyUniqueTransformations(img, adIdx*len(sourceImages)+photoIdx)
+			if err := imaging.Save(uniqueImg, savePath); err != nil {
+				return nil, fmt.Errorf("ошибка сохранения уникального фото: %w", err)
+			}
+			names = append(names, baseName)
+			fmt.Printf("[DEBUG] Ad %d: unique photo %d/%d: %s\n", adIdx+1, photoIdx+1, len(sourceImages), baseName)
 		}
-
-		img, err := imaging.Decode(strings.NewReader(string(srcData)))
-		if err != nil {
-			return nil, fmt.Errorf("ошибка декодирования изображения: %w", err)
-		}
-
-		uniqueImg := applyUniqueTransformations(img, i)
-
-		if err := imaging.Save(uniqueImg, savePath); err != nil {
-			return nil, fmt.Errorf("ошибка сохранения уникального фото: %w", err)
-		}
-
-		generatedNames = append(generatedNames, photoName)
-		fmt.Printf("[DEBUG] Generated unique photo: %s\n", photoName)
+		result = append(result, strings.Join(names, " | "))
 	}
 
-	return generatedNames, nil
+	return result, nil
 }
 
 // applyUniqueTransformations применяет уникальные трансформации к изображению

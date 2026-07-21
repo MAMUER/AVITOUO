@@ -47,6 +47,7 @@ func NewApp() *App {
 	mux.HandleFunc("/", app.handleIndex)
 	mux.HandleFunc("/api/settings", app.handleSettings)
 	mux.HandleFunc("/api/upload", app.handleUpload)
+	mux.HandleFunc("/api/upload-folder", app.handleUploadFolder)
 	mux.HandleFunc("/api/sheet", app.handleSheet)
 	mux.HandleFunc("/api/generate-and-export", app.handleGenerateAndExport)
 	mux.HandleFunc("/api/download", app.handleDownloadFile)
@@ -90,7 +91,9 @@ const htmlTemplate = `<!DOCTYPE html>
 		button:hover { background: #1565c0; }
 		.error { color: #d32f2f; margin-top: 10px; padding: 10px; background: #ffebee; border-radius: 4px; }
 		.success { color: #388e3c; margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 4px; }
-		.upload-area { border: 2px dashed #1976d2; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; }
+		.upload-area { border: 2px dashed #1976d2; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; position: relative; }
+		.upload-area input[type="file"] { position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0; cursor: pointer; }
+		.upload-area.drag-over { background: #e3f2fd; }
 		.upload-area:hover { background: #e3f2fd; }
 		table { width: 100%; border-collapse: collapse; margin-top: 15px; }
 		th, td { padding: 8px; text-align: left; border: 1px solid #ddd; font-size: 13px; }
@@ -117,9 +120,9 @@ const htmlTemplate = `<!DOCTYPE html>
 		<!-- Блок 1: Загрузка Excel шаблона -->
 		<div class="card">
 			<h2>📁 1. Загрузка шаблона XLSX</h2>
-			<div class="upload-area" onclick="document.getElementById('file-input').click()">
+			<div class="upload-area" id="upload-area">
 				<p>Нажмите для выбора XLSX файла или перетащите сюда</p>
-				<input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="uploadFile(event)">
+				<input type="file" id="file-input" accept=".xlsx,.xls" onchange="uploadFile(event)">
 			</div>
 			<div id="upload-msg"></div>
 			<div id="sheet-selector" class="hidden" style="margin-top: 15px;">
@@ -210,9 +213,14 @@ const htmlTemplate = `<!DOCTYPE html>
 			<div class="section">
 				<h3>Фотографии</h3>
 				<div class="form-group">
-					<label>Подпапка с фото-шаблонами:</label>
-					<input type="text" id="photo-folder" placeholder="Например: Пиломатериалы" value="">
-					<div style="font-size:12px;color:#666;margin-top:5px">Фото будут взяты из папки photos/подпапка/</div>
+					<label>Папка с фото-шаблонами:</label>
+					<input type="file" id="photo-folder-input" webkitdirectory directory multiple style="display:none" onchange="handleFolderSelect(event)">
+					<button type="button" onclick="document.getElementById('photo-folder-input').click()" style="padding:10px 20px;background:#f5f5f5;color:#333;border:2px dashed #1976d2;border-radius:8px;cursor:pointer;font-size:14px">
+						📁 Выбрать папку с фото
+					</button>
+					<div id="selected-folder-name" style="margin-top:8px;color:#1976d2;font-weight:500"></div>
+					<input type="hidden" id="photo-folder" value="">
+					<div style="font-size:12px;color:#666;margin-top:5px">Можно выбрать любую папку с фото (до 10+ файлов). Все фото будут уникализированы для каждого объявления.</div>
 				</div>
 				<div class="form-group">
 					<label>Количество вариантов (N):</label>
@@ -266,18 +274,18 @@ const htmlTemplate = `<!DOCTYPE html>
 			const res = await fetch('/api/settings');
 			const data = await res.json();
 			if (data.error) return;
-			document.getElementById('contacts').value = (data.contacts || []).join('\\n');
-			document.getElementById('phones').value = (data.phones || []).join('\\n');
-			document.getElementById('addresses').value = (data.addresses || []).join('\\n');
+			document.getElementById('contacts').value = (data.contacts || []).join('\n');
+			document.getElementById('phones').value = (data.phones || []).join('\n');
+			document.getElementById('addresses').value = (data.addresses || []).join('\n');
 			document.getElementById('companies').value = data.companies || '';
 			document.getElementById('emails').value = data.emails || '';
 			document.getElementById('disableAddress').checked = data.disable_address_auto_fill || false;
 		}
 
 		async function saveSettings() {
-			const contacts = document.getElementById('contacts').value.split('\\n').filter(Boolean);
-			const phones = document.getElementById('phones').value.split('\\n').filter(Boolean);
-			const addresses = document.getElementById('addresses').value.split('\\n').filter(Boolean);
+			const contacts = document.getElementById('contacts').value.split('\n').filter(Boolean);
+			const phones = document.getElementById('phones').value.split('\n').filter(Boolean);
+			const addresses = document.getElementById('addresses').value.split('\n').filter(Boolean);
 			const companies = document.getElementById('companies').value;
 			const emails = document.getElementById('emails').value;
 			const disableAddress = document.getElementById('disableAddress').checked;
@@ -369,6 +377,32 @@ const htmlTemplate = `<!DOCTYPE html>
 				'</tr>').join('');
 		}
 
+		function handleFolderSelect(event) {
+			const files = event.target.files;
+			if (!files || files.length === 0) return;
+
+			const folderName = files[0].name.split('/')[0];
+			document.getElementById('photo-folder').value = folderName;
+			document.getElementById('selected-folder-name').textContent = 'Выбрано: ' + folderName + ' (' + files.length + ' файлов)';
+
+			const formData = new FormData();
+			for (let i = 0; i < files.length; i++) {
+				formData.append('files', files[i]);
+			}
+			formData.append('folder_name', folderName);
+
+			fetch('/api/upload-folder', { method: 'POST', body: formData })
+				.then(r => r.json())
+				.then(data => {
+					if (data.error) {
+						alert(data.error);
+					} else {
+						console.log('[DEBUG] Uploaded', data.uploaded, 'files to', data.full_path);
+					}
+				})
+				catch(err => console.error('Upload error:', err));
+		}
+
 		async function generateAndExport() {
 			const baseTitle = document.getElementById('base-title').value;
 			const baseDescription = document.getElementById('base-description').value;
@@ -410,6 +444,82 @@ const htmlTemplate = `<!DOCTYPE html>
 			const div = document.createElement('div');
 			div.textContent = text;
 			return div.innerHTML;
+		}
+
+		function processUploadResponse(data, file, msgEl) {
+			if (data.error) {
+				msgEl.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
+			} else {
+				currentFile = data;
+				currentSheets = data.sheets || [];
+				currentActiveSheet = data.active_sheet || currentSheets[0] || '';
+				currentData = data.rows || [];
+				currentHeaders = data.headers || [];
+				
+				console.log('[DEBUG] Upload response:', data);
+				console.log('[DEBUG] Current data rows:', currentData.length);
+				
+				if (currentSheets.length > 0) {
+					document.getElementById('sheet-selector').classList.remove('hidden');
+					populateSheetSelect();
+				}
+				document.getElementById('stats-block').classList.remove('hidden');
+				document.getElementById('table-block').classList.remove('hidden');
+				document.getElementById('generation-block').classList.remove('hidden');
+				renderTable();
+				updateStats();
+				msgEl.innerHTML = '<div class="success">✅ Файл загружен: ' + file.name + '</div>';
+			}
+		}
+
+		async function uploadFile(event) {
+			const file = event.target.files[0];
+			if (!file) return;
+
+			const formData = new FormData();
+			formData.append('file', file);
+
+			const res = await fetch('/api/upload', { method: 'POST', body: formData });
+			const data = await res.json();
+
+			const msgEl = document.getElementById('upload-msg');
+			processUploadResponse(data, file, msgEl);
+		}
+
+		const uploadArea = document.getElementById('upload-area');
+		if (uploadArea) {
+			uploadArea.addEventListener('dragover', (e) => {
+				e.preventDefault();
+				uploadArea.classList.add('drag-over');
+			});
+
+			uploadArea.addEventListener('dragleave', () => {
+				uploadArea.classList.remove('drag-over');
+			});
+
+			uploadArea.addEventListener('drop', (e) => {
+				e.preventDefault();
+				uploadArea.classList.remove('drag-over');
+				const files = e.dataTransfer.files;
+				if (!files || files.length === 0) return;
+				const file = files[0];
+				if (!file.name.match(/\.(xlsx|xls)$/i)) {
+					alert('Пожалуйста, загрузите XLSX файл');
+					return;
+				}
+				const formData = new FormData();
+				formData.append('file', file);
+
+				const msgEl = document.getElementById('upload-msg');
+				msgEl.innerHTML = '<div class="success">⏳ Загрузка...</div>';
+
+				fetch('/api/upload', { method: 'POST', body: formData })
+					.then(r => r.json())
+					.then(data => processUploadResponse(data, file, msgEl))
+					.catch(err => {
+						msgEl.innerHTML = '<div class="error">❌ Ошибка загрузки: ' + err.message + '</div>';
+					});
+			});
 		}
 
 		loadSettings();
@@ -816,9 +926,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 
 	var imageNamesStrings []string
 	if len(photoNames) > 0 {
-		for i := 0; i < req.VariantCount; i++ {
-			imageNamesStrings = append(imageNamesStrings, strings.Join(photoNames, " | "))
-		}
+		imageNamesStrings = photoNames
 	}
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
@@ -871,4 +979,56 @@ func (app *App) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", storage.GetMimeType(filename))
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	_, _ = io.Copy(w, file)
+}
+
+func (app *App) handleUploadFolder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Ошибка парсинга формы")
+		return
+	}
+
+	folderName := r.FormValue("folder_name")
+	if folderName == "" {
+		app.jsonError(w, http.StatusBadRequest, "Имя папки не указано")
+		return
+	}
+
+	fullDir := filepath.Join(PhotosDir, filepath.Clean(folderName))
+	if err := os.MkdirAll(fullDir, 0755); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания папки")
+		return
+	}
+
+	form := r.MultipartForm
+	var uploaded int
+	for _, fheaders := range form.File {
+		for _, header := range fheaders {
+			file, err := header.Open()
+			if err != nil {
+				continue
+			}
+			data, err := io.ReadAll(file)
+			_ = file.Close()
+			if err != nil {
+				continue
+			}
+			savePath := filepath.Join(fullDir, filepath.Base(header.Filename))
+			if err := os.WriteFile(savePath, data, 0644); err != nil {
+				continue
+			}
+			uploaded++
+		}
+	}
+
+	app.jsonResponse(w, map[string]interface{}{
+		"status":    "ok",
+		"folder":    folderName,
+		"uploaded":  uploaded,
+		"full_path": fullDir,
+	})
 }
