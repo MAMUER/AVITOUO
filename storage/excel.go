@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -61,16 +60,6 @@ func GetSheetData(f *excelize.File, sheetName string) ([]string, [][]string, err
 	headers := rows[0]
 	fmt.Printf("[DEBUG] Headers: %v\n", headers)
 
-	// Поиск индекса колонки ImageNames
-	imageNamesIdx := -1
-	for i, h := range headers {
-		if h == "ImageNames" || h == "PhotoNames" || containsIgnoreCase(h, "image") {
-			imageNamesIdx = i
-			fmt.Printf("[DEBUG] Found ImageNames column at index %d\n", imageNamesIdx)
-			break
-		}
-	}
-
 	data := make([][]string, 0, len(rows)-1)
 	for i := 1; i < len(rows); i++ {
 		row := make([]string, len(headers))
@@ -95,8 +84,4 @@ func GetSheetData(f *excelize.File, sheetName string) ([]string, [][]string, err
 	fmt.Printf("[DEBUG] Total data rows (excluding empty): %d\n", len(data))
 
 	return headers, data, nil
-}
-
-func containsIgnoreCase(s, substr string) bool {
-	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }

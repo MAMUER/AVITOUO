@@ -1,13 +1,8 @@
 package ui
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/color"
-	"image/draw"
-	"image/jpeg"
 	"io"
 	"net/http"
 	"os"
@@ -17,8 +12,6 @@ import (
 
 	"AVITOUO/core"
 	"AVITOUO/storage"
-
-	"github.com/xuri/excelize/v2"
 )
 
 const PhotosDir = "photos"
@@ -31,6 +24,7 @@ type App struct {
 	mu             sync.RWMutex
 	uploadPath     string
 	sheetNameMap   map[string]string
+	activeSheet    string
 	currentData    [][]string
 	currentHeaders []string
 }
@@ -465,115 +459,13 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (app *App) handleValidate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Phone       string `json:"phone"`
-		Price       string `json:"price"`
-	}
-	if err := app.decodeJSON(r, &req); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
-		return
-	}
-
-	if req.Title != "" {
-		if err := core.ValidateTitle(req.Title); err != nil {
-			app.jsonError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-	}
-	if req.Phone != "" {
-		if !core.ValidatePhone(req.Phone) {
-			app.jsonError(w, http.StatusBadRequest, "Неверный формат телефона")
-			return
-		}
-	}
-	if req.Price != "" {
-		if !core.ValidatePrice(req.Price) {
-			app.jsonError(w, http.StatusBadRequest, "Цена должна быть целым числом")
-			return
-		}
-	}
-	if req.Description != "" {
-		if err := core.ValidateDescription(req.Description); err != nil {
-			app.jsonError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-	}
-
-	app.jsonResponse(w, map[string]string{"status": "ok"})
-}
-
-func (app *App) handleGenerateID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	id := core.GenerateUniqueID()
-	app.jsonResponse(w, map[string]string{"id": id})
-}
-
-func (app *App) handleGenerateMass(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req struct {
-		Template string `json:"template"`
-		Count    int    `json:"count"`
-	}
-	if err := app.decodeJSON(r, &req); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
-		return
-	}
-	if req.Count <= 0 {
-		req.Count = 10
-	}
-	if req.Count > 1000 {
-		req.Count = 1000
-	}
-
-	gen := core.NewTextGenerator()
-	results, err := gen.GenerateVariations(req.Template, req.Count)
-	if err != nil {
-		app.jsonError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	app.jsonResponse(w, map[string]interface{}{
-		"generated": len(results),
-		"results":   results,
-	})
-}
-
-func (app *App) handleShuffle(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req struct {
-		Title string `json:"title"`
-	}
-	if err := app.decodeJSON(r, &req); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
-		return
-	}
-
-	app.mu.Lock()
-	app.usedTitles[req.Title] = true
-	app.mu.Unlock()
-
-	newTitle, err := core.ShuffleWords(req.Title, app.usedTitles)
-	if err != nil {
-		app.jsonError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	app.jsonResponse(w, map[string]string{"title": newTitle})
+func normalizeSheetName(name string) string {
+	name = strings.TrimSpace(name)
+	name = strings.TrimPrefix(name, "Спр-")
+	name = strings.TrimPrefix(name, "Спр")
+	name = strings.TrimPrefix(name, "_xlnm.")
+	name = strings.TrimPrefix(name, "Print_Titles")
+	return strings.TrimSpace(name)
 }
 
 func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
@@ -722,6 +614,7 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 	for i := range categorySheets {
 		app.sheetNameMap[categorySheets[i]] = originalSheets[i]
 	}
+	app.activeSheet = activeSheet
 	app.mu.Unlock()
 
 	app.jsonResponse(w, map[string]interface{}{
@@ -778,6 +671,7 @@ func (app *App) handleSheet(w http.ResponseWriter, r *http.Request) {
 	app.mu.Lock()
 	app.currentHeaders = headers
 	app.currentData = data
+	app.activeSheet = originalName
 	app.mu.Unlock()
 
 	fmt.Printf("[DEBUG] handleSheet response - headers: %d, rows: %d\n", len(headers), len(data))
@@ -786,473 +680,6 @@ func (app *App) handleSheet(w http.ResponseWriter, r *http.Request) {
 		"headers": headers,
 		"rows":    data,
 	})
-}
-
-func (app *App) handleSave(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		Headers []string   `json:"headers"`
-		Rows    [][]string `json:"rows"`
-		Path    string     `json:"path"`
-	}
-	if err := app.decodeJSON(r, &req); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
-		return
-	}
-
-	if len(req.Rows) > 50000 {
-		app.jsonError(w, http.StatusBadRequest, "Превышен лимит в 50 000 объявлений")
-		return
-	}
-
-	f := excelize.NewFile()
-	sheet := "Лист1"
-	if err := f.SetSheetName(f.GetSheetName(f.GetActiveSheetIndex()), sheet); err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания листа")
-		return
-	}
-
-	for i, header := range req.Headers {
-		if err := f.SetCellValue(sheet, fmt.Sprintf("%c1", 'A'+i), header); err != nil {
-			app.jsonError(w, http.StatusInternalServerError, "Ошибка записи заголовка")
-			return
-		}
-	}
-
-	for i, row := range req.Rows {
-		for j, val := range row {
-			if err := f.SetCellValue(sheet, fmt.Sprintf("%c%d", 'A'+j, i+2), val); err != nil {
-				app.jsonError(w, http.StatusInternalServerError, "Ошибка записи данных")
-				return
-			}
-		}
-	}
-
-	path := req.Path
-	if path == "" {
-		path = "output.xlsx"
-	}
-
-	if err := f.SaveAs(path); err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения: "+err.Error())
-		return
-	}
-
-	app.jsonResponse(w, map[string]string{"status": "ok", "path": path})
-}
-
-func (app *App) handleExport(w http.ResponseWriter, r *http.Request) {
-	dir := r.URL.Query().Get("dir")
-	if dir == "" {
-		app.jsonError(w, http.StatusBadRequest, "Папка не указана")
-		return
-	}
-
-	fullDir := filepath.Join(PhotosDir, filepath.Clean(dir))
-	zipPath := "photos_" + core.GenerateUniqueID() + ".zip"
-	fileNames, err := storage.CreatePhotoZip(fullDir, zipPath)
-	if err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания ZIP: "+err.Error())
-		return
-	}
-
-	if err := storage.CheckTotalSize(zipPath, "dummy.xlsx"); err != nil {
-		app.jsonError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	app.jsonResponse(w, map[string]string{"status": "ok", "files": fileNames, "zip": zipPath})
-}
-
-func (app *App) handleColumns(w http.ResponseWriter, r *http.Request) {
-	columns := map[string]interface{}{
-		"placement_method": []string{"Package"},
-		"contact_method":   []string{"По телефону и в сообщениям", "По телефону", "В сообщениях"},
-		"ad_type":          []string{"Товар от производителя", "Товар приобретен на продажу"},
-		"condition":        []string{"Новое", "Б/у"},
-		"availability":     []string{"В наличии", "Под заказ"},
-		"sales_type":       []string{"Товар куплен на продажу", "Товар произведён мной"},
-		"ceiling_type":     []string{"Светильник", "Люстра"},
-		"mounting_type":    []string{"Подвесное", "Потолочное"},
-		"led":              []string{"Нет", "Да"},
-		"picture_type":     []string{"Картины", "Рамки", "Панно", "Постеры и таблички", "Иконы"},
-		"lighting_parts":   []string{"Плафоны и абажуры", "Лампочки", "Питание и управление светом"},
-		"components_type":  []string{"Столбы и балясины", "Тетива", "Площадки", "Поручни"},
-		"price_per":        []string{"Штуку", "м²", "м³", "Биг-бэг", "Мешок"},
-		"lumber_type":      []string{"Брус", "Брусок", "Вагонка", "Горбыль", "Доска", "Дрова", "Другой", "Имитация бревна, блок-хаус", "Имитация бруса, рау-хаус", "Лес-кругляк", "Мебельный щит", "Наличник", "Настил", "Нащельник", "Оцилиндрованное бревно", "Планкен", "Плинтус", "Поддон", "Полок", "Потолочный плинтус, галтель", "Раскладка", "Рейка", "Слэб", "Столб для забора", "Шкант", "Штапик", "Уголок"},
-		"wood_type":        []string{"Липа", "Лиственница", "Магнолия", "Меранти", "Мербау", "Ольха", "Орех", "Осина", "Падук", "Палисандр", "Пихта", "Розовое дерево", "Самшит", "Сосна", "Тик", "Тополь", "Цирикоте", "Чёрное дерево", "Ясень"},
-		"wood_grade":       []string{"Отборный, экстра", "1 (A)", "1–2 (AB)", "1–3 (ABC)", "2 (B)", "2–3 (BC)", "3 (C)", "3–4 (CD)", "4 (D)"},
-		"moisture":         []string{"Сухая", "Естественная"},
-		"profiled":         []string{"", "Да", "Нет"},
-		"gost":             []string{"", "Да", "Нет"},
-		"connect_ads":      []string{"", "Да", "Нет"},
-		"structure":        []string{"", "Цельная", "Клеёная"},
-		"profile":          []string{"", "Евровагонка", "Прямой", "Скошенный", "Софтлайн", "Штиль"},
-		"thickness":        []int{16, 18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40, 42, 44, 45, 50, 60, 75, 250},
-		"width":            []int{10, 15, 20, 25, 30, 35, 40, 45, 50, 65, 70, 75, 80, 85, 90, 95, 100, 120, 125, 127, 130, 135, 140, 141, 142, 143, 145, 146, 150, 160, 170, 180, 190, 195, 200, 250, 300},
-		"length":           []int{300, 600, 800, 900, 1000, 1100, 1200, 1400, 1500, 2000, 2500, 2700, 2900, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 9000, 12000, 15000},
-		"door_type":        []string{"Межкомнатные", "Входные", "Фурнитура", "Перегородки", "Другое"},
-	}
-	app.jsonResponse(w, columns)
-}
-
-func (app *App) handleUniquifyImage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Ошибка парсинга формы")
-		return
-	}
-	file, _, err := r.FormFile("file")
-	if err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Файл не найден")
-		return
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			fmt.Printf("Ошибка закрытия файла: %v\n", closeErr)
-		}
-	}()
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка чтения файла")
-		return
-	}
-
-	img, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Не удалось decode изображение: "+err.Error())
-		return
-	}
-
-	uniqueImg := uniquifyImage(img)
-
-	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, uniqueImg, &jpeg.Options{Quality: 90}); err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка кодирования")
-		return
-	}
-
-	w.Header().Set("Content-Type", "image/jpeg")
-	w.Header().Set("Content-Disposition", `attachment; filename="unique.jpg"`)
-	if _, err := w.Write(buf.Bytes()); err != nil {
-		fmt.Printf("Ошибка записи изображения: %v\n", err)
-	}
-}
-
-func (app *App) handlePhotosList(w http.ResponseWriter, r *http.Request) {
-	dir := r.URL.Query().Get("dir")
-	if dir == "" {
-		app.jsonError(w, http.StatusBadRequest, "Папка не указана")
-		return
-	}
-
-	fullPath := filepath.Join(PhotosDir, filepath.Clean(dir))
-	entries, err := os.ReadDir(fullPath)
-	if err != nil {
-		app.jsonError(w, http.StatusNotFound, "Папка не найдена")
-		return
-	}
-
-	var files []string
-	for _, entry := range entries {
-		if !entry.IsDir() && isImage(entry.Name()) {
-			files = append(files, entry.Name())
-		}
-	}
-
-	app.jsonResponse(w, map[string]interface{}{"files": files, "dir": dir})
-}
-
-func (app *App) handlePhotosUpload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Ошибка парсинга формы")
-		return
-	}
-
-	dir := r.FormValue("dir")
-	if dir == "" {
-		app.jsonError(w, http.StatusBadRequest, "Папка не указана")
-		return
-	}
-
-	fullDir := filepath.Join(PhotosDir, filepath.Clean(dir))
-	if err := os.MkdirAll(fullDir, 0755); err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания папки")
-		return
-	}
-
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Файл не найден")
-		return
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			fmt.Printf("Ошибка закрытия файла: %v\n", closeErr)
-		}
-	}()
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка чтения файла")
-		return
-	}
-
-	ext := filepath.Ext(header.Filename)
-	if ext == "" {
-		ext = ".jpg"
-	}
-
-	savePath := filepath.Join(fullDir, header.Filename)
-	counter := 1
-	baseName := strings.TrimSuffix(header.Filename, ext)
-	for {
-		if _, err := os.Stat(savePath); os.IsNotExist(err) {
-			break
-		}
-		savePath = filepath.Join(fullDir, fmt.Sprintf("%s_%d%s", baseName, counter, ext))
-		counter++
-	}
-
-	if err := os.WriteFile(savePath, data, 0644); err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения файла")
-		return
-	}
-
-	app.jsonResponse(w, map[string]string{"status": "ok", "path": savePath, "name": filepath.Base(savePath)})
-}
-
-func (app *App) handlePhotosDelete(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	path := r.URL.Query().Get("path")
-	if path == "" {
-		app.jsonError(w, http.StatusBadRequest, "Путь не указан")
-		return
-	}
-
-	fullPath := filepath.Join(PhotosDir, filepath.Clean(path))
-	if err := os.Remove(fullPath); err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка удаления файла")
-		return
-	}
-
-	app.jsonResponse(w, map[string]string{"status": "ok"})
-}
-
-func (app *App) handlePhotosDownload(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Query().Get("path")
-	if path == "" {
-		app.jsonError(w, http.StatusBadRequest, "Путь не указан")
-		return
-	}
-
-	fullPath := filepath.Join(PhotosDir, filepath.Clean(path))
-	file, err := os.Open(fullPath)
-	if err != nil {
-		app.jsonError(w, http.StatusNotFound, "Файл не найден")
-		return
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			fmt.Printf("Ошибка закрытия файла: %v\n", closeErr)
-		}
-	}()
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка чтения файла")
-		return
-	}
-
-	img, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Не удалось decode изображение: "+err.Error())
-		return
-	}
-
-	filterStr := r.URL.Query().Get("filter")
-	var brightness, contrast, saturate, blur, grayscale, sepia int
-	brightness = 100
-	contrast = 100
-	saturate = 100
-	grayscale = 0
-	sepia = 0
-	if filterStr != "" {
-		var filters map[string]int
-		if err := json.Unmarshal([]byte(filterStr), &filters); err == nil {
-			if v, ok := filters["brightness"]; ok {
-				brightness = v
-			}
-			if v, ok := filters["contrast"]; ok {
-				contrast = v
-			}
-			if v, ok := filters["saturate"]; ok {
-				saturate = v
-			}
-			if v, ok := filters["blur"]; ok {
-				blur = v
-			}
-			if v, ok := filters["grayscale"]; ok {
-				grayscale = v
-			}
-			if v, ok := filters["sepia"]; ok {
-				sepia = v
-			}
-		}
-	}
-
-	if brightness != 100 || contrast != 100 || saturate != 100 || blur != 0 || grayscale != 0 || sepia != 0 {
-		img = applyFilters(img, brightness, contrast, saturate, blur, grayscale, sepia)
-	}
-
-	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}); err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка кодирования")
-		return
-	}
-
-	w.Header().Set("Content-Type", "image/jpeg")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+filepath.Base(fullPath)+`"`)
-	if _, err := w.Write(buf.Bytes()); err != nil {
-		fmt.Printf("Ошибка записи изображения: %v\n", err)
-	}
-}
-
-func isImage(name string) bool {
-	ext := strings.ToLower(filepath.Ext(name))
-	return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp"
-}
-
-func normalizeSheetName(name string) string {
-	name = strings.TrimSpace(name)
-	name = strings.TrimPrefix(name, "Спр-")
-	name = strings.TrimPrefix(name, "Спр")
-	name = strings.TrimPrefix(name, "_xlnm.")
-	name = strings.TrimPrefix(name, "Print_Titles")
-	return strings.TrimSpace(name)
-}
-
-func uniquifyImage(img image.Image) image.Image {
-	bounds := img.Bounds()
-	dst := image.NewRGBA(bounds)
-	draw.Draw(dst, bounds, img, image.Point{}, draw.Src)
-
-	for i := 0; i < bounds.Dx(); i++ {
-		for j := 0; j < bounds.Dy(); j++ {
-			if i == 0 && j == 0 {
-				r, g, b, a := dst.At(i, j).RGBA()
-				r = (r + 1) & 0xFF
-				g = (g + 1) & 0xFF
-				b = (b + 1) & 0xFF
-				dst.SetRGBA(i, j, color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a >> 8)})
-			}
-		}
-	}
-
-	return dst
-}
-
-func applyFilters(img image.Image, brightness, contrast, saturate, blur, grayscale, sepia int) image.Image {
-	bounds := img.Bounds()
-	dst := image.NewRGBA(bounds)
-	draw.Draw(dst, bounds, img, image.Point{}, draw.Src)
-
-	brightnessFactor := float64(brightness) / 100.0
-	contrastFactor := float64(contrast) / 100.0
-	saturateFactor := float64(saturate) / 100.0
-	grayscaleFactor := float64(grayscale) / 100.0
-	sepiaFactor := float64(sepia) / 100.0
-
-	if blur > 0 {
-		tmp := image.NewRGBA(bounds)
-		for y := 0; y < bounds.Dy(); y++ {
-			for x := 0; x < bounds.Dx(); x++ {
-				var rf, gf, bf float64
-				count := 0
-				for dy := -blur; dy <= blur; dy++ {
-					for dx := -blur; dx <= blur; dx++ {
-						nx, ny := x+dx, y+dy
-						if nx >= 0 && nx < bounds.Dx() && ny >= 0 && ny < bounds.Dy() {
-							r, g, b, _ := dst.At(nx, ny).RGBA()
-							rf += float64(r >> 8)
-							gf += float64(g >> 8)
-							bf += float64(b >> 8)
-							count++
-						}
-					}
-				}
-				if count > 0 {
-					tmp.SetRGBA(x, y, color.RGBA{R: uint8(clamp(rf / float64(count))), G: uint8(clamp(gf / float64(count))), B: uint8(clamp(bf / float64(count))), A: 255})
-				}
-			}
-		}
-		draw.Draw(dst, bounds, tmp, image.Point{}, draw.Src)
-	}
-
-	for y := 0; y < bounds.Dy(); y++ {
-		for x := 0; x < bounds.Dx(); x++ {
-			r, g, b, a := dst.At(x, y).RGBA()
-			rf := float64(r >> 8)
-			gf := float64(g >> 8)
-			bf := float64(b >> 8)
-
-			rf = clamp(rf * brightnessFactor)
-			gf = clamp(gf * brightnessFactor)
-			bf = clamp(bf * brightnessFactor)
-
-			rf = clamp(((rf - 128) * contrastFactor) + 128)
-			gf = clamp(((gf - 128) * contrastFactor) + 128)
-			bf = clamp(((bf - 128) * contrastFactor) + 128)
-
-			lum := 0.2126*rf + 0.7152*gf + 0.0722*bf
-			rf = lum + (rf-lum)*saturateFactor
-			gf = lum + (gf-lum)*saturateFactor
-			bf = lum + (bf-lum)*saturateFactor
-
-			gray := 0.299*rf + 0.587*gf + 0.114*bf
-			rf = rf*(1-grayscaleFactor) + gray*grayscaleFactor
-			gf = gf*(1-grayscaleFactor) + gray*grayscaleFactor
-			bf = bf*(1-grayscaleFactor) + gray*grayscaleFactor
-
-			sR := 0.393*rf + 0.769*gf + 0.189*bf
-			sG := 0.349*rf + 0.686*gf + 0.168*bf
-			sB := 0.272*rf + 0.534*gf + 0.131*bf
-			rf = rf*(1-sepiaFactor) + sR*sepiaFactor
-			gf = gf*(1-sepiaFactor) + sG*sepiaFactor
-			bf = bf*(1-sepiaFactor) + sB*sepiaFactor
-
-			dst.SetRGBA(x, y, color.RGBA{R: uint8(clamp(rf)), G: uint8(clamp(gf)), B: uint8(clamp(bf)), A: uint8(a >> 8)})
-		}
-	}
-
-	return dst
-}
-
-func clamp(v float64) float64 {
-	if v < 0 {
-		return 0
-	}
-	if v > 255 {
-		return 255
-	}
-	return v
 }
 
 func (app *App) jsonResponse(w http.ResponseWriter, data interface{}) {
@@ -1312,7 +739,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 
 	app.mu.RLock()
 	path := app.uploadPath
-	sheetNameMapCopy := make(map[string]string)
+	activeSheetOriginal := app.activeSheet
 	dataCopy := make([][]string, len(app.currentData))
 	copy(dataCopy, app.currentData)
 	headersCopy := make([]string, len(app.currentHeaders))
@@ -1324,13 +751,8 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	activeSheetOriginal := ""
-	for _, original := range sheetNameMapCopy {
-		activeSheetOriginal = original
-		break
-	}
 	if activeSheetOriginal == "" {
-		app.jsonError(w, http.StatusBadRequest, "Лист не выбран")
+		app.jsonError(w, http.StatusBadRequest, "Лист не выбран. Загрузите файл и выберите лист.")
 		return
 	}
 
@@ -1442,9 +864,11 @@ func (app *App) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 		app.jsonError(w, http.StatusNotFound, "Файл не найден")
 		return
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	w.Header().Set("Content-Type", storage.GetMimeType(filename))
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
-	io.Copy(w, file)
+	_, _ = io.Copy(w, file)
 }

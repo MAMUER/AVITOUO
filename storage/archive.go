@@ -99,11 +99,12 @@ func applyUniqueTransformations(img image.Image, index int) image.Image {
 			pxY := (y + shiftY) % bounds.Dy()
 			c := colorAt(img, pxX, pxY)
 			r, g, b, a := c.RGBA()
-			if index%3 == 0 {
+			switch index % 3 {
+			case 0:
 				r = clampColor(r + uint32(index%10))
-			} else if index%3 == 1 {
+			case 1:
 				g = clampColor(g + uint32(index%10))
-			} else {
+			default:
 				b = clampColor(b + uint32(index%10))
 			}
 			dst.Set(x, y, color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)})
@@ -172,18 +173,16 @@ func CreatePhotoZip(sourceDir string, zipPath string) (string, error) {
 		if openErr != nil {
 			continue
 		}
+		defer func() { _ = fileToZip.Close() }()
 
 		w, createErr := zipWriter.Create(entry.Name())
 		if createErr != nil {
-			fileToZip.Close()
 			continue
 		}
 
 		if _, copyErr := io.Copy(w, fileToZip); copyErr != nil {
-			fileToZip.Close()
 			continue
 		}
-		fileToZip.Close()
 		fileNames = append(fileNames, entry.Name())
 	}
 
@@ -239,13 +238,19 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 	for i := 0; i < len(newTitles); i++ {
 		rowNum := startRow + i
 		if titleColIdx >= 0 {
-			f.SetCellValue(sheetName, fmt.Sprintf("%c%d", 'A'+titleColIdx, rowNum), newTitles[i])
+			if err := f.SetCellValue(sheetName, fmt.Sprintf("%c%d", 'A'+titleColIdx, rowNum), newTitles[i]); err != nil {
+				return fmt.Errorf("ошибка записи заголовка: %w", err)
+			}
 		}
 		if descColIdx >= 0 {
-			f.SetCellValue(sheetName, fmt.Sprintf("%c%d", 'A'+descColIdx, rowNum), newDescriptions[i])
+			if err := f.SetCellValue(sheetName, fmt.Sprintf("%c%d", 'A'+descColIdx, rowNum), newDescriptions[i]); err != nil {
+				return fmt.Errorf("ошибка записи описания: %w", err)
+			}
 		}
 		if imageNamesIdx >= 0 && i < len(newImageNames) {
-			f.SetCellValue(sheetName, fmt.Sprintf("%c%d", 'A'+imageNamesIdx, rowNum), newImageNames[i])
+			if err := f.SetCellValue(sheetName, fmt.Sprintf("%c%d", 'A'+imageNamesIdx, rowNum), newImageNames[i]); err != nil {
+				return fmt.Errorf("ошибка записи ImageNames: %w", err)
+			}
 		}
 	}
 
