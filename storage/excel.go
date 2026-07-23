@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -16,11 +17,6 @@ func LoadTemplate(path string) (*excelize.File, error) {
 	}
 
 	fmt.Printf("[DEBUG] Excel file opened successfully: %s\n", path)
-
-	// Проверка наличия листа "Инструкция"
-	if _, err := f.GetSheetIndex("Инструкция"); err != nil {
-		return nil, fmt.Errorf("лист 'Инструкция' отсутствует или переименован")
-	}
 
 	return f, nil
 }
@@ -43,6 +39,38 @@ func SaveTemplate(f *excelize.File, path string) error {
 	return f.SaveAs(path)
 }
 
+// isHeaderRow проверяет, похожа ли строка на заголовок таблицы
+func isHeaderRow(row []string) bool {
+	if len(row) < 3 {
+		return false
+	}
+
+	headerKeywords := []string{
+		"название", "описание", "цена", "фото", "адрес", "категория",
+		"состояние", "вид товара", "номер", "контакт", "телефон",
+		"продажа", "состояние", "длительность", "площадь", "ширина",
+		"длина", "высота", "профиль", "кромка", "сорт", "wood",
+		"title", "description", "price", "photo", "address", "category",
+	}
+
+	rowLower := make([]string, len(row))
+	for i, cell := range row {
+		rowLower[i] = strings.ToLower(strings.TrimSpace(cell))
+	}
+
+	matchCount := 0
+	for _, cell := range rowLower {
+		for _, keyword := range headerKeywords {
+			if strings.Contains(cell, keyword) {
+				matchCount++
+				break
+			}
+		}
+	}
+
+	return matchCount >= 3
+}
+
 // GetSheetData возвращает данные из листа
 func GetSheetData(f *excelize.File, sheetName string) ([]string, [][]string, error) {
 	rows, err := f.GetRows(sheetName)
@@ -56,17 +84,23 @@ func GetSheetData(f *excelize.File, sheetName string) ([]string, [][]string, err
 		return nil, nil, fmt.Errorf("лист пустой")
 	}
 
-	// Находим реальную шапку (строку с первой буквы А)
-	headers := rows[0]
-	fmt.Printf("[DEBUG] Headers: %v\n", headers)
+	headerRowIdx := 0
+	for i := 0; i < len(rows) && i < 10; i++ {
+		if isHeaderRow(rows[i]) {
+			headerRowIdx = i
+			break
+		}
+	}
 
-	data := make([][]string, 0, len(rows)-1)
-	for i := 1; i < len(rows); i++ {
+	headers := rows[headerRowIdx]
+	fmt.Printf("[DEBUG] Using header row %d: %v\n", headerRowIdx, headers)
+
+	data := make([][]string, 0, len(rows)-headerRowIdx-1)
+	for i := headerRowIdx + 1; i < len(rows); i++ {
 		row := make([]string, len(headers))
 		for j := 0; j < len(headers) && j < len(rows[i]); j++ {
 			row[j] = rows[i][j]
 		}
-		// Проверяем, что строка содержит данные (хотя бы один непустой столбец)
 		hasData := false
 		for j := 0; j < len(row); j++ {
 			if row[j] != "" {
@@ -78,6 +112,16 @@ func GetSheetData(f *excelize.File, sheetName string) ([]string, [][]string, err
 			fmt.Printf("[DEBUG] Skipping empty row at index %d\n", i)
 			continue
 		}
+
+		firstCell := strings.ToLower(strings.TrimSpace(row[0]))
+		if strings.Contains(firstCell, "подробнее о параметре") ||
+			strings.Contains(firstCell, "обязательный") ||
+			strings.Contains(firstCell, "необязательный") ||
+			strings.Contains(firstCell, "способ размещения") {
+			fmt.Printf("[DEBUG] Skipping template row at index %d: %v\n", i, row[0])
+			continue
+		}
+
 		data = append(data, row)
 	}
 

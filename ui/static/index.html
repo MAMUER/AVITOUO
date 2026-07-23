@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактор шаблонов Авито</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🚀 Генератор объявлений Авито <span id="connection-status" class="status-badge">Проверка...</span></h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Блок 1: Загрузка Excel шаблона -->
+        <div class="card">
+            <h2>📁 1. Загрузка шаблона XLSX</h2>
+            <div class="upload-area" id="upload-area">
+                <p class="upload-hint">Нажмите для выбора XLSX файла или перетащите сюда</p>
+                <input type="file" id="file-input" accept=".xlsx,.xls" onchange="uploadFile(event)">
+            </div>
+            <div id="upload-msg"></div>
+            <div id="upload-debug" class="debug-log hidden"></div>
+            <div id="sheet-selector" class="hidden" style="margin-top: 15px;">
+                <label>Выберите лист:</label>
+                <select id="sheet-select" onchange="loadSheet(this.value)" style="margin-top: 5px;"></select>
+            </div>
+        </div>
+
+        <!-- Блок 2: Статистика -->
+        <div id="stats-block" class="card hidden">
+            <h2>📊 2. Статистика</h2>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Всего строк</div>
+                    <div class="stat-value" id="stat-total">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Объявлений</div>
+                    <div class="stat-value" id="stat-ads">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Категорий</div>
+                    <div class="stat-value" id="stat-categories">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Блок 3: Таблица данных -->
+        <div id="table-block" class="card hidden">
+            <h2>📋 3. Данные листа</h2>
+            <div style="max-height: 300px; overflow-y: auto;">
+                <table>
+                    <thead id="table-header"></thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Блок 4: Настройки по умолчанию -->
+        <div class="card">
+            <h2>⚙️ 4. Настройки по умолчанию</h2>
+            <div class="section">
+                <div class="form-group">
+                    <label>Контактные лица (каждый с новой строки):</label>
+                    <textarea id="contacts" rows="3" placeholder="Мариелена"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Телефоны (каждый с новой строки):</label>
+                    <textarea id="phones" rows="2" placeholder="79268509135"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Адреса (каждый с новой строки):</label>
+                    <textarea id="addresses" rows="2" placeholder="Мытищи, Волковское ш., 21А"></textarea>
+                    <input type="checkbox" id="disableAddress" style="margin-top: 5px;">
+                    <label for="disableAddress" style="display: inline; font-weight: normal; color: #666;">Отключить автозаполнение адреса</label>
+                </div>
+                <div class="form-group">
+                    <label>Название компании:</label>
+                    <input type="text" id="companies" placeholder="СтройДерево">
+                </div>
+                <div class="form-group">
+                    <label>Почта:</label>
+                    <input type="text" id="emails" placeholder="info@example.com">
+                </div>
+                <button onclick="saveSettings()">💾 Сохранить настройки</button>
+                <div id="settings-msg"></div>
+            </div>
+        </div>
+
+        <!-- Блок 5: Параметры генерации -->
+        <div id="generation-block" class="card hidden">
+            <h2>🔧 5. Параметры генерации</h2>
+
+            <div class="section">
+                <h3>Тексты для генерации</h3>
+                <div class="form-group">
+                    <label>Базовое Название (до 100 символов):</label>
+                    <input type="text" id="base-title" maxlength="100">
+                    <div style="font-size:12px;color:#666;margin-top:5px">Осталось символов: <span id="title-count">100</span></div>
+                </div>
+                <div class="form-group">
+                    <label>Базовое Описание (до 7500 символов):</label>
+                    <textarea id="base-description" rows="4" maxlength="7500"></textarea>
+                    <div style="font-size:12px;color:#666;margin-top:5px">Осталось символов: <span id="desc-count">7500</span></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Фотографии</h3>
+                <div class="form-group">
+                    <label>Папка с фото-шаблонами:</label>
+                    <input type="file" id="photo-folder-input" webkitdirectory directory multiple style="display:none" onchange="handleFolderSelect(event)">
+                    <button type="button" onclick="document.getElementById('photo-folder-input').click()" style="padding:10px 20px;background:#f5f5f5;color:#333;border:2px dashed #1976d2;border-radius:8px;cursor:pointer;font-size:14px">
+                        📁 Выбрать папку с фото
+                    </button>
+                    <div id="selected-folder-name" style="margin-top:8px;color:#1976d2;font-weight:500"></div>
+                    <input type="hidden" id="photo-folder" value="">
+                    <div style="font-size:12px;color:#666;margin-top:5px">Можно выбрать любую папку с фото (до 10+ файлов). Все фото будут уникализированы для каждого объявления.</div>
+                </div>
+                <div class="form-group">
+                    <label>Количество вариантов (N):</label>
+                    <input type="number" id="variant-count" value="10" min="1" max="50000" style="width:120px">
+                    <div style="font-size:12px;color:#666;margin-top:5px">Максимум 50000 за раз</div>
+                </div>
+            </div>
+
+            <button onclick="generateAndExport()" style="background: #388e3c; font-size: 16px; padding: 12px 24px;">🚀 Сгенерировать и Экспортировать</button>
+            <div id="generation-msg" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- Блок 6: Результат -->
+        <div id="download-block" class="card hidden">
+            <h2>📥 6. Результат</h2>
+            <div id="download-links"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -231,38 +231,99 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		return fmt.Errorf("ошибка чтения листа: %w", err)
 	}
 
+	fmt.Printf("[DEBUG] SaveExcelWithNewRows: sheet=%q rows_in=%d newTitles=%d titleIdx=%d descIdx=%d imageIdx=%d output=%q\n", sheetName, len(rows), len(newTitles), titleColIdx, descColIdx, imageNamesIdx, outputPath)
+
 	if len(rows) == 0 {
 		return fmt.Errorf("лист пустой")
 	}
 
-	startRow := len(rows) + 1
-
-	for i := 0; i < len(newTitles); i++ {
-		rowNum := startRow + i
-		if titleColIdx >= 0 {
-			if err := f.SetCellValue(sheetName, fmt.Sprintf("%c%d", 'A'+titleColIdx, rowNum), newTitles[i]); err != nil {
-				return fmt.Errorf("ошибка записи заголовка: %w", err)
+	if titleColIdx < 0 || descColIdx < 0 || imageNamesIdx < 0 {
+		if len(rows) > 0 {
+			firstRow := rows[0]
+			fmt.Printf("[DEBUG] Fallback scan on first row: %v\n", firstRow)
+			if titleColIdx < 0 {
+				for i, h := range firstRow {
+					if strings.Contains(strings.ToLower(h), "title") || strings.Contains(strings.ToLower(h), "название") || strings.Contains(strings.ToLower(h), "заголовок") {
+						titleColIdx = i
+						break
+					}
+				}
 			}
-		}
-		if descColIdx >= 0 {
-			if err := f.SetCellValue(sheetName, fmt.Sprintf("%c%d", 'A'+descColIdx, rowNum), newDescriptions[i]); err != nil {
-				return fmt.Errorf("ошибка записи описания: %w", err)
+			if descColIdx < 0 {
+				for i, h := range firstRow {
+					if strings.Contains(strings.ToLower(h), "description") || strings.Contains(strings.ToLower(h), "описание") || strings.Contains(strings.ToLower(h), "текст") {
+						descColIdx = i
+						break
+					}
+				}
 			}
-		}
-		if imageNamesIdx >= 0 && i < len(newImageNames) {
-			if err := f.SetCellValue(sheetName, fmt.Sprintf("%c%d", 'A'+imageNamesIdx, rowNum), newImageNames[i]); err != nil {
-				return fmt.Errorf("ошибка записи ImageNames: %w", err)
+			if imageNamesIdx < 0 {
+				for i, h := range firstRow {
+					if strings.Contains(strings.ToLower(h), "image") || strings.Contains(strings.ToLower(h), "фото") || strings.Contains(strings.ToLower(h), "изображение") {
+						imageNamesIdx = i
+						break
+					}
+				}
 			}
+			fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d\n", titleColIdx, descColIdx, imageNamesIdx)
 		}
 	}
 
-	return f.SaveAs(outputPath)
+	if titleColIdx < 0 {
+		titleColIdx = 0
+	}
+	if descColIdx < 0 {
+		descColIdx = 1
+	}
+	if imageNamesIdx < 0 {
+		if len(rows) > 0 && len(rows[0]) > 2 {
+			imageNamesIdx = 2
+		} else {
+			imageNamesIdx = -1
+		}
+	}
+
+	startRow := len(rows) + 1
+	wrote := 0
+
+	writeCol := func(colIdx int, value string) {
+		if colIdx < 0 {
+			return
+		}
+		cell := fmt.Sprintf("%c%d", 'A'+colIdx, startRow+wrote)
+		if err := f.SetCellValue(sheetName, cell, value); err != nil {
+			fmt.Printf("[DEBUG] SetCellValue error at %s: %v\n", cell, err)
+		}
+	}
+
+	for i := 0; i < len(newTitles); i++ {
+		writeCol(titleColIdx, newTitles[i])
+		writeCol(descColIdx, newDescriptions[i])
+		if imageNamesIdx >= 0 && i < len(newImageNames) {
+			writeCol(imageNamesIdx, newImageNames[i])
+		}
+		wrote++
+	}
+
+	fmt.Printf("[DEBUG] SaveExcelWithNewRows: wrote=%d starting_at_row=%d\n", wrote, startRow)
+
+	if err := f.SaveAs(outputPath); err != nil {
+		return fmt.Errorf("ошибка сохранения файла: %w", err)
+	}
+
+	info, err := os.Stat(outputPath)
+	if err != nil {
+		return fmt.Errorf("файл не создан: %w", err)
+	}
+	fmt.Printf("[DEBUG] SaveExcelWithNewRows: saved size=%d bytes\n", info.Size())
+
+	return nil
 }
 
-// FindColumnIndex находит индекс колонки по имени (регистронезависимо)
+// FindColumnIndex находит индекс колонки по имени (частичное совпадение, регистронезависимо)
 func FindColumnIndex(headers []string, name string) int {
 	for i, h := range headers {
-		if strings.EqualFold(h, name) {
+		if strings.Contains(strings.ToLower(h), strings.ToLower(name)) {
 			return i
 		}
 	}
