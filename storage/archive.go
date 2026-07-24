@@ -220,7 +220,7 @@ func CheckSizeLimit(photoCount int, estimatePhotoSize int64) error {
 }
 
 // SaveExcelWithNewRows добавляет новые строки в Excel файл и сохраняет
-func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, titleColIdx, descColIdx, imageNamesIdx int, newTitles, newDescriptions, newImageNames []string) error {
+func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, titleColIdx, descColIdx, imageNamesIdx int, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx int, newTitles, newDescriptions, newImageNames []string, newContacts, newPhones, newAddresses, newCompanies, newEmails []string) error {
 	f, err := excelize.OpenFile(templatePath)
 	if err != nil {
 		return fmt.Errorf("ошибка открытия шаблона: %w", err)
@@ -231,13 +231,13 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		return fmt.Errorf("ошибка чтения листа: %w", err)
 	}
 
-	fmt.Printf("[DEBUG] SaveExcelWithNewRows: sheet=%q rows_in=%d newTitles=%d titleIdx=%d descIdx=%d imageIdx=%d output=%q\n", sheetName, len(rows), len(newTitles), titleColIdx, descColIdx, imageNamesIdx, outputPath)
+	fmt.Printf("[DEBUG] SaveExcelWithNewRows: sheet=%q rows_in=%d newTitles=%d titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d output=%q\n", sheetName, len(rows), len(newTitles), titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx, outputPath)
 
 	if len(rows) == 0 {
 		return fmt.Errorf("лист пустой")
 	}
 
-	if titleColIdx < 0 || descColIdx < 0 || imageNamesIdx < 0 {
+	if titleColIdx < 0 || descColIdx < 0 || imageNamesIdx < 0 || contactColIdx < 0 || phoneColIdx < 0 || addressColIdx < 0 || companyColIdx < 0 || emailColIdx < 0 {
 		if len(rows) > 0 {
 			firstRow := rows[0]
 			fmt.Printf("[DEBUG] Fallback scan on first row: %v\n", firstRow)
@@ -265,7 +265,22 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 					}
 				}
 			}
-			fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d\n", titleColIdx, descColIdx, imageNamesIdx)
+			if contactColIdx < 0 {
+				contactColIdx = findColumnInFirstRow(firstRow, "контактное лицо", "контакт", "contact")
+			}
+			if phoneColIdx < 0 {
+				phoneColIdx = findColumnInFirstRow(firstRow, "номер телефона", "телефон", "phone")
+			}
+			if addressColIdx < 0 {
+				addressColIdx = findColumnInFirstRow(firstRow, "адрес", "address")
+			}
+			if companyColIdx < 0 {
+				companyColIdx = findColumnInFirstRow(firstRow, "название компании", "компания", "организация", "company")
+			}
+			if emailColIdx < 0 {
+				emailColIdx = findColumnInFirstRow(firstRow, "почта", "email", "e-mail", "электронная почта")
+			}
+			fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d\n", titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx)
 		}
 	}
 
@@ -290,7 +305,12 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		if colIdx < 0 {
 			return
 		}
-		cell := fmt.Sprintf("%c%d", 'A'+colIdx, startRow+wrote)
+		colName, err := excelize.ColumnNumberToName(colIdx + 1)
+		if err != nil {
+			fmt.Printf("[DEBUG] Invalid column index %d: %v\n", colIdx, err)
+			return
+		}
+		cell := fmt.Sprintf("%s%d", colName, startRow+wrote)
 		if err := f.SetCellValue(sheetName, cell, value); err != nil {
 			fmt.Printf("[DEBUG] SetCellValue error at %s: %v\n", cell, err)
 		}
@@ -301,6 +321,21 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		writeCol(descColIdx, newDescriptions[i])
 		if imageNamesIdx >= 0 && i < len(newImageNames) {
 			writeCol(imageNamesIdx, newImageNames[i])
+		}
+		if contactColIdx >= 0 && i < len(newContacts) {
+			writeCol(contactColIdx, newContacts[i])
+		}
+		if phoneColIdx >= 0 && i < len(newPhones) {
+			writeCol(phoneColIdx, newPhones[i])
+		}
+		if addressColIdx >= 0 && i < len(newAddresses) {
+			writeCol(addressColIdx, newAddresses[i])
+		}
+		if companyColIdx >= 0 && i < len(newCompanies) {
+			writeCol(companyColIdx, newCompanies[i])
+		}
+		if emailColIdx >= 0 && i < len(newEmails) {
+			writeCol(emailColIdx, newEmails[i])
 		}
 		wrote++
 	}
@@ -325,6 +360,19 @@ func FindColumnIndex(headers []string, name string) int {
 	for i, h := range headers {
 		if strings.Contains(strings.ToLower(h), strings.ToLower(name)) {
 			return i
+		}
+	}
+	return -1
+}
+
+// findColumnInFirstRow ищет колонку в первой строке по нескольким синонимам
+func findColumnInFirstRow(row []string, names ...string) int {
+	for i, h := range row {
+		lower := strings.ToLower(h)
+		for _, name := range names {
+			if strings.Contains(lower, strings.ToLower(name)) {
+				return i
+			}
 		}
 	}
 	return -1

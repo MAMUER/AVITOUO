@@ -425,7 +425,46 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	}
 	imageNamesIdx := storage.FindColumnIndex(headersCopy, "ImageNames")
 
-	fmt.Printf("[DEBUG] Column indices - Title: %d, Description: %d, ImageNames: %d\n", titleIdx, descIdx, imageNamesIdx)
+	contactIdx := storage.FindColumnIndex(headersCopy, "Контактное лицо")
+	phoneIdx := storage.FindColumnIndex(headersCopy, "Номер телефона")
+	addressIdx := storage.FindColumnIndex(headersCopy, "Адрес")
+	companyIdx := storage.FindColumnIndex(headersCopy, "Название компании")
+	emailIdx := storage.FindColumnIndex(headersCopy, "Почта")
+
+	settings, _ := storage.LoadSettings()
+	settingsCount := req.VariantCount
+	newContacts := make([]string, settingsCount)
+	newPhones := make([]string, settingsCount)
+	newAddresses := make([]string, settingsCount)
+	newCompanies := make([]string, settingsCount)
+	newEmails := make([]string, settingsCount)
+	if len(settings.Contacts) > 0 {
+		for i := range newContacts {
+			newContacts[i] = settings.Contacts[i%len(settings.Contacts)]
+		}
+	}
+	if len(settings.Phones) > 0 {
+		for i := range newPhones {
+			newPhones[i] = settings.Phones[i%len(settings.Phones)]
+		}
+	}
+	if len(settings.Addresses) > 0 && !settings.DisableAddressAutoFill {
+		for i := range newAddresses {
+			newAddresses[i] = settings.Addresses[i%len(settings.Addresses)]
+		}
+	}
+	if len(settings.Companies) > 0 {
+		for i := range newCompanies {
+			newCompanies[i] = settings.Companies[i%len(settings.Companies)]
+		}
+	}
+	if len(settings.Emails) > 0 {
+		for i := range newEmails {
+			newEmails[i] = settings.Emails[i%len(settings.Emails)]
+		}
+	}
+
+	fmt.Printf("[DEBUG] Column indices - Title: %d, Description: %d, ImageNames: %d, Contact: %d, Phone: %d, Address: %d, Company: %d, Email: %d\n", titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx)
 
 	gen := core.NewTextGenerator()
 	var newTitles, newDescriptions []string
@@ -480,10 +519,10 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		imageNamesStrings = photoNames
 	}
 
-	fmt.Printf("[DEBUG] Calling SaveExcelWithNewRows: sheet=%q titleIdx=%d descIdx=%d imageIdx=%d newTitles=%d newDescs=%d newImages=%d\n", activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, len(newTitles), len(newDescriptions), len(imageNamesStrings))
+	fmt.Printf("[DEBUG] Calling SaveExcelWithNewRows: sheet=%q titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d newTitles=%d newDescs=%d newImages=%d\n", activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, len(newTitles), len(newDescriptions), len(imageNamesStrings))
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
-	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, newTitles, newDescriptions, imageNamesStrings); err != nil {
+	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения Excel: "+err.Error())
 		return
 	}
