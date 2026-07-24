@@ -8,6 +8,14 @@ type Settings struct {
 	Companies              []string `json:"companies"`
 	Emails                 []string `json:"emails"`
 	DisableAddressAutoFill bool     `json:"disable_address_auto_fill"`
+	Placement              string   `json:"placement"`
+	ContactMethod          string   `json:"contact_method"`
+	AdType                 string   `json:"ad_type"`
+	Condition              string   `json:"condition"`
+	Availability           string   `json:"availability"`
+	SalesType              string   `json:"sales_type"`
+	PriceUnit              string   `json:"price_unit"`
+	Connect                string   `json:"connect"`
 }
 
 // AdRow представляет строку объявления для редактирования

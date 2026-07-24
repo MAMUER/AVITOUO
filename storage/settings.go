@@ -29,6 +29,46 @@ func LoadSettings() (*core.Settings, error) {
 		return nil, fmt.Errorf("ошибка парсинга настроек: %w", err)
 	}
 
+	if s.Contacts == nil {
+		s.Contacts = []string{"Мариелена"}
+	}
+	if s.Phones == nil {
+		s.Phones = []string{"79268509135"}
+	}
+	if s.Addresses == nil {
+		s.Addresses = []string{"Мытищи, Волковское ш., 21А"}
+	}
+	if s.Companies == nil {
+		s.Companies = []string{"СтройДерево"}
+	}
+	if s.Emails == nil {
+		s.Emails = []string{"stroyderevo-direct@yandex.ru"}
+	}
+	if s.Placement == "" {
+		s.Placement = "Package"
+	}
+	if s.ContactMethod == "" {
+		s.ContactMethod = "По телефону и в сообщениям"
+	}
+	if s.AdType == "" {
+		s.AdType = "Товар от производителя"
+	}
+	if s.Condition == "" {
+		s.Condition = "Новое"
+	}
+	if s.Availability == "" {
+		s.Availability = "В наличии"
+	}
+	if s.SalesType == "" {
+		s.SalesType = "Товар произведён мной"
+	}
+	if s.PriceUnit == "" {
+		s.PriceUnit = "Штуку"
+	}
+	if s.Connect == "" {
+		s.Connect = "Да"
+	}
+
 	return &s, nil
 }
 

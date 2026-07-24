@@ -85,9 +85,75 @@
                     <label>Почта:</label>
                     <input type="text" id="emails" placeholder="info@example.com">
                 </div>
-                <button onclick="saveSettings()">💾 Сохранить настройки</button>
-                <div id="settings-msg"></div>
             </div>
+            <div class="section">
+                <h3>Параметры объявления</h3>
+                <div class="form-group">
+                    <label>Способ размещения:</label>
+                    <select id="placement">
+                        <option value="Package">Package</option>
+                        <option value="Free">Free</option>
+                        <option value="Premium">Premium</option>
+                        <option value="VIP">VIP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Способ связи:</label>
+                    <select id="contactMethod">
+                        <option value="По телефону и в сообщениям">По телефону и в сообщениям</option>
+                        <option value="По телефону">По телефону</option>
+                        <option value="В сообщениях">В сообщениях</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Вид объявления:</label>
+                    <select id="adType">
+                        <option value="Товар от производителя">Товар от производителя</option>
+                        <option value="Товар приобретён на продажу">Товар приобретён на продажу</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Состояние:</label>
+                    <select id="condition">
+                        <option value="Новое">Новое</option>
+                        <option value="Б/у">Б/у</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Доступность:</label>
+                    <select id="availability">
+                        <option value="В наличии">В наличии</option>
+                        <option value="Под заказ">Под заказ</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Вид продажи:</label>
+                    <select id="salesType">
+                        <option value="Товар произведён мной">Товар произведён мной</option>
+                        <option value="Перепродажа">Перепродажа</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Цена за:</label>
+                    <select id="priceUnit">
+                        <option value="">-- не выбрано --</option>
+                        <option value="м²">м²</option>
+                        <option value="Штуку">Штуку</option>
+                        <option value="м³">м³</option>
+                        <option value="Мешок">Мешок</option>
+                        <option value="Биг-бэг">Биг-бэг</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Соединять объявления:</label>
+                    <select id="connect">
+                        <option value="Да">Да</option>
+                        <option value="Нет">Нет</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="saveSettings()">💾 Сохранить настройки</button>
+            <div id="settings-msg"></div>
         </div>
 
         <!-- Блок 5: Параметры генерации -->

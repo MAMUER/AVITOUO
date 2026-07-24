@@ -110,6 +110,14 @@ const loadSettings = async () => {
         document.getElementById('companies').value = data.companies || '';
         document.getElementById('emails').value = data.emails || '';
         document.getElementById('disableAddress').checked = data.disable_address_auto_fill || false;
+        if (data.placement) document.getElementById('placement').value = data.placement;
+        if (data.contact_method) document.getElementById('contactMethod').value = data.contact_method;
+        if (data.ad_type) document.getElementById('adType').value = data.ad_type;
+        if (data.condition) document.getElementById('condition').value = data.condition;
+        if (data.availability) document.getElementById('availability').value = data.availability;
+        if (data.sales_type) document.getElementById('salesType').value = data.sales_type;
+        if (data.price_unit) document.getElementById('priceUnit').value = data.price_unit;
+        if (data.connect) document.getElementById('connect').value = data.connect;
     } catch (e) {
         debugLog('Не удалось загрузить настройки: ' + e.message, true);
     }
@@ -123,11 +131,19 @@ const saveSettings = async () => {
         const companies = document.getElementById('companies').value;
         const emails = document.getElementById('emails').value;
         const disableAddress = document.getElementById('disableAddress').checked;
+        const placement = document.getElementById('placement').value;
+        const contactMethod = document.getElementById('contactMethod').value;
+        const adType = document.getElementById('adType').value;
+        const condition = document.getElementById('condition').value;
+        const availability = document.getElementById('availability').value;
+        const salesType = document.getElementById('salesType').value;
+        const priceUnit = document.getElementById('priceUnit').value;
+        const connect = document.getElementById('connect').value;
 
         await api('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contacts, phones, addresses, companies, emails, disable_address_auto_fill: disableAddress })
+            body: JSON.stringify({ contacts, phones, addresses, companies, emails, disable_address_auto_fill: disableAddress, placement, contact_method: contactMethod, ad_type: adType, condition, availability, sales_type: salesType, price_unit: priceUnit, connect })
         });
         showMessage('settings-msg', '<div class="success">✅ Настройки сохранены</div>');
     } catch (e) {

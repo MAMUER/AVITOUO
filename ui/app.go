@@ -4,14 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"AVITOUO/core"
 	"AVITOUO/storage"
+	"github.com/xuri/excelize/v2"
 )
 
 const PhotosDir = "photos"
@@ -91,6 +95,14 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 			"companies":                 settings.Companies,
 			"emails":                    settings.Emails,
 			"disable_address_auto_fill": settings.DisableAddressAutoFill,
+			"placement":                 settings.Placement,
+			"contact_method":            settings.ContactMethod,
+			"ad_type":                   settings.AdType,
+			"condition":                 settings.Condition,
+			"availability":              settings.Availability,
+			"sales_type":                settings.SalesType,
+			"price_unit":                settings.PriceUnit,
+			"connect":                   settings.Connect,
 		})
 	case http.MethodPost:
 		var req struct {
@@ -100,6 +112,14 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 			Companies              string   `json:"companies"`
 			Emails                 string   `json:"emails"`
 			DisableAddressAutoFill bool     `json:"disable_address_auto_fill"`
+			Placement              string   `json:"placement"`
+			ContactMethod          string   `json:"contact_method"`
+			AdType                 string   `json:"ad_type"`
+			Condition              string   `json:"condition"`
+			Availability           string   `json:"availability"`
+			SalesType              string   `json:"sales_type"`
+			PriceUnit              string   `json:"price_unit"`
+			Connect                string   `json:"connect"`
 		}
 		if err := app.decodeJSON(r, &req); err != nil {
 			app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
@@ -112,6 +132,30 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		settings.Companies = strings.Split(req.Companies, "\n")
 		settings.Emails = strings.Split(req.Emails, "\n")
 		settings.DisableAddressAutoFill = req.DisableAddressAutoFill
+		if req.Placement != "" {
+			settings.Placement = req.Placement
+		}
+		if req.ContactMethod != "" {
+			settings.ContactMethod = req.ContactMethod
+		}
+		if req.AdType != "" {
+			settings.AdType = req.AdType
+		}
+		if req.Condition != "" {
+			settings.Condition = req.Condition
+		}
+		if req.Availability != "" {
+			settings.Availability = req.Availability
+		}
+		if req.SalesType != "" {
+			settings.SalesType = req.SalesType
+		}
+		if req.PriceUnit != "" {
+			settings.PriceUnit = req.PriceUnit
+		}
+		if req.Connect != "" {
+			settings.Connect = req.Connect
+		}
 		if err := storage.SaveSettings(settings); err != nil {
 			app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения")
 			return
@@ -433,11 +477,119 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 
 	settings, _ := storage.LoadSettings()
 	settingsCount := req.VariantCount
+	if settingsCount <= 0 {
+		settingsCount = 10
+	}
 	newContacts := make([]string, settingsCount)
 	newPhones := make([]string, settingsCount)
 	newAddresses := make([]string, settingsCount)
 	newCompanies := make([]string, settingsCount)
 	newEmails := make([]string, settingsCount)
+	newIDs := make([]string, settingsCount)
+	newPlacements := make([]string, settingsCount)
+	newContactMethods := make([]string, settingsCount)
+	newCategories := make([]string, settingsCount)
+	newProductTypes := make([]string, settingsCount)
+	newSubProductTypes := make([]string, settingsCount)
+	newPriceUnits := make([]string, settingsCount)
+	newConditions := make([]string, settingsCount)
+	newAvailabilities := make([]string, settingsCount)
+	newAdTypes := make([]string, settingsCount)
+	newSalesTypes := make([]string, settingsCount)
+	newConnects := make([]string, settingsCount)
+	newProcessing := make([]string, settingsCount)
+	newPurpose := make([]string, settingsCount)
+
+	categoryPath := ""
+	if len(headersCopy) > 0 {
+		categoryPath = headersCopy[0]
+	}
+	if !strings.Contains(categoryPath, " - ") && path != "" {
+		if f, err := excelize.OpenFile(path); err == nil {
+			if rows, err := f.GetRows(activeSheetOriginal); err == nil && len(rows) > 0 {
+				firstCell := ""
+				for _, v := range rows[0] {
+					if v != "" {
+						firstCell = v
+						break
+					}
+				}
+				if strings.Contains(firstCell, " - ") {
+					categoryPath = firstCell
+				}
+			}
+			_ = f.Close()
+		}
+	}
+	categoryPart := ""
+	productTypePart := ""
+	subProductTypePart := ""
+	if strings.Contains(categoryPath, " - ") {
+		parts := strings.Split(categoryPath, " - ")
+		if len(parts) >= 3 {
+			categoryPart = strings.TrimSpace(parts[len(parts)-3])
+			productTypePart = strings.TrimSpace(parts[len(parts)-2])
+			subProductTypePart = strings.TrimSpace(parts[len(parts)-1])
+		}
+	}
+	for i := range newCategories {
+		newCategories[i] = categoryPart
+	}
+	for i := range newProductTypes {
+		newProductTypes[i] = productTypePart
+	}
+	for i := range newSubProductTypes {
+		newSubProductTypes[i] = subProductTypePart
+	}
+
+	lastID := 0
+	if len(dataCopy) > 0 && len(dataCopy[len(dataCopy)-1]) > 0 {
+		_, _ = fmt.Sscanf(dataCopy[len(dataCopy)-1][0], "%d", &lastID)
+	}
+	for i := range newIDs {
+		newIDs[i] = strconv.Itoa(lastID + 1 + i)
+	}
+
+	for i := range newPlacements {
+		newPlacements[i] = settings.Placement
+	}
+
+	contactMethodColIdx2 := -1
+	if len(headersCopy) > 0 {
+		contactMethodColIdx2 = storage.FindColumnIndex(headersCopy, "Способ связи")
+	}
+	contactDefault := settings.ContactMethod
+	if len(dataCopy) > 0 && len(dataCopy[0]) > contactMethodColIdx2 && contactMethodColIdx2 >= 0 {
+		contactDefault = dataCopy[0][contactMethodColIdx2]
+	}
+	for i := range newContactMethods {
+		newContactMethods[i] = contactDefault
+	}
+	for i := range newPriceUnits {
+		newPriceUnits[i] = settings.PriceUnit
+	}
+	for i := range newConditions {
+		newConditions[i] = settings.Condition
+	}
+	for i := range newAvailabilities {
+		newAvailabilities[i] = settings.Availability
+	}
+	for i := range newAdTypes {
+		newAdTypes[i] = settings.AdType
+	}
+	for i := range newSalesTypes {
+		newSalesTypes[i] = settings.SalesType
+	}
+	for i := range newConnects {
+		newConnects[i] = settings.Connect
+	}
+	for i := range newProcessing {
+		newProcessing[i] = "Строгание | Шлифование | Камерная сушка"
+	}
+	for i := range newPurpose {
+		newPurpose[i] = "Баня | Дверь | Дом | Забор | Кровля | Лестница | Мебель | Окна | Опалубка | Поддоны | Пол | Полка | Потолок | Стена | Стропила | Терраса | Фасад"
+	}
+
 	if len(settings.Contacts) > 0 {
 		for i := range newContacts {
 			newContacts[i] = settings.Contacts[i%len(settings.Contacts)]
@@ -450,7 +602,13 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	}
 	if len(settings.Addresses) > 0 && !settings.DisableAddressAutoFill {
 		for i := range newAddresses {
-			newAddresses[i] = settings.Addresses[i%len(settings.Addresses)]
+			addr := settings.Addresses[i%len(settings.Addresses)]
+			if strings.Contains(addr, "\n") {
+				parts := strings.Split(addr, "\n")
+				r := rand.New(rand.NewSource(time.Now().UnixNano() + int64(i)))
+				addr = parts[r.Intn(len(parts))]
+			}
+			newAddresses[i] = strings.TrimSpace(addr)
 		}
 	}
 	if len(settings.Companies) > 0 {
@@ -470,35 +628,34 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	var newTitles, newDescriptions []string
 	var err error
 	if req.BaseTitle != "" || req.BaseDescription != "" {
-		var baseTitle, baseDescription string
-		if titleIdx >= 0 && len(dataCopy) > 0 {
-			baseTitle = dataCopy[0][titleIdx]
-		} else {
-			baseTitle = req.BaseTitle
-		}
-		if descIdx >= 0 && len(dataCopy) > 0 {
-			baseDescription = dataCopy[0][descIdx]
-		} else {
-			baseDescription = req.BaseDescription
-		}
+		baseTitle := strings.TrimSpace(req.BaseTitle)
+		baseDescription := strings.TrimSpace(req.BaseDescription)
 
-		if baseTitle == "" {
-			baseTitle = req.BaseTitle
+		newTitles = make([]string, req.VariantCount)
+		newDescriptions = make([]string, req.VariantCount)
+		for i := 0; i < req.VariantCount; i++ {
+			title := baseTitle
+			if i > 0 {
+				title = fmt.Sprintf("%s #%d", baseTitle, i+1)
+			}
+			desc := baseDescription
+			if i > 0 {
+				desc = fmt.Sprintf("%s #%d", baseDescription, i+1)
+			}
+			if len(title) > 0 {
+				title = strings.ToUpper(title[:1]) + title[1:]
+			}
+			newTitles[i] = title
+			newDescriptions[i] = desc
 		}
-		if baseDescription == "" {
-			baseDescription = req.BaseDescription
-		}
-
-		newTitles, newDescriptions, err = gen.GenerateUniqueTexts(baseTitle, baseDescription, req.VariantCount)
-		if err != nil {
-			app.jsonError(w, http.StatusInternalServerError, "Ошибка генерации текстов: "+err.Error())
-			return
-		}
+		_ = gen
+		_ = err
 	}
 
 	fmt.Printf("[DEBUG] Text generation done: titles=%d descriptions=%d photoFolder=%q\n", len(newTitles), len(newDescriptions), req.PhotoFolder)
 
 	var photoNames []string
+	var imageNamesStrings []string
 	if req.PhotoFolder != "" {
 		avgPhotoSize := int64(500 * 1024)
 		if err := storage.CheckSizeLimit(req.VariantCount, avgPhotoSize); err != nil {
@@ -512,17 +669,46 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			app.jsonError(w, http.StatusInternalServerError, "Ошибка генерации фото: "+err.Error())
 			return
 		}
+		imageNamesStrings = make([]string, len(photoNames))
+		copy(imageNamesStrings, photoNames)
 	}
 
-	var imageNamesStrings []string
-	if len(photoNames) > 0 {
-		imageNamesStrings = photoNames
+	idColIdx := -1
+	placementColIdx := -1
+	contactMethodColIdx := -1
+	categoryColIdx := -1
+	productTypeColIdx := -1
+	subProductTypeColIdx := -1
+	priceUnitColIdx := -1
+	conditionColIdx := -1
+	availabilityColIdx := -1
+	adTypeColIdx := -1
+	salesTypeColIdx := -1
+	connectColIdx := -1
+	processingColIdx := -1
+	purposeColIdx := -1
+
+	if len(headersCopy) > 0 {
+		idColIdx = storage.FindColumnIndex(headersCopy, "Уникальный идентификатор объявления")
+		placementColIdx = storage.FindColumnIndex(headersCopy, "Способ размещения")
+		contactMethodColIdx = storage.FindColumnIndex(headersCopy, "Способ связи")
+		categoryColIdx = storage.FindColumnIndex(headersCopy, "Категория")
+		productTypeColIdx = storage.FindColumnIndex(headersCopy, "Вид товара")
+		subProductTypeColIdx = storage.FindColumnIndex(headersCopy, "Подвид товара")
+		priceUnitColIdx = storage.FindColumnIndex(headersCopy, "Цена за")
+		conditionColIdx = storage.FindColumnIndex(headersCopy, "Состояние")
+		availabilityColIdx = storage.FindColumnIndex(headersCopy, "Доступность")
+		adTypeColIdx = storage.FindColumnIndex(headersCopy, "Вид объявления")
+		salesTypeColIdx = storage.FindColumnIndex(headersCopy, "Вид продажи")
+		connectColIdx = storage.FindColumnIndex(headersCopy, "Соединять это объявление с другими объявлениями")
+		processingColIdx = storage.FindColumnIndex(headersCopy, "Обработка")
+		purposeColIdx = storage.FindColumnIndex(headersCopy, "Назначение")
 	}
 
-	fmt.Printf("[DEBUG] Calling SaveExcelWithNewRows: sheet=%q titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d newTitles=%d newDescs=%d newImages=%d\n", activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, len(newTitles), len(newDescriptions), len(imageNamesStrings))
+	fmt.Printf("[DEBUG] Additional column indices - id=%d placement=%d method=%d category=%d product=%d subProduct=%d priceUnit=%d condition=%d availability=%d adType=%d salesType=%d connect=%d processing=%d purpose=%d\n", idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx)
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
-	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails); err != nil {
+	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения Excel: "+err.Error())
 		return
 	}
@@ -534,17 +720,19 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := storage.CheckTotalSize(zipPath, outputXLSX); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Превышен лимит 100 МБ: "+err.Error())
-		return
+	if req.PhotoFolder != "" {
+		if err := storage.CheckTotalSize(zipPath, outputXLSX); err != nil {
+			app.jsonError(w, http.StatusBadRequest, "Превышен лимит 100 МБ: "+err.Error())
+			return
+		}
 	}
 
 	app.jsonResponse(w, map[string]interface{}{
 		"status":      "ok",
 		"xlsx_file":   outputXLSX,
 		"zip_file":    zipPath,
-		"generated":   req.VariantCount,
-		"photo_count": len(photoNames),
+		"generated":   settingsCount,
+		"photo_count": len(imageNamesStrings),
 		"files":       files,
 	})
 }
