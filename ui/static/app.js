@@ -72,10 +72,13 @@ const priceUnitRules = {
     "Доска": ["Штуку", "м³"],
     "Планкен": ["Штуку", "м²"],
     "Вагонка": ["Штуку", "м²"],
+    "Дрова": ["Штуку", "м³"],
     "Биг-бэг": ["Биг-бэг", "м³"],
     "Мешок": ["Мешок"],
-    "Россыпью": ["м³"]
+    "Россыпью": ["м³"],
+    "__default__": ["Штуку", "Биг-бэг", "Мешок", "м²", "м³"]
 };
+const priceUnitApplicable = new Set(["Брус", "Брусок", "Доска", "Планкен", "Вагонка", "Дрова"]);
 
 const setupPriceUnitDependency = () => {
     const setup = (productTypeId, priceUnitId) => {
@@ -85,14 +88,16 @@ const setupPriceUnitDependency = () => {
 
         const updatePriceUnitOptions = () => {
             const type = productTypeSelect.value;
+            console.log('[price-unit] update', productTypeId, 'type=', type);
             priceUnitSelect.innerHTML = '';
-            if (!type) {
+            if (!type || !priceUnitApplicable.has(type)) {
                 priceUnitSelect.disabled = true;
                 priceUnitSelect.innerHTML = '<option value="">— Сначала выберите тип пиломатериала —</option>';
                 return;
             }
             priceUnitSelect.disabled = false;
-            const options = priceUnitRules[type] || ["Штуку", "Биг-бэг", "Мешок", "м²", "м³"];
+            const options = priceUnitRules[type] || priceUnitRules["__default__"];
+            console.log('[price-unit] options for', type, '=', options);
             options.forEach(opt => {
                 const option = document.createElement('option');
                 option.value = opt;
@@ -101,7 +106,16 @@ const setupPriceUnitDependency = () => {
             });
         };
 
-        productTypeSelect.addEventListener('change', updatePriceUnitOptions);
+        productTypeSelect.addEventListener('change', () => {
+            updatePriceUnitOptions();
+            if (productTypeId === 'product-type-settings') {
+                const gen = document.getElementById('product-type');
+                if (gen) { gen.value = productTypeSelect.value; gen.dispatchEvent(new Event('change', { bubbles: true })); }
+            } else if (productTypeId === 'product-type') {
+                const settings = document.getElementById('product-type-settings');
+                if (settings) { settings.value = productTypeSelect.value; settings.dispatchEvent(new Event('change', { bubbles: true })); }
+            }
+        });
         updatePriceUnitOptions();
     };
 
@@ -114,14 +128,16 @@ const refreshPriceUnitByType = (productTypeId, priceUnitId) => {
     const priceUnitSelect = document.getElementById(priceUnitId);
     if (!productTypeSelect || !priceUnitSelect) return;
     const type = productTypeSelect.value;
+    console.log('[price-unit] refresh', productTypeId, 'type=', type);
     priceUnitSelect.innerHTML = '';
-    if (!type) {
+    if (!type || !priceUnitApplicable.has(type)) {
         priceUnitSelect.disabled = true;
         priceUnitSelect.innerHTML = '<option value="">— Сначала выберите тип пиломатериала —</option>';
         return;
     }
     priceUnitSelect.disabled = false;
     const options = priceUnitRules[type] || ["Штуку", "Биг-бэг", "Мешок", "м²", "м³"];
+    console.log('[price-unit] refresh options for', type, '=', options);
     options.forEach(opt => {
         const option = document.createElement('option');
         option.value = opt;
