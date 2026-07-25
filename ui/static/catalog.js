@@ -45,10 +45,6 @@
     var select = document.getElementById(selectId);
     if (!select) return;
     select.innerHTML = '';
-    var ph = document.createElement('option');
-    ph.value = '';
-    ph.textContent = '— Не выбрано —';
-    select.appendChild(ph);
     options.forEach(function(opt) {
       var option = document.createElement('option');
       option.value = opt;
@@ -57,8 +53,8 @@
     });
     if (selectedValue && inArray(selectedValue, options)) {
       select.value = selectedValue;
-    } else {
-      select.value = '';
+    } else if (options.length > 0) {
+      select.value = options[0];
     }
   }
 
