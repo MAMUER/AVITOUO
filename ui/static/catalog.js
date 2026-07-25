@@ -155,41 +155,93 @@
     renderCheckboxes(containerId, options, []);
   }
 
-  function init() {
+  function getAvailability() {
+    var el = document.getElementById('availability');
+    return el ? el.value : '';
+  }
+
+  function syncDependentDimensions() {
+    if (!AVITO_CATALOG) {
+      return;
+    }
+    var lt = getSelectedLumberType();
+    var availability = getAvailability();
+    var dims = AVITO_CATALOG.dimensions && AVITO_CATALOG.dimensions.dependent ? AVITO_CATALOG.dimensions.dependent : {};
+    ['thickness','width','length','height','widthD','lengthD','diameter'].forEach(function(key) {
+      var group = dims[key];
+      var options = [];
+      if (group && group[availability] && group[availability][lt]) {
+        options = group[availability][lt].slice();
+      } else if (AVITO_CATALOG.dimensions && AVITO_CATALOG.dimensions[key]) {
+        options = AVITO_CATALOG.dimensions[key].slice();
+      }
+      renderStaticGroup(key, options);
+    });
+  }
+
+  function syncDependentFields() {
     if (!AVITO_CATALOG) {
       console.warn('AVITO_CATALOG not loaded');
       return;
     }
 
-    var defaultLumberType = (AVITO_CATALOG.lumberTypes.indexOf('Доска') >= 0) ? 'Доска' : (AVITO_CATALOG.lumberTypes[0] || '');
-    if (!defaultLumberType && AVITO_CATALOG.lumberTypes.length > 0) {
-      defaultLumberType = AVITO_CATALOG.lumberTypes[0];
+    var lt = getSelectedLumberType();
+    var woods = getSelectedWoodTypes();
+
+    var validWoods = [];
+    if (lt && AVITO_CATALOG.LT[lt]) {
+      validWoods = AVITO_CATALOG.LT[lt].slice();
+    } else {
+      validWoods = AVITO_CATALOG.woods.slice();
     }
-    setSelectOptions('lumber-types', AVITO_CATALOG.lumberTypes.slice(), defaultLumberType);
-    renderStaticGroup('wood-types', AVITO_CATALOG.woods.slice());
+    var currentWoods = getCheckedValues('wood-types');
+    renderCheckboxes('wood-types', validWoods, currentWoods);
 
-    document.querySelectorAll('.checkbox-group').forEach(function(group) {
-      var optionsAttr = group.getAttribute('data-options');
-      var catalogAttr = group.getAttribute('data-options-from-catalog');
-      if (optionsAttr) {
-        renderStaticGroup(group.id, optionsAttr);
-      } else if (catalogAttr && catalogAttr !== 'lumberTypes' && catalogAttr !== 'woods') {
-        var options = [];
-        if (catalogAttr === 'edges') options = AVITO_CATALOG.rules.edge.options.slice();
-        if (catalogAttr === 'grades') options = AVITO_CATALOG.rules.grade.options.slice();
-        if (catalogAttr === 'moistures') options = AVITO_CATALOG.rules.moisture.options.slice();
-        if (catalogAttr === 'profiles') options = AVITO_CATALOG.rules.profile.options.slice();
-        if (catalogAttr === 'structures') options = AVITO_CATALOG.rules.structure.options.slice();
-        if (catalogAttr === 'lumberProfiles') options = [];
-        if (catalogAttr === 'priceUnits') options = AVITO_CATALOG.rules.priceUnits.options.slice();
-        renderStaticGroup(group.id, options);
-      }
-    });
+    var showEdge = lt === 'Доска';
+    var validEdges = showEdge ? AVITO_CATALOG.rules.edge.options.slice() : [];
+    var currentEdges = getCheckedValues('edges');
+    renderCheckboxes('edges', validEdges, currentEdges);
+    setContainerVisibility('edges', 'edges-hint', showEdge, 'Доступно только для типа пиломатериала «Доска»');
 
-    document.getElementById('lumber-types').addEventListener('change', syncDependentFields);
-    document.getElementById('wood-types').addEventListener('change', syncDependentFields);
+    var showGrade = lt && inArray(lt, AVITO_CATALOG.rules.grade.lumberTypes) &&
+                    woods.some(function(w) { return inArray(w, AVITO_CATALOG.rules.grade.woodTypes); });
+    var validGrades = showGrade ? AVITO_CATALOG.rules.grade.options.slice() : [];
+    var currentGrades = getCheckedValues('grades');
+    renderCheckboxes('grades', validGrades, currentGrades);
+    setContainerVisibility('grades', 'grades-hint', showGrade, 'Зависит от типа пиломатериала и вида древесины');
 
-    syncDependentFields();
+    var showMoisture = lt && inArray(lt, AVITO_CATALOG.rules.moisture.lumberTypes) &&
+                       woods.some(function(w) { return inArray(w, AVITO_CATALOG.rules.moisture.woodTypes); });
+    var validMoistures = showMoisture ? AVITO_CATALOG.rules.moisture.options.slice() : [];
+    var currentMoistures = getCheckedValues('moistures');
+    renderCheckboxes('moistures', validMoistures, currentMoistures);
+    setContainerVisibility('moistures', 'moistures-hint', showMoisture, 'Зависит от типа пиломатериала и вида древесины');
+
+    var showProfile = lt === 'Брус';
+    var validProfiles = showProfile ? AVITO_CATALOG.rules.profile.options.slice() : [];
+    var currentProfiles = getCheckedValues('profiles');
+    renderCheckboxes('profiles', validProfiles, currentProfiles);
+    setContainerVisibility('profiles', 'profiles-hint', showProfile, 'Доступно только для типа пиломатериала «Брус»');
+
+    var showStructure = lt && inArray(lt, AVITO_CATALOG.rules.structure.lumberTypes);
+    var validStructures = showStructure ? AVITO_CATALOG.rules.structure.options.slice() : [];
+    var currentStructures = getCheckedValues('structures');
+    renderCheckboxes('structures', validStructures, currentStructures);
+    setContainerVisibility('structures', 'structures-hint', showStructure, 'Зависит от типа пиломатериала');
+
+    var showLumberProfile = lt && AVITO_CATALOG.panelProfile[lt];
+    var validLumberProfiles = showLumberProfile ? AVITO_CATALOG.panelProfile[lt].slice() : [];
+    var currentLumberProfiles = getCheckedValues('lumber-profiles');
+    renderCheckboxes('lumber-profiles', validLumberProfiles, currentLumberProfiles);
+    setContainerVisibility('lumber-profiles', 'lumber-profiles-hint', showLumberProfile, 'Для Вагонка/Планкен');
+
+    var showPriceUnits = lt && AVITO_CATALOG.rules.priceUnits.byLumberType[lt];
+    var validPriceUnits = showPriceUnits ? AVITO_CATALOG.rules.priceUnits.byLumberType[lt].slice() : [];
+    var currentPriceUnit = document.getElementById('price-units')?.value || '';
+    setSelectOptions('price-units', validPriceUnits, currentPriceUnit);
+    setContainerVisibility('price-units', 'price-units-hint', showPriceUnits, 'Зависит от типа пиломатериала');
+
+    syncDependentDimensions();
   }
 
   if (document.readyState === 'loading') {

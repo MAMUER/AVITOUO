@@ -437,7 +437,6 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		PhotoFolder     string   `json:"photo_folder"`
 		VariantCount    int      `json:"variant_count"`
 		ProductType     string   `json:"product_type"`
-		PriceUnit       string   `json:"price_unit"`
 		Connect         string   `json:"connect"`
 		LumberType      string   `json:"lumber_type"`
 		WoodTypes       []string `json:"wood_types"`
@@ -447,6 +446,8 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		Profiles        []string `json:"profiles"`
 		Structures      []string `json:"structures"`
 		LumberProfiles  []string `json:"lumber_profiles"`
+		PriceUnit       string   `json:"price_unit"`
+		Diameters       []string `json:"diameters"`
 		Thicknesses     []string `json:"thicknesses"`
 		Widths          []string `json:"widths"`
 		Lengths         []string `json:"lengths"`
@@ -545,11 +546,12 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
  	newWidths := make([]string, settingsCount)
  	newLengths := make([]string, settingsCount)
 	newHeights := make([]string, settingsCount)
-	newWidthDs := make([]string, settingsCount)
-	newLengthDs := make([]string, settingsCount)
-	newGOSTValues := make([]string, settingsCount)
-	newTargetActionManual := make([]string, settingsCount)
-	newTargetActionManualSettings := make([]string, settingsCount)
+ 	newWidthDs := make([]string, settingsCount)
+ 	newLengthDs := make([]string, settingsCount)
+ 	newGOSTValues := make([]string, settingsCount)
+ 	newTargetActionManual := make([]string, settingsCount)
+ 	newTargetActionManualSettings := make([]string, settingsCount)
+ 	newDiameters := make([]string, settingsCount)
 	for i := range newGOSTValues {
 		newGOSTValues[i] = "Да"
 	}
@@ -740,6 +742,10 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	if len(lengthDPool) == 0 {
 		lengthDPool = []string{"2 м", "3 м", "4 м"}
 	}
+	diameterPool := req.Diameters
+	if len(diameterPool) == 0 {
+		diameterPool = []string{"10 мм", "20 мм", "30 мм", "40 мм", "50 мм"}
+	}
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -815,6 +821,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			height := core.PickRandom(rnd, heightPool)
 			widthD := core.PickRandom(rnd, widthDPool)
 			lengthD := core.PickRandom(rnd, lengthDPool)
+			diameter := core.PickRandom(rnd, diameterPool)
 
 			if !core.IsValidEdge(lt) && edge != "" {
 				edge = ""
@@ -838,9 +845,9 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				lumberProfile = ""
 			}
 
-		sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
+		sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
 			lt, wood, edge, grade, moisture, profile, structure, lumberProfile,
-			thickness, width, length, height, widthD, lengthD)
+			thickness, width, length, height, widthD, lengthD, diameter)
 			if !usedCombinations[sig] {
 				usedCombinations[sig] = true
 				newLumberTypes[i] = lt
@@ -857,6 +864,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				newHeights[i] = height
 				newWidthDs[i] = widthD
 				newLengthDs[i] = lengthD
+				newDiameters[i] = diameter
 				filled = true
 			}
 		}
@@ -875,6 +883,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			newHeights[i] = core.PickRandom(rnd, heightPool)
 			newWidthDs[i] = core.PickRandom(rnd, widthDPool)
 			newLengthDs[i] = core.PickRandom(rnd, lengthDPool)
+			newDiameters[i] = core.PickRandom(rnd, diameterPool)
 		}
 	}
 
@@ -965,6 +974,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	gostColIdx := -1
 	targetActionColIdx := -1
 	targetActionManualColIdx := -1
+	diameterColIdx := -1
 
 	if len(headersCopy) > 0 {
 		idColIdx = storage.FindColumnIndex(headersCopy, "Уникальный идентификатор объявления")
@@ -984,13 +994,14 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		gostColIdx = storage.FindColumnIndex(headersCopy, "Соответствует ГОСТ")
 		targetActionColIdx = storage.FindColumnIndex(headersCopy, "Настройка цены целевого действия")
 		targetActionManualColIdx = storage.FindColumnIndex(headersCopy, "Настройка цены целевого действия: ручная")
+		diameterColIdx = storage.FindColumnIndex(headersCopy, "Диаметр")
 	}
 
-	fmt.Printf("[DEBUG] Generated arrays - titles=%d desc=%d ids=%d placements=%d categories=%d products=%d subProducts=%d priceUnits=%d conditions=%d availabilities=%d adTypes=%d salesTypes=%d connects=%d processing=%d purpose=%d lumber=%d wood=%d edge=%d grade=%d moisture=%d profile=%d structure=%d lumberProfile=%d thickness=%d width=%d length=%d height=%d widthD=%d lengthD=%d gost=%d\n", len(newTitles), len(newDescriptions), len(newIDs), len(newPlacements), len(newCategories), len(newProductTypes), len(newSubProductTypes), len(newPriceUnits), len(newConditions), len(newAvailabilities), len(newAdTypes), len(newSalesTypes), len(newConnects), len(newProcessing), len(newPurpose), len(newLumberTypes), len(newWoodTypes), len(newEdges), len(newGrades), len(newMoistures), len(newProfiles), len(newStructures), len(newLumberProfiles), len(newThicknesses), len(newWidths), len(newLengths), len(newHeights), len(newWidthDs), len(newLengthDs), len(newGOSTValues))
-	fmt.Printf("[DEBUG] Non-empty sample - lumber[0]=%q wood[0]=%q edge[0]=%q grade[0]=%q moisture[0]=%q profile[0]=%q structure[0]=%q lumberProfile[0]=%q thickness[0]=%q width[0]=%q length[0]=%q height[0]=%q widthD[0]=%q lengthD[0]=%q\n", firstOrEmpty(newLumberTypes), firstOrEmpty(newWoodTypes), firstOrEmpty(newEdges), firstOrEmpty(newGrades), firstOrEmpty(newMoistures), firstOrEmpty(newProfiles), firstOrEmpty(newStructures), firstOrEmpty(newLumberProfiles), firstOrEmpty(newThicknesses), firstOrEmpty(newWidths), firstOrEmpty(newLengths), firstOrEmpty(newHeights), firstOrEmpty(newWidthDs), firstOrEmpty(newLengthDs))
+	fmt.Printf("[DEBUG] Generated arrays - titles=%d desc=%d ids=%d placements=%d categories=%d products=%d subProducts=%d priceUnits=%d conditions=%d availabilities=%d adTypes=%d salesTypes=%d connects=%d processing=%d purpose=%d lumber=%d wood=%d edge=%d grade=%d moisture=%d profile=%d structure=%d lumberProfile=%d thickness=%d width=%d length=%d height=%d widthD=%d lengthD=%d gost=%d diameter=%d\n", len(newTitles), len(newDescriptions), len(newIDs), len(newPlacements), len(newCategories), len(newProductTypes), len(newSubProductTypes), len(newPriceUnits), len(newConditions), len(newAvailabilities), len(newAdTypes), len(newSalesTypes), len(newConnects), len(newProcessing), len(newPurpose), len(newLumberTypes), len(newWoodTypes), len(newEdges), len(newGrades), len(newMoistures), len(newProfiles), len(newStructures), len(newLumberProfiles), len(newThicknesses), len(newWidths), len(newLengths), len(newHeights), len(newWidthDs), len(newLengthDs), len(newGOSTValues), len(newDiameters))
+	fmt.Printf("[DEBUG] Non-empty sample - lumber[0]=%q wood[0]=%q edge[0]=%q grade[0]=%q moisture[0]=%q profile[0]=%q structure[0]=%q lumberProfile[0]=%q thickness[0]=%q width[0]=%q length[0]=%q height[0]=%q widthD[0]=%q lengthD[0]=%q diameter[0]=%q\n", firstOrEmpty(newLumberTypes), firstOrEmpty(newWoodTypes), firstOrEmpty(newEdges), firstOrEmpty(newGrades), firstOrEmpty(newMoistures), firstOrEmpty(newProfiles), firstOrEmpty(newStructures), firstOrEmpty(newLumberProfiles), firstOrEmpty(newThicknesses), firstOrEmpty(newWidths), firstOrEmpty(newLengths), firstOrEmpty(newHeights), firstOrEmpty(newWidthDs), firstOrEmpty(newLengthDs), firstOrEmpty(newDiameters))
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
-	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, gostColIdx, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newLumberProfiles, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs, newGOSTValues, targetActionColIdx, targetActionManualColIdx, newTargetActionManual, newTargetActionManualSettings); err != nil {
+	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, gostColIdx, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newLumberProfiles, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs, newGOSTValues, targetActionColIdx, targetActionManualColIdx, newTargetActionManual, newTargetActionManualSettings, diameterColIdx, newDiameters); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения Excel: "+err.Error())
 		return
 	}

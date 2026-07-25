@@ -312,6 +312,7 @@ const generateAndExport = async () => {
     const structures = collectChecked('structures');
     const lumberProfiles = collectChecked('lumber-profiles');
     const priceUnit = document.getElementById('price-units')?.value || '';
+    const diameters = collectChecked('diameter');
     const thicknesses = collectChecked('thickness');
     const widths = collectChecked('width');
     const lengths = collectChecked('length');
@@ -343,6 +344,7 @@ const generateAndExport = async () => {
                 structures: structures,
                 lumber_profiles: lumberProfiles,
                 price_unit: priceUnit,
+                diameters: diameters,
                 thicknesses: thicknesses,
                 widths: widths,
                 lengths: lengths,
