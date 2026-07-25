@@ -8,6 +8,7 @@ type Settings struct {
 	Companies              []string `json:"companies"`
 	Emails                 []string `json:"emails"`
 	DisableAddressAutoFill bool     `json:"disable_address_auto_fill"`
+	ProductType            string   `json:"product_type"`
 	Placement              string   `json:"placement"`
 	ContactMethod          string   `json:"contact_method"`
 	AdType                 string   `json:"ad_type"`

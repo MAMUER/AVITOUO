@@ -78,30 +78,56 @@ const priceUnitRules = {
 };
 
 const setupPriceUnitDependency = () => {
-    const productTypeSelect = document.getElementById('product-type');
-    const priceUnitSelect = document.getElementById('price-unit');
-    if (!productTypeSelect || !priceUnitSelect) return;
+    const setup = (productTypeId, priceUnitId) => {
+        const productTypeSelect = document.getElementById(productTypeId);
+        const priceUnitSelect = document.getElementById(priceUnitId);
+        if (!productTypeSelect || !priceUnitSelect) return;
 
-    const updatePriceUnitOptions = () => {
-        const type = productTypeSelect.value;
-        priceUnitSelect.innerHTML = '';
-        if (!type) {
-            priceUnitSelect.disabled = true;
-            priceUnitSelect.innerHTML = '<option value="">— Сначала выберите тип пиломатериала —</option>';
-            return;
-        }
-        priceUnitSelect.disabled = false;
-        const options = priceUnitRules[type] || ["Штуку", "Биг-бэг", "Мешок", "м²", "м³"];
-        options.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt;
-            option.textContent = opt;
-            priceUnitSelect.appendChild(option);
-        });
+        const updatePriceUnitOptions = () => {
+            const type = productTypeSelect.value;
+            priceUnitSelect.innerHTML = '';
+            if (!type) {
+                priceUnitSelect.disabled = true;
+                priceUnitSelect.innerHTML = '<option value="">— Сначала выберите тип пиломатериала —</option>';
+                return;
+            }
+            priceUnitSelect.disabled = false;
+            const options = priceUnitRules[type] || ["Штуку", "Биг-бэг", "Мешок", "м²", "м³"];
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.textContent = opt;
+                priceUnitSelect.appendChild(option);
+            });
+        };
+
+        productTypeSelect.addEventListener('change', updatePriceUnitOptions);
+        updatePriceUnitOptions();
     };
 
-    productTypeSelect.addEventListener('change', updatePriceUnitOptions);
-    updatePriceUnitOptions();
+    setup('product-type', 'price-unit');
+    setup('product-type-settings', 'price-unit-settings');
+};
+
+const refreshPriceUnitByType = (productTypeId, priceUnitId) => {
+    const productTypeSelect = document.getElementById(productTypeId);
+    const priceUnitSelect = document.getElementById(priceUnitId);
+    if (!productTypeSelect || !priceUnitSelect) return;
+    const type = productTypeSelect.value;
+    priceUnitSelect.innerHTML = '';
+    if (!type) {
+        priceUnitSelect.disabled = true;
+        priceUnitSelect.innerHTML = '<option value="">— Сначала выберите тип пиломатериала —</option>';
+        return;
+    }
+    priceUnitSelect.disabled = false;
+    const options = priceUnitRules[type] || ["Штуку", "Биг-бэг", "Мешок", "м²", "м³"];
+    options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        priceUnitSelect.appendChild(option);
+    });
 };
 
 const renderTable = () => {
@@ -136,17 +162,23 @@ const populateSheetSelect = () => {
 const loadSettings = async () => {
     try {
         const data = await api('/api/settings');
-        document.getElementById('contacts').value = (data.contacts || []).join('\n');
-        document.getElementById('phones').value = (data.phones || []).join('\n');
-        document.getElementById('addresses').value = (data.addresses || []).join('\n');
-        document.getElementById('companies').value = data.companies || '';
-        document.getElementById('emails').value = data.emails || '';
-        document.getElementById('disableAddress').checked = data.disable_address_auto_fill || false;
-        if (data.ad_type) document.getElementById('adType').value = data.ad_type;
-        if (data.condition) document.getElementById('condition').value = data.condition;
-        if (data.availability) document.getElementById('availability').value = data.availability;
-        if (data.price_unit) document.getElementById('priceUnit').value = data.price_unit;
-        if (data.connect) document.getElementById('connect').value = data.connect;
+        const set = (id, value) => { const el = document.getElementById(id); if (el) el.value = value; };
+        const check = (id, value) => { const el = document.getElementById(id); if (el) el.checked = value; };
+        set('contacts', (data.contacts || []).join('\n'));
+        set('phones', (data.phones || []).join('\n'));
+        set('addresses', (data.addresses || []).join('\n'));
+        set('companies', data.companies || '');
+        set('emails', data.emails || '');
+        check('disableAddress', data.disable_address_auto_fill || false);
+        if (data.ad_type) set('adType', data.ad_type);
+        if (data.condition) set('condition', data.condition);
+        if (data.availability) set('availability', data.availability);
+        if (data.product_type) set('product-type-settings', data.product_type);
+        if (data.price_unit) set('price-unit-settings', data.price_unit);
+        if (data.connect) set('connect', data.connect);
+
+        refreshPriceUnitByType('product-type', 'price-unit');
+        refreshPriceUnitByType('product-type-settings', 'price-unit-settings');
     } catch (e) {
         debugLog('Не удалось загрузить настройки: ' + e.message, true);
     }
@@ -163,13 +195,14 @@ const saveSettings = async () => {
         const adType = document.getElementById('adType').value;
         const condition = document.getElementById('condition').value;
         const availability = document.getElementById('availability').value;
-        const priceUnit = document.getElementById('priceUnit').value;
+        const productType = document.getElementById('product-type-settings').value;
+        const priceUnit = document.getElementById('price-unit-settings').value;
         const connect = document.getElementById('connect').value;
 
         await api('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contacts, phones, addresses, companies, emails, disable_address_auto_fill: disableAddress, ad_type: adType, condition, availability, price_unit: priceUnit, connect })
+            body: JSON.stringify({ contacts, phones, addresses, companies, emails, disable_address_auto_fill: disableAddress, product_type: productType, ad_type: adType, condition, availability, price_unit: priceUnit, connect })
         });
         showMessage('settings-msg', '<div class="success">✅ Настройки сохранены</div>');
     } catch (e) {
@@ -304,8 +337,8 @@ const generateAndExport = async () => {
     const baseDescription = document.getElementById('base-description').value;
     const photoFolder = document.getElementById('photo-folder').value;
     const variantCount = parseInt(document.getElementById('variant-count').value) || 10;
-    const productType = document.getElementById('product-type')?.value || '';
-    const priceUnit = document.getElementById('price-unit')?.value || '';
+    const productType = document.getElementById('product-type')?.value || document.getElementById('product-type-settings')?.value || '';
+    const priceUnit = document.getElementById('price-unit')?.value || document.getElementById('price-unit-settings')?.value || '';
 
     const msgEl = document.getElementById('generation-msg');
     msgEl.innerHTML = '<div class="success">⏳ Генерация... Пожалуйста, подождите</div>';
@@ -378,6 +411,8 @@ const init = async () => {
     updateCharCount();
     updateDescCount();
     setupPriceUnitDependency();
+    refreshPriceUnitByType('product-type', 'price-unit');
+    refreshPriceUnitByType('product-type-settings', 'price-unit-settings');
 };
 
 init();

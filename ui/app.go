@@ -95,6 +95,7 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 			"companies":                 settings.Companies,
 			"emails":                    settings.Emails,
 			"disable_address_auto_fill": settings.DisableAddressAutoFill,
+			"product_type":              settings.ProductType,
 			"ad_type":                   settings.AdType,
 			"condition":                 settings.Condition,
 			"availability":              settings.Availability,
@@ -109,6 +110,7 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 			Companies              string   `json:"companies"`
 			Emails                 string   `json:"emails"`
 			DisableAddressAutoFill bool     `json:"disable_address_auto_fill"`
+			ProductType            string   `json:"product_type"`
 			AdType                 string   `json:"ad_type"`
 			Condition              string   `json:"condition"`
 			Availability           string   `json:"availability"`
@@ -126,6 +128,9 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		settings.Companies = strings.Split(req.Companies, "\n")
 		settings.Emails = strings.Split(req.Emails, "\n")
 		settings.DisableAddressAutoFill = req.DisableAddressAutoFill
+		if req.ProductType != "" {
+			settings.ProductType = req.ProductType
+		}
 		if req.AdType != "" {
 			settings.AdType = req.AdType
 		}
@@ -539,9 +544,13 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		for i := range newProductTypes {
 			newProductTypes[i] = req.ProductType
 		}
-	} else {
+	} else if productTypePart != "" {
 		for i := range newProductTypes {
 			newProductTypes[i] = productTypePart
+		}
+	} else if settings.ProductType != "" {
+		for i := range newProductTypes {
+			newProductTypes[i] = settings.ProductType
 		}
 	}
 	for i := range newSubProductTypes {
@@ -588,6 +597,9 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			newPriceUnits[i] = req.PriceUnit
 		} else {
 			pt := strings.ToLower(strings.TrimSpace(newProductTypes[i]))
+			if pt == "" {
+				pt = strings.ToLower(strings.TrimSpace(settings.ProductType))
+			}
 			switch pt {
 			case "брусок", "брус":
 				units := []string{"Штуку", "м³"}

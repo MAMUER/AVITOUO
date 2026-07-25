@@ -16,11 +16,12 @@ func LoadSettings() (*core.Settings, error) {
 	data, err := os.ReadFile(settingsFile)
 	if err != nil {
 		return &core.Settings{
-			Contacts:  []string{"Мариелена"},
-			Phones:    []string{"79268509135"},
-			Addresses: []string{"Мытищи, Волковское ш., 21А"},
-			Companies: []string{"СтройДерево"},
-			Emails:    []string{"stroyderevo-direct@yandex.ru"},
+			Contacts:    []string{"Мариелена"},
+			Phones:      []string{"79268509135"},
+			Addresses:   []string{"Мытищи, Волковское ш., 21А"},
+			Companies:   []string{"СтройДерево"},
+			Emails:      []string{"stroyderevo-direct@yandex.ru"},
+			ProductType: "Доска",
 		}, nil
 	}
 
@@ -64,6 +65,9 @@ func LoadSettings() (*core.Settings, error) {
 	}
 	if s.PriceUnit == "" {
 		s.PriceUnit = "Штуку"
+	}
+	if s.ProductType == "" {
+		s.ProductType = "Доска"
 	}
 	if s.Connect == "" {
 		s.Connect = "Да"
