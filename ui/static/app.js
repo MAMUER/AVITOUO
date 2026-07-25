@@ -146,12 +146,18 @@ const setupPriceUnitDependency = () => {
     const sync = (sourceId) => {
         const value = document.getElementById(sourceId)?.value;
         if (!value) return;
-        if (sourceId === 'product-type' && document.getElementById('product-type-settings')?.value !== value) {
-            document.getElementById('product-type-settings').value = value;
-            updateSettingsPrice?.();
-        } else if (sourceId === 'product-type-settings' && document.getElementById('product-type')?.value !== value) {
-            document.getElementById('product-type').value = value;
-            updateGenPrice?.();
+        if (sourceId === 'product-type') {
+            const target = document.getElementById('product-type-settings');
+            if (target && target.value !== value) {
+                target.value = value;
+                updateSettingsPrice?.();
+            }
+        } else if (sourceId === 'product-type-settings') {
+            const target = document.getElementById('product-type');
+            if (target && target.value !== value) {
+                target.value = value;
+                updateGenPrice?.();
+            }
         }
     };
 
@@ -334,7 +340,7 @@ const handleFolderSelect = (event) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    const firstPath = files[0].name;
+    const firstPath = files[0].webkitRelativePath || files[0].name;
     const folderName = firstPath.split('/')[0].split('\\')[0];
     document.getElementById('photo-folder').value = folderName;
     document.getElementById('selected-folder-name').textContent = `Выбрано: ${folderName} (${files.length} файлов)`;
@@ -405,6 +411,7 @@ const generateAndExport = async () => {
 const init = async () => {
     try {
         await loadSettings();
+        updateConnectAvailability();
         setStatus('Сервер OK', true);
     } catch (e) {
         setStatus('Нет связи', false);

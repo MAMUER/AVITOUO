@@ -15,7 +15,7 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-const PhotosDir = ""
+const PhotosDir = "photos"
 
 func isImage(name string) bool {
 	ext := strings.ToLower(filepath.Ext(name))
