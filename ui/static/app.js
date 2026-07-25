@@ -13,8 +13,32 @@ const debugLog = (message, isError = false) => {
     entry.className = 'entry' + (isError ? ' error' : ' success');
     entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     logEl.appendChild(entry);
-    logEl.scrollTop = logEl.scrollHeight;
+    entry.scrollTop = entry.scrollHeight;
 };
+
+const updateConnectAvailability = () => {
+    const condition = document.getElementById('condition')?.value || '';
+    const productType = document.getElementById('product-type-settings')?.value || '';
+    const connectSelect = document.getElementById('connect');
+    if (!connectSelect) return;
+    const shouldEnable = condition === 'Новое' && productType === 'Доска';
+    connectSelect.disabled = !shouldEnable;
+    if (!shouldEnable) {
+        connectSelect.value = 'Нет';
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    updateConnectAvailability();
+    const conditionEl = document.getElementById('condition');
+    const productTypeEl = document.getElementById('product-type-settings');
+    if (conditionEl) {
+        conditionEl.addEventListener('change', updateConnectAvailability);
+    }
+    if (productTypeEl) {
+        productTypeEl.addEventListener('change', updateConnectAvailability);
+    }
+});
 
 const setStatus = (text, ok = true) => {
     const el = document.getElementById('connection-status');
@@ -343,6 +367,7 @@ const generateAndExport = async () => {
     const variantCount = parseInt(document.getElementById('variant-count').value) || 10;
     const productType = document.getElementById('product-type')?.value || document.getElementById('product-type-settings')?.value || '';
     const priceUnit = document.getElementById('price-unit')?.value || document.getElementById('price-unit-settings')?.value || '';
+    const connect = document.getElementById('connect')?.value || '';
 
     const msgEl = document.getElementById('generation-msg');
     msgEl.innerHTML = '<div class="success">⏳ Генерация... Пожалуйста, подождите</div>';
@@ -357,7 +382,8 @@ const generateAndExport = async () => {
                 photo_folder: photoFolder,
                 variant_count: variantCount,
                 product_type: productType,
-                price_unit: priceUnit
+                price_unit: priceUnit,
+                connect: connect
             })
         });
 

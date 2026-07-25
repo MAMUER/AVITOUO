@@ -18,7 +18,7 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-const PhotosDir = "photos"
+const PhotosDir = ""
 
 type App struct {
 	server         *http.Server
@@ -431,6 +431,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		VariantCount    int    `json:"variant_count"`
 		ProductType     string `json:"product_type"`
 		PriceUnit       string `json:"price_unit"`
+		Connect         string `json:"connect"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
 		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
@@ -477,6 +478,9 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		descIdx = storage.FindColumnIndex(headersCopy, "Описание")
 	}
 	imageNamesIdx := storage.FindColumnIndex(headersCopy, "ImageNames")
+	if imageNamesIdx < 0 {
+		imageNamesIdx = storage.FindColumnIndex(headersCopy, "Названия фото")
+	}
 
 	contactIdx := storage.FindColumnIndex(headersCopy, "Контактное лицо")
 	phoneIdx := storage.FindColumnIndex(headersCopy, "Номер телефона")
@@ -521,10 +525,27 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	newHeights := make([]string, settingsCount)
 	newWidthDs := make([]string, settingsCount)
 	newLengthDs := make([]string, settingsCount)
+	newGOSTValues := make([]string, settingsCount)
+	for i := range newGOSTValues {
+		newGOSTValues[i] = "Да"
+	}
 
 	categoryPath := ""
 	if len(headersCopy) > 0 {
 		categoryPath = headersCopy[0]
+	}
+	productTypeFirst := ""
+	subProductTypeFirst := ""
+	if len(headersCopy) > 0 {
+		for _, h := range headersCopy {
+			hl := strings.ToLower(h)
+			if productTypeFirst == "" && strings.Contains(hl, "вид товара") {
+				productTypeFirst = h
+			}
+			if subProductTypeFirst == "" && strings.Contains(hl, "подвид товара") {
+				subProductTypeFirst = h
+			}
+		}
 	}
 	if !strings.Contains(categoryPath, " - ") && path != "" {
 		if f, err := excelize.OpenFile(path); err == nil {
@@ -549,9 +570,16 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	if strings.Contains(categoryPath, " - ") {
 		parts := strings.Split(categoryPath, " - ")
 		if len(parts) >= 3 {
-			categoryPart = strings.TrimSpace(parts[len(parts)-3])
+			categoryPart = strings.TrimSpace(parts[0])
 			productTypePart = strings.TrimSpace(parts[len(parts)-2])
 			subProductTypePart = strings.TrimSpace(parts[len(parts)-1])
+		}
+	} else if len(headersCopy) > 0 {
+		for _, h := range headersCopy {
+			if strings.Contains(strings.ToLower(h), "категория") {
+				categoryPart = h
+				break
+			}
 		}
 	}
 	for i := range newCategories {
@@ -565,10 +593,17 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		for i := range newProductTypes {
 			newProductTypes[i] = productTypePart
 		}
+	} else if productTypeFirst != "" {
+		for i := range newProductTypes {
+			newProductTypes[i] = productTypeFirst
+		}
 	} else if settings.ProductType != "" {
 		for i := range newProductTypes {
 			newProductTypes[i] = settings.ProductType
 		}
+	}
+	if subProductTypePart == "" && subProductTypeFirst != "" {
+		subProductTypePart = subProductTypeFirst
 	}
 	for i := range newSubProductTypes {
 		newSubProductTypes[i] = subProductTypePart
@@ -650,7 +685,9 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		newAdTypes[i] = settings.AdType
 	}
 	for i := range newConnects {
-		if settings.Condition == "Новое" && newProductTypes[i] == "Доска" {
+		if req.Connect == "Нет" {
+			newConnects[i] = ""
+		} else if settings.Condition == "Новое" && newProductTypes[i] == "Доска" {
 			newConnects[i] = "Да"
 		} else {
 			newConnects[i] = ""
@@ -790,6 +827,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	heightColIdx := -1
 	widthDColIdx := -1
 	lengthDColIdx := -1
+	gostColIdx := -1
 
 	if len(headersCopy) > 0 {
 		idColIdx = storage.FindColumnIndex(headersCopy, "Уникальный идентификатор объявления")
@@ -819,12 +857,13 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		heightColIdx = storage.FindColumnIndex(headersCopy, "Высота")
 		widthDColIdx = storage.FindColumnIndex(headersCopy, "Ширина")
 		lengthDColIdx = storage.FindColumnIndex(headersCopy, "Длина")
+		gostColIdx = storage.FindColumnIndex(headersCopy, "Соответствует ГОСТ")
 	}
 
 	fmt.Printf("[DEBUG] Additional column indices - id=%d placement=%d method=%d category=%d product=%d subProduct=%d priceUnit=%d condition=%d availability=%d adType=%d salesType=%d connect=%d processing=%d purpose=%d lumber=%d wood=%d edge=%d grade=%d moisture=%d profile=%d structure=%d thickness=%d width=%d length=%d height=%d widthD=%d lengthD=%d\n", idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, lumberTypeColIdx, woodTypeColIdx, edgeColIdx, gradeColIdx, moistureColIdx, profileColIdx, structureColIdx, thicknessColIdx, widthColIdx, lengthColIdx, heightColIdx, widthDColIdx, lengthDColIdx)
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
-	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs); err != nil {
+	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, gostColIdx, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs, newGOSTValues); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения Excel: "+err.Error())
 		return
 	}

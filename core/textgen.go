@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // TextGenerator генерирует уникальные вариации текста
@@ -40,7 +41,7 @@ func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existi
 	if index < len(candidates) {
 		candidate := candidates[index]
 		if len(candidate) > 0 {
-			candidate = strings.ToUpper(candidate[:1]) + candidate[1:]
+			candidate = toUpperFirst(candidate)
 		}
 		if !tg.used["title_"+candidate] {
 			tg.used["title_"+candidate] = true
@@ -53,7 +54,7 @@ func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existi
 		if len(words) >= 2 && attempt < len(candidates) {
 			title := candidates[attempt%len(candidates)]
 			if len(title) > 0 {
-				title = strings.ToUpper(title[:1]) + title[1:]
+				title = toUpperFirst(title)
 			}
 			if !tg.used["title_"+title] {
 				tg.used["title_"+title] = true
@@ -64,7 +65,7 @@ func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existi
 		suffix := suffixes[attempt%len(suffixes)]
 		title := baseTitle + suffix
 		if len(title) > 0 {
-			title = strings.ToUpper(title[:1]) + title[1:]
+			title = toUpperFirst(title)
 		}
 		if !tg.used["title_"+title] {
 			tg.used["title_"+title] = true
@@ -74,7 +75,7 @@ func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existi
 
 	title := baseTitle
 	if len(title) > 0 {
-		title = strings.ToUpper(title[:1]) + title[1:]
+		title = toUpperFirst(title)
 	}
 	return title
 }
@@ -247,6 +248,15 @@ func replaceGroups(template string, groups []optionGroup, rnd *rand.Rand) string
 	}
 
 	return result
+}
+
+func toUpperFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	runes := []rune(s)
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
 }
 
 func calculateCombinations(groups []optionGroup) int {
