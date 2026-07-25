@@ -132,8 +132,8 @@
 
     var showPriceUnits = lt && AVITO_CATALOG.rules.priceUnits.byLumberType[lt];
     var validPriceUnits = showPriceUnits ? AVITO_CATALOG.rules.priceUnits.byLumberType[lt].slice() : [];
-    var currentPriceUnits = getCheckedValues('price-units');
-    renderCheckboxes('price-units', validPriceUnits, currentPriceUnits);
+    var currentPriceUnit = document.getElementById('price-units')?.value || '';
+    setSelectOptions('price-units', validPriceUnits, currentPriceUnit);
     setContainerVisibility('price-units', 'price-units-hint', showPriceUnits, 'Зависит от типа пиломатериала');
   }
 

@@ -311,7 +311,7 @@ const generateAndExport = async () => {
     const profiles = collectChecked('profiles');
     const structures = collectChecked('structures');
     const lumberProfiles = collectChecked('lumber-profiles');
-    const priceUnits = collectChecked('price-units');
+    const priceUnit = document.getElementById('price-units')?.value || '';
     const thicknesses = collectChecked('thickness');
     const widths = collectChecked('width');
     const lengths = collectChecked('length');
@@ -342,7 +342,7 @@ const generateAndExport = async () => {
                 profiles: profiles,
                 structures: structures,
                 lumber_profiles: lumberProfiles,
-                price_units: priceUnits,
+                price_unit: priceUnit,
                 thicknesses: thicknesses,
                 widths: widths,
                 lengths: lengths,

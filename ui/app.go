@@ -440,7 +440,6 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		Profiles        []string `json:"profiles"`
 		Structures      []string `json:"structures"`
 		LumberProfiles  []string `json:"lumber_profiles"`
-		PriceUnits      []string `json:"price_units"`
 		Thicknesses     []string `json:"thicknesses"`
 		Widths          []string `json:"widths"`
 		Lengths         []string `json:"lengths"`
@@ -676,10 +675,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			lumberTypePool = "Брус"
 		}
 	}
-	priceUnitPool := req.PriceUnits
-	if len(priceUnitPool) == 0 {
-		priceUnitPool = []string{"Штуку", "м³", "м²"}
-	}
+	priceUnitPool := req.PriceUnit
 	woodTypePool := req.WoodTypes
 	if len(woodTypePool) == 0 {
 		woodTypePool = []string{"Сосна", "Липа", "Дуб", "Ель", "Кедр"}
@@ -733,7 +729,11 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	for i := range newPriceUnits {
-		newPriceUnits[i] = core.PickRandom(rnd, priceUnitPool)
+		if priceUnitPool != "" {
+			newPriceUnits[i] = priceUnitPool
+		} else {
+			newPriceUnits[i] = core.PickRandom(rnd, []string{"Штуку", "м³", "м²"})
+		}
 	}
 	for i := range newConditions {
 		newConditions[i] = settings.Condition
@@ -758,7 +758,21 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		newPurpose[i] = "Баня | Дверь | Дом | Забор | Кровля | Лестница | Мебель | Окна | Опалубка | Поддоны | Пол | Полка | Потолок | Стена | Стропила | Терраса | Фасад"
 	}
 
-	maxPossible := len(woodTypePool) * len(edgePool) * len(gradePool) * len(moisturePool) * len(profilePool) * len(structurePool) * len(lumberProfilePool) * len(priceUnitPool) * len(thicknessPool) * len(widthPool) * len(lengthPool) * len(heightPool) * len(widthDPool) * len(lengthDPool)
+	maxPossible := 1
+	if len(woodTypePool) > 0 { maxPossible *= len(woodTypePool) }
+	if len(edgePool) > 0 { maxPossible *= len(edgePool) }
+	if len(gradePool) > 0 { maxPossible *= len(gradePool) }
+	if len(moisturePool) > 0 { maxPossible *= len(moisturePool) }
+	if len(profilePool) > 0 { maxPossible *= len(profilePool) }
+	if len(structurePool) > 0 { maxPossible *= len(structurePool) }
+	if len(lumberProfilePool) > 0 { maxPossible *= len(lumberProfilePool) }
+	if priceUnitPool != "" { maxPossible *= 1 }
+	if len(thicknessPool) > 0 { maxPossible *= len(thicknessPool) }
+	if len(widthPool) > 0 { maxPossible *= len(widthPool) }
+	if len(lengthPool) > 0 { maxPossible *= len(lengthPool) }
+	if len(heightPool) > 0 { maxPossible *= len(heightPool) }
+	if len(widthDPool) > 0 { maxPossible *= len(widthDPool) }
+	if len(lengthDPool) > 0 { maxPossible *= len(lengthDPool) }
 	if lumberTypePool != "" {
 		maxPossible = maxPossible * 1
 	}
