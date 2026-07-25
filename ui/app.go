@@ -192,6 +192,17 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 		safeName = strings.ReplaceAll(safeName, ch, "_")
 	}
 	tmpPath := filepath.Join(os.TempDir(), "upload_"+safeName)
+
+	app.mu.Lock()
+	old := app.uploadPath
+	app.uploadPath = tmpPath
+	app.sheetNameMap = make(map[string]string)
+	app.mu.Unlock()
+
+	if old != "" && old != tmpPath {
+		_ = os.Remove(old)
+	}
+
 	out, err := os.Create(tmpPath)
 	if err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания временного файла: "+err.Error())
@@ -207,14 +218,6 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if closeErr := out.Close(); closeErr != nil {
 		fmt.Printf("Ошибка закрытия временного файла: %v\n", closeErr)
 	}
-
-	app.mu.Lock()
-	if old := app.uploadPath; old != "" {
-		_ = os.Remove(old)
-	}
-	app.uploadPath = tmpPath
-	app.sheetNameMap = make(map[string]string)
-	app.mu.Unlock()
 
 	f, err := storage.LoadTemplate(tmpPath)
 	if err != nil {
@@ -305,6 +308,19 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("[DEBUG] Final stats - Headers: %d, Data rows: %d\n", len(headers), len(data))
 
+	totalAds := 0
+	for _, s := range originalSheets {
+		allRows, _ := f.GetRows(s)
+		for _, r := range allRows {
+			for _, c := range r {
+				if strings.TrimSpace(c) != "" {
+					totalAds++
+					break
+				}
+			}
+		}
+	}
+
 	app.mu.Lock()
 	for i := range categorySheets {
 		app.sheetNameMap[categorySheets[i]] = originalSheets[i]
@@ -320,6 +336,7 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 		"total_rows":   totalRows,
 		"data_rows":    len(data),
 		"categories":   len(categorySheets),
+		"total_ads":    totalAds,
 	})
 
 	app.mu.Lock()

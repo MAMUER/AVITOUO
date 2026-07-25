@@ -3,6 +3,7 @@ let currentData = [];
 let currentHeaders = [];
 let currentSheets = [];
 let currentActiveSheet = '';
+let totalAds = 0;
 
 const debugLog = (message, isError = false) => {
     const logEl = document.getElementById('upload-debug');
@@ -51,13 +52,15 @@ const updateStats = () => {
     const totalEl = document.getElementById('stat-total');
     const adsEl = document.getElementById('stat-ads');
     const catsEl = document.getElementById('stat-categories');
-    if (!totalEl || !adsEl || !catsEl) return;
+    const sheetEl = document.getElementById('stat-sheet-name');
+    if (!totalEl || !adsEl || !catsEl || !sheetEl) return;
     const total = (currentData || []).length;
     const ads = (currentData || []).filter(r => r && r.some(v => v)).length;
     const cats = (currentSheets || []).length;
     totalEl.textContent = total;
-    adsEl.textContent = ads;
+    adsEl.textContent = totalAds ?? ads;
     catsEl.textContent = cats;
+    sheetEl.textContent = currentActiveSheet ? `Лист: ${currentActiveSheet}` : '';
 };
 
 const updateCharCount = () => {
@@ -219,6 +222,7 @@ const processUploadResponse = (data, file) => {
     currentActiveSheet = data.active_sheet || currentSheets[0] || '';
     currentData = data.rows || [];
     currentHeaders = data.headers || [];
+    totalAds = data.total_ads ?? currentData.length;
 
     debugLog(`Загружен файл: ${file.name}, строк: ${currentData.length}, листов: ${currentSheets.length}`);
 
@@ -306,7 +310,8 @@ const handleFolderSelect = (event) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    const folderName = files[0].name.split('/')[0];
+    const firstPath = files[0].name;
+    const folderName = firstPath.split('/')[0].split('\\')[0];
     document.getElementById('photo-folder').value = folderName;
     document.getElementById('selected-folder-name').textContent = `Выбрано: ${folderName} (${files.length} файлов)`;
 
