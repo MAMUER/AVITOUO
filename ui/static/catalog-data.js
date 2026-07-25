@@ -177,6 +177,7 @@ var AVITO_CATALOG = (function() {
       priceUnits: { lumberTypes: Object.keys(PRICE_UNITS_BY_LT), options: PRICE_UNIT_OPTIONS, byLumberType: PRICE_UNITS_BY_LT }
     },
     dimensions: DIMENSIONS,
+    dependent: DEPENDENT_DIMENSIONS,
     init: function() {
       setOptions(document.getElementById('wood-type'), AVITO_CATALOG.woods);
 

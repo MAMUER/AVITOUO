@@ -301,6 +301,9 @@ const generateAndExport = async () => {
     const collectChecked = (id) => {
         const container = document.getElementById(id);
         if (!container) return [];
+        if (container.tagName === 'SELECT' && container.multiple) {
+            return Array.from(container.selectedOptions).map(el => el.value);
+        }
         return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.value);
     };
 
