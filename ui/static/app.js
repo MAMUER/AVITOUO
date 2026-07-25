@@ -380,6 +380,7 @@ const generateAndExport = async () => {
     const moisture = document.getElementById('moisture')?.value || '';
     const profile = document.getElementById('profile')?.value || '';
     const structure = document.getElementById('structure')?.value || '';
+    const lumberProfile = document.getElementById('lumber-profile')?.value || '';
     const thickness = document.getElementById('thickness')?.value || '';
     const width = document.getElementById('width')?.value || '';
     const length = document.getElementById('length')?.value || '';
@@ -408,6 +409,7 @@ const generateAndExport = async () => {
                 moisture: moisture,
                 profile: profile,
                 structure: structure,
+                lumber_profile: lumberProfile,
                 thickness: thickness,
                 width: width,
                 length: length,

@@ -221,7 +221,7 @@ func CheckSizeLimit(photoCount int, estimatePhotoSize int64) error {
 }
 
 // SaveExcelWithNewRows добавляет новые строки в Excel файл и сохраняет
-func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx int, newTitles, newDescriptions, newImageNames []string, newContacts, newPhones, newAddresses, newCompanies, newEmails []string, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, gostColIdx int, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose []string, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs, newGOSTValues []string) error {
+func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx int, newTitles, newDescriptions, newImageNames []string, newContacts, newPhones, newAddresses, newCompanies, newEmails []string, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, gostColIdx int, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose []string, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newLumberProfiles, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs, newGOSTValues []string) error {
 	f, err := excelize.OpenFile(templatePath)
 	if err != nil {
 		return fmt.Errorf("ошибка открытия шаблона: %w", err)
@@ -390,6 +390,7 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 	moistureColIdx := -1
 	profileColIdx := -1
 	structureColIdx := -1
+	lumberProfileColIdx := -1
 	thicknessColIdx := -1
 	widthColIdx := -1
 	lengthColIdx := -1
@@ -419,6 +420,9 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		}
 		if structureColIdx < 0 {
 			structureColIdx = findColumnInFirstRow(firstRow, "структура")
+		}
+		if lumberProfileColIdx < 0 {
+			lumberProfileColIdx = findColumnInFirstRow(firstRow, "профиль")
 		}
 		if thicknessColIdx < 0 {
 			thicknessColIdx = findColumnInFirstRow(firstRow, "толщина пиломатериала", "толщина")
@@ -541,6 +545,9 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		}
 		if structureColIdx >= 0 && i < len(newStructures) {
 			writeCol(structureColIdx, newStructures[i])
+		}
+		if lumberProfileColIdx >= 0 && i < len(newLumberProfiles) {
+			writeCol(lumberProfileColIdx, newLumberProfiles[i])
 		}
 		if thicknessColIdx >= 0 && i < len(newThicknesses) {
 			writeCol(thicknessColIdx, newThicknesses[i])
