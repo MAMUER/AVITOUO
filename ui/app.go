@@ -432,6 +432,18 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		ProductType     string `json:"product_type"`
 		PriceUnit       string `json:"price_unit"`
 		Connect         string `json:"connect"`
+		WoodType        string `json:"wood_type"`
+		Edge            string `json:"edge"`
+		Grade           string `json:"grade"`
+		Moisture        string `json:"moisture"`
+		Profile         string `json:"profile"`
+		Structure       string `json:"structure"`
+		Thickness       string `json:"thickness"`
+		Width           string `json:"width"`
+		Length          string `json:"length"`
+		Height          string `json:"height"`
+		WidthD          string `json:"width_d"`
+		LengthD         string `json:"length_d"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
 		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
@@ -569,10 +581,14 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	subProductTypePart := ""
 	if strings.Contains(categoryPath, " - ") {
 		parts := strings.Split(categoryPath, " - ")
+		if len(parts) >= 2 {
+			categoryPart = strings.TrimSpace(parts[1])
+		}
 		if len(parts) >= 3 {
-			categoryPart = strings.TrimSpace(parts[0])
-			productTypePart = strings.TrimSpace(parts[len(parts)-2])
-			subProductTypePart = strings.TrimSpace(parts[len(parts)-1])
+			productTypePart = strings.TrimSpace(parts[2])
+		}
+		if len(parts) >= 4 {
+			subProductTypePart = strings.TrimSpace(parts[3])
 		}
 	} else if len(headersCopy) > 0 {
 		for _, h := range headersCopy {
@@ -585,6 +601,12 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	for i := range newCategories {
 		newCategories[i] = categoryPart
 	}
+	if categoryPart == "" && req.ProductType != "" {
+		for i := range newCategories {
+			newCategories[i] = req.ProductType
+		}
+	}
+
 	if req.ProductType != "" {
 		for i := range newProductTypes {
 			newProductTypes[i] = req.ProductType
@@ -600,6 +622,12 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	} else if settings.ProductType != "" {
 		for i := range newProductTypes {
 			newProductTypes[i] = settings.ProductType
+		}
+	}
+
+	if req.ProductType != "" {
+		for i := range newLumberTypes {
+			newLumberTypes[i] = req.ProductType
 		}
 	}
 	if subProductTypePart == "" && subProductTypeFirst != "" {
@@ -685,12 +713,10 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		newAdTypes[i] = settings.AdType
 	}
 	for i := range newConnects {
-		if req.Connect == "Нет" {
-			newConnects[i] = ""
-		} else if settings.Condition == "Новое" && newProductTypes[i] == "Доска" {
+		if req.Connect == "Да" && settings.Condition == "Новое" && newProductTypes[i] == "Доска" {
 			newConnects[i] = "Да"
 		} else {
-			newConnects[i] = ""
+			newConnects[i] = "Нет"
 		}
 	}
 	for i := range newProcessing {
@@ -707,27 +733,79 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	moistures := []string{"Сухая", "Естественная", "Камерная сушка"}
 	profiles := []string{"Да", "Нет"}
 	structures := []string{"Строганая", "Нет"}
-	thicknesses := []string{"20 мм", "30 мм", "40 мм", "50 мм"}
-	widths := []string{"100 мм", "150 мм", "200 мм"}
-	lengths := []string{"2 м", "3 м", "4 м", "6 м"}
-	heights := []string{"40 мм", "50 мм", "60 мм"}
-	widthDs := []string{"100 мм", "150 мм", "200 мм"}
-	lengthDs := []string{"2 м", "3 м", "4 м"}
-
-	for i := 0; i < settingsCount; i++ {
-		newLumberTypes[i] = lumberTypes[i%len(lumberTypes)]
-		newWoodTypes[i] = woodTypes[(i+1)%len(woodTypes)]
-		newEdges[i] = edges[(i+2)%len(edges)]
-		newGrades[i] = grades[(i+3)%len(grades)]
-		newMoistures[i] = moistures[(i+4)%len(moistures)]
-		newProfiles[i] = profiles[(i+5)%len(profiles)]
-		newStructures[i] = structures[(i+6)%len(structures)]
-		newThicknesses[i] = thicknesses[(i+7)%len(thicknesses)]
-		newWidths[i] = widths[(i+8)%len(widths)]
-		newLengths[i] = lengths[(i+9)%len(lengths)]
-		newHeights[i] = heights[(i+10)%len(heights)]
-		newWidthDs[i] = widthDs[(i+11)%len(widthDs)]
-		newLengthDs[i] = lengthDs[(i+12)%len(lengthDs)]
+ 	thicknesses := []string{"20 мм", "30 мм", "40 мм", "50 мм"}
+ 	widths := []string{"100 мм", "150 мм", "200 мм"}
+ 	lengths := []string{"2 м", "3 м", "4 м", "6 м"}
+ 	heights := []string{"40 мм", "50 мм", "60 мм"}
+ 	widthDs := []string{"100 мм", "150 мм", "200 мм"}
+ 	lengthDs := []string{"2 м", "3 м", "4 м"}
+ 
+ 	for i := 0; i < settingsCount; i++ {
+ 		if req.ProductType != "" {
+ 			newLumberTypes[i] = req.ProductType
+ 		} else {
+ 			newLumberTypes[i] = lumberTypes[i%len(lumberTypes)]
+ 		}
+ 		if req.WoodType != "" {
+ 			newWoodTypes[i] = req.WoodType
+ 		} else {
+ 			newWoodTypes[i] = woodTypes[(i+1)%len(woodTypes)]
+ 		}
+ 		if req.Edge != "" {
+ 			newEdges[i] = req.Edge
+ 		} else {
+ 			newEdges[i] = edges[(i+2)%len(edges)]
+ 		}
+ 		if req.Grade != "" {
+ 			newGrades[i] = req.Grade
+ 		} else {
+ 			newGrades[i] = grades[(i+3)%len(grades)]
+ 		}
+ 		if req.Moisture != "" {
+ 			newMoistures[i] = req.Moisture
+ 		} else {
+ 			newMoistures[i] = moistures[(i+4)%len(moistures)]
+ 		}
+ 		if req.Profile != "" {
+ 			newProfiles[i] = req.Profile
+ 		} else {
+ 			newProfiles[i] = profiles[(i+5)%len(profiles)]
+ 		}
+		if req.Structure != "" {
+			newStructures[i] = req.Structure
+		} else {
+			newStructures[i] = structures[(i+6)%len(structures)]
+		}
+		if req.Thickness != "" {
+			newThicknesses[i] = req.Thickness
+		} else {
+			newThicknesses[i] = thicknesses[(i+7)%len(thicknesses)]
+		}
+		if req.Width != "" {
+			newWidths[i] = req.Width
+		} else {
+			newWidths[i] = widths[(i+8)%len(widths)]
+		}
+		if req.Length != "" {
+			newLengths[i] = req.Length
+		} else {
+			newLengths[i] = lengths[(i+9)%len(lengths)]
+		}
+		if req.Height != "" {
+			newHeights[i] = req.Height
+		} else {
+			newHeights[i] = heights[(i+10)%len(heights)]
+		}
+		if req.WidthD != "" {
+			newWidthDs[i] = req.WidthD
+		} else {
+			newWidthDs[i] = widthDs[(i+11)%len(widthDs)]
+		}
+		if req.LengthD != "" {
+			newLengthDs[i] = req.LengthD
+		} else {
+			newLengthDs[i] = lengthDs[(i+12)%len(lengthDs)]
+		}
 	}
 
 	if len(settings.Contacts) > 0 {

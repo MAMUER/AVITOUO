@@ -22,7 +22,7 @@ func NewTextGenerator() *TextGenerator {
 	}
 }
 
-// GenerateUniqueTitle создаёт уникальное название на основе шаблона
+// GenerateUniqueTitle создаёт уникальное название на основе базового текста
 func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existingData [][]string, titleColIdx int) string {
 	baseTitle = strings.TrimSpace(baseTitle)
 	if baseTitle == "" {
@@ -32,41 +32,51 @@ func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existi
 	candidates := []string{
 		baseTitle,
 		baseTitle + " (фото, характеристики)",
-		baseTitle + " — доступен по предзаказу",
-		strings.ReplaceAll(baseTitle, "брус", "стройбрус") + " для строительства",
-		strings.ReplaceAll(baseTitle, "доска", "пиломатериал") + " сухая",
-		baseTitle + " от производителя",
+		strings.ToUpper(baseTitle),
 	}
 
-	if index < len(candidates) {
-		candidate := candidates[index]
-		if len(candidate) > 0 {
-			candidate = toUpperFirst(candidate)
+	for _, c := range candidates {
+		if c == "" {
+			continue
 		}
-		if !tg.used["title_"+candidate] {
-			tg.used["title_"+candidate] = true
-			return candidate
+		c = toUpperFirst(c)
+		if !tg.used["title_"+c] {
+			tg.used["title_"+c] = true
+			return c
 		}
 	}
 
-	for attempt := 0; attempt < 200; attempt++ {
-		words := strings.Fields(baseTitle)
-		if len(words) >= 2 && attempt < len(candidates) {
-			title := candidates[attempt%len(candidates)]
-			if len(title) > 0 {
-				title = toUpperFirst(title)
-			}
-			if !tg.used["title_"+title] {
-				tg.used["title_"+title] = true
-				return title
-			}
-		}
-		suffixes := []string{" premium", " elite", " extra", " plus", " pro", ""}
-		suffix := suffixes[attempt%len(suffixes)]
+	suffixes := []string{
+		" Склад в Мытищах",
+		" купить в Мытищах",
+		" Доставка по Москве",
+		" камерной сушки",
+		" сухой строганный",
+		" Сорт АВ",
+		" Сорт Экстра",
+		" Хвоя",
+		" Лиственница",
+		" для строительства",
+		" для отделки",
+		" Цена за м³",
+		" Цена за шт.",
+		" от производителя",
+		" Гарантия качества",
+		" Работаем по всей России",
+		" Бесплатная консультация",
+		" Собственное производство",
+		" Сорт Прима",
+		" ГОСТ",
+		" 3 м и 6 м",
+		" в наличии",
+		" под заказ",
+		" Торг уместен",
+	}
+
+	for attempt := 0; attempt < 500; attempt++ {
+		suffix := suffixes[tg.rnd.Intn(len(suffixes))]
 		title := baseTitle + suffix
-		if len(title) > 0 {
-			title = toUpperFirst(title)
-		}
+		title = toUpperFirst(title)
 		if !tg.used["title_"+title] {
 			tg.used["title_"+title] = true
 			return title
@@ -84,7 +94,7 @@ func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existi
 func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index int) string {
 	baseDescription = strings.TrimSpace(baseDescription)
 	if baseDescription == "" {
-		return "<p>Качественные материалы для строительства и отделки. Звоните для консультации.</p>"
+		baseDescription = "Качественный пиломатериал премиум-класса для строительства и отделки."
 	}
 
 	paragraphs := strings.Split(baseDescription, "\n")
@@ -95,72 +105,161 @@ func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index
 			cleanParagraphs = append(cleanParagraphs, p)
 		}
 	}
-
 	if len(cleanParagraphs) == 0 {
 		cleanParagraphs = []string{baseDescription}
 	}
 
-	variantSuffixes := []string{
-		" Только качественные материалы. Звоните!",
+	catalogIntros := []string{
+		"👉 Чтобы увидеть весь ассортимент, напишите в чат: «КАТАЛОГ»",
+		"✍️ Напишите «КАТАЛОГ» — вышлем полный прайс-лист в личные сообщения!",
+		"📋 Актуальный каталог по запросу. Пишите слово «КАТАЛОГ»!",
+		"📑 Чтобы получить полный каталог, напишите «КАТАЛОГ» в чат.",
+		"✉️ Присылайте запрос — вышлем полный прайс-лист с ценами на всю продукцию.",
+		"💬 Жмите «КАТАЛОГ» — вышлем актуальные остатки и цены прямо сейчас!",
+		"📩 Запросите «КАТАЛОГ» — отправим актуальный прайс в личные сообщения.",
+	}
+
+	productLeads := []string{
+		"🔥 ",
+		"🌲 ",
+		"💎 ",
+		"⭐ ",
+		"🏆 ",
+	}
+
+	descriptionLeads := []string{
+		"Высококачественный пиломатериал для строительства и отделки. Камерная сушка и чистовая строжка гарантируют точную геометрию и долговечность.",
+		"Идеальное решение для строительных и отделочных работ. Стабильная геометрия, точные размеры и устойчивость к влаге.",
+		"Премиальный пиломатериал для надёжных конструкций. Обработка на современном оборудовании, контроль влажности 8–12%.",
+		"Готовый материал к монтажу и покраске. Гладкая поверхность, ровные кромки, точный размер по всем сторонам.",
+		"Проверенное качество для частного и коммерческого строительства. Выдерживает нагрузку, не коробится со временем.",
+	}
+
+	suffixPool := []string{
+		" Только натуральные материалы. звоните!",
 		" Гарантия качества. Доставка по Москве и МО.",
 		" Работаем с физ. и юр. лицами. НДС.",
-		" От производителя. Свое производство.",
+		" От производителя. Собственное производство.",
 		" Бесплатная консультация. Работаем без выходных.",
+		" Прямые поставки без посредников. Отгружаем сегодня.",
+		" Сертифицированный материал. Соответствует ГОСТ.",
+		" Фото по запросу. Скидки за объём.",
+		" Бесплатный расчёт под ваш проект. Уточняйте актуальные цены.",
 	}
 
-	uniqueHints := []string{
-		" Индивидуальный подход к каждому клиенту.",
-		" Профессиональная консультация бесплатно.",
-		" Надежный поставщик с 2010 года.",
-		" Работаем по всей России.",
-		" Собственный автопарк для доставки.",
+	ctaPool := []string{
+		"📞 Звоните или пишите в чат! Бесплатно проконсультируем, рассчитаем объём и подберём материал под вашу задачу.",
+		"📞 ЗВОНИТЕ ИЛИ ПИШИТЕ ПРЯМО СЕЙЧАС! Отправим актуальные фото/видео, рассчитаем стоимость, забронируем объём.",
+		"📞 Пишите или звоните! Рассчитаем объём, подберём материал под проект, забронируем нужную партию.",
+		"📞 Звоните! Бесплатно рассчитаем объём, подберём оптимальный вариант, оформим доставку.",
 	}
 
-	var result strings.Builder
-	for i, p := range cleanParagraphs {
-		if i == 1 && index < len(variantSuffixes) {
-			p += variantSuffixes[index]
-		}
-		if strings.Contains(p, "–") || strings.Contains(p, "- ") || strings.Contains(p, ":") {
-			parts := strings.Split(p, ":")
-			if len(parts) > 1 {
-				result.WriteString("<p><strong>")
-				result.WriteString(parts[0])
-				result.WriteString("</strong>:")
-				for j := 1; j < len(parts); j++ {
-					result.WriteString(parts[j])
-					if j < len(parts)-1 {
-						result.WriteString(":")
-					}
-				}
-				result.WriteString("</p>\n")
-				continue
-			}
-		}
-		if strings.HasPrefix(p, "–") || strings.HasPrefix(p, "- ") {
-			result.WriteString("<p><strong>")
-			result.WriteString(strings.TrimPrefix(strings.TrimPrefix(p, "–"), "- "))
-			result.WriteString("</strong></p>\n")
-			continue
-		}
+	var buildDesc func() string
+	buildDesc = func() string {
+		r := tg.rnd
+		var result strings.Builder
+
 		result.WriteString("<p>")
-		result.WriteString(p)
-		if len(cleanParagraphs) == 1 && index < len(uniqueHints) {
-			result.WriteString(uniqueHints[index])
+		result.WriteString(catalogIntros[r.Intn(len(catalogIntros))])
+		result.WriteString("</p>\n")
+
+		para := cleanParagraphs[r.Intn(len(cleanParagraphs))]
+		result.WriteString("<p>")
+		result.WriteString(productLeads[r.Intn(len(productLeads))])
+		result.WriteString("<strong>")
+		result.WriteString(para)
+		result.WriteString("</strong>")
+		if r.Intn(2) == 0 {
+			result.WriteString(" — ")
+			result.WriteString(descriptionLeads[r.Intn(len(descriptionLeads))])
 		}
 		result.WriteString("</p>\n")
+
+		if r.Intn(2) == 0 {
+			result.WriteString("<p><strong>✅ ПОЧЕМУ ЭТО ЛУЧШИЙ ВЫБОР:</strong></p>\n")
+			benefits := []string{
+				"✨ Стабильная геометрия — точные размеры по всем сторонам, готов к монтажу.",
+				"✨ Камерная сушка 8–12% — минимальная усадка, устойчивость к перепадам влажности.",
+				"✨ Чистовая строжка с 4-х сторон — гладкая поверхность, готова к покраске.",
+				"✨ Сорт АВ/Экстра — без выпадающих сучков, однородная текстура.",
+				"✨ Прямые поставки с производства — цены ниже рынка без посредников.",
+			}
+			for i := 0; i < 3; i++ {
+				result.WriteString("<p>")
+				result.WriteString(benefits[r.Intn(len(benefits))])
+				result.WriteString("</p>\n")
+			}
+		}
+
+		result.WriteString("<p><strong>✅ ХАРАКТЕРИСТИКИ:</strong></p>\n")
+		chars := []string{
+			"• Размер: по запросу в наличии (ширина × толщина × длина)",
+			"• Материал: хвоя (сосна/ель), лиственница — под запас",
+			"• Обработка: камерная сушка 8-12%, чистовая строжка с 4-х сторон",
+			"• Сорт: АВ, Экстра, Прима — без выпадающих сучков и черноты",
+			"• Поверхность: гладкая, ровная — готова к покраске и монтажу",
+		}
+		for _, c := range chars {
+			if r.Intn(4) != 0 {
+				result.WriteString("<p>")
+				result.WriteString(c)
+				result.WriteString("</p>\n")
+			}
+		}
+
+		result.WriteString("<p><strong>📍 Самовывоз в г. Мытищи (2 точки):</strong></p>\n")
+		result.WriteString("<p>1️⃣ Осташковское ш., 1Б, стр. 7, ангар №15 (под аркой «Стройдвор Яуза»)</p>\n")
+		result.WriteString("<p>2️⃣ Волковское ш., стр. 21А</p>\n")
+		result.WriteString("<p>🕒 Ежедневно 9:00–18:00 (без выходных)</p>\n")
+
+		deliveryOptions := []string{
+			"🚚 Доставка по Москве и МО. Отправка в регионы через ТК",
+			"🚛 Доставка по Москве и области. Регионы — транспортными компаниями",
+		}
+		result.WriteString("<p>")
+		result.WriteString(deliveryOptions[r.Intn(len(deliveryOptions))])
+		result.WriteString("</p>\n")
+
+		paymentOptions := []string{
+			"💳 Оплата: наличные, карта, перевод, QR, безнал с НДС / без НДС",
+			"💳 Принимаем: наличные, банковская карта, перевод, безналичный расчёт (с НДС/без НДС)",
+		}
+		result.WriteString("<p>")
+		result.WriteString(paymentOptions[r.Intn(len(paymentOptions))])
+		result.WriteString("</p>\n")
+
+		if r.Intn(2) == 0 {
+			result.WriteString("<p>")
+			result.WriteString(suffixPool[r.Intn(len(suffixPool))])
+			result.WriteString("</p>\n")
+		}
+
+		result.WriteString("<p>")
+		result.WriteString(ctaPool[r.Intn(len(ctaPool))])
+		result.WriteString("</p>\n")
+
+		result.WriteString("<p>🔹 Добавьте объявление в избранное — всегда в курсе свежих поступлений и спецпредложений!</p>\n")
+
+		return strings.TrimSpace(result.String())
 	}
 
-	desc := strings.TrimSpace(result.String())
-	if len(desc) > 7500 {
-		desc = desc[:7497] + "..."
+	for attempt := 0; attempt < 100; attempt++ {
+		desc := buildDesc()
+		key := "desc_" + desc
+		if !tg.used[key] {
+			tg.used[key] = true
+			return desc
+		}
 	}
 
+	desc := buildDesc()
+	if desc != "" && !tg.used["desc_"+desc] {
+		tg.used["desc_"+desc] = true
+	}
 	return desc
 }
 
 // GenerateVariations генерирует N уникальных вариаций из шаблона
-// Поддерживаемые конструкции: {вариант1|вариант2|вариант3}
 func (tg *TextGenerator) GenerateVariations(template string, count int) ([]string, error) {
 	if strings.TrimSpace(template) == "" {
 		return nil, fmt.Errorf("шаблон пустой")
@@ -269,6 +368,7 @@ func calculateCombinations(groups []optionGroup) int {
 	return total
 }
 
+// ResolvePriceUnit возвращает единицу измерения для типа товара
 func ResolvePriceUnit(productType, defaultUnit string, index int) string {
 	pt := strings.ToLower(strings.TrimSpace(productType))
 	switch pt {
