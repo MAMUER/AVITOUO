@@ -18,10 +18,9 @@ const debugLog = (message, isError = false) => {
 
 const updateConnectAvailability = () => {
     const condition = document.getElementById('condition')?.value || '';
-    const productType = document.getElementById('product-type-settings')?.value || '';
     const connectSelect = document.getElementById('connect');
     if (!connectSelect) return;
-    const shouldEnable = condition === 'Новое' && productType === 'Доска';
+    const shouldEnable = condition === 'Новое';
     connectSelect.disabled = !shouldEnable;
     if (!shouldEnable) {
         connectSelect.value = 'Нет';
@@ -31,12 +30,8 @@ const updateConnectAvailability = () => {
 document.addEventListener('DOMContentLoaded', () => {
     updateConnectAvailability();
     const conditionEl = document.getElementById('condition');
-    const productTypeEl = document.getElementById('product-type-settings');
     if (conditionEl) {
         conditionEl.addEventListener('change', updateConnectAvailability);
-    }
-    if (productTypeEl) {
-        productTypeEl.addEventListener('change', updateConnectAvailability);
     }
 });
 
@@ -99,72 +94,6 @@ const updateDescCount = () => {
     if (counter) counter.textContent = Math.max(0, 7500 - desc.length);
 };
 
-const priceUnitRules = {
-    "Брус": ["Штуку", "м³"],
-    "Брусок": ["Штуку", "м³"],
-    "Доска": ["Штуку", "м³"],
-    "Планкен": ["Штуку", "м²"],
-    "Вагонка": ["Штуку", "м²"],
-    "Дрова": ["Штуку", "м³"]
-};
-const priceUnitApplicable = new Set(["Брус", "Брусок", "Доска", "Планкен", "Вагонка", "Дрова"]);
-
-const setupPriceUnitDependency = () => {
-    const updateFor = (productTypeId, priceUnitId) => {
-        const productTypeSelect = document.getElementById(productTypeId);
-        const priceUnitSelect = document.getElementById(priceUnitId);
-        if (!productTypeSelect || !priceUnitSelect) return null;
-
-        const update = () => {
-            const type = productTypeSelect.value;
-            console.log('[price-unit] update', productTypeId, 'type=', type);
-            priceUnitSelect.innerHTML = '';
-            if (!type || !priceUnitApplicable.has(type)) {
-                priceUnitSelect.disabled = true;
-                priceUnitSelect.innerHTML = '<option value="">— Сначала выберите тип пиломатериала —</option>';
-                return;
-            }
-            priceUnitSelect.disabled = false;
-            const options = priceUnitRules[type] || priceUnitRules["__default__"];
-            console.log('[price-unit] options for', type, '=', options);
-            options.forEach(opt => {
-                const option = document.createElement('option');
-                option.value = opt;
-                option.textContent = opt;
-                priceUnitSelect.appendChild(option);
-            });
-        };
-
-        productTypeSelect.addEventListener('change', update);
-        update();
-        return update;
-    };
-
-    const updateSettingsPrice = updateFor('product-type-settings', 'price-unit-settings');
-    const updateGenPrice = updateFor('product-type', 'price-unit');
-
-    const sync = (sourceId) => {
-        const value = document.getElementById(sourceId)?.value;
-        if (!value) return;
-        if (sourceId === 'product-type') {
-            const target = document.getElementById('product-type-settings');
-            if (target && target.value !== value) {
-                target.value = value;
-                updateSettingsPrice?.();
-            }
-        } else if (sourceId === 'product-type-settings') {
-            const target = document.getElementById('product-type');
-            if (target && target.value !== value) {
-                target.value = value;
-                updateGenPrice?.();
-            }
-        }
-    };
-
-    document.getElementById('product-type')?.addEventListener('change', () => sync('product-type'));
-    document.getElementById('product-type-settings')?.addEventListener('change', () => sync('product-type-settings'));
-};
-
 const renderTable = () => {
     const thead = document.getElementById('table-header');
     const tbody = document.getElementById('table-body');
@@ -208,8 +137,6 @@ const loadSettings = async () => {
         if (data.ad_type) set('adType', data.ad_type);
         if (data.condition) set('condition', data.condition);
         if (data.availability) set('availability', data.availability);
-        if (data.product_type) set('product-type-settings', data.product_type);
-        if (data.price_unit) set('price-unit-settings', data.price_unit);
         if (data.connect) set('connect', data.connect);
     } catch (e) {
         debugLog('Не удалось загрузить настройки: ' + e.message, true);
@@ -227,14 +154,12 @@ const saveSettings = async () => {
         const adType = document.getElementById('adType').value;
         const condition = document.getElementById('condition').value;
         const availability = document.getElementById('availability').value;
-        const productType = document.getElementById('product-type-settings').value;
-        const priceUnit = document.getElementById('price-unit-settings').value;
         const connect = document.getElementById('connect').value;
 
         await api('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contacts, phones, addresses, companies, emails, disable_address_auto_fill: disableAddress, product_type: productType, ad_type: adType, condition, availability, price_unit: priceUnit, connect })
+            body: JSON.stringify({ contacts, phones, addresses, companies, emails, disable_address_auto_fill: disableAddress, ad_type: adType, condition, availability, connect })
         });
         showMessage('settings-msg', '<div class="success">✅ Настройки сохранены</div>');
     } catch (e) {
@@ -371,9 +296,6 @@ const generateAndExport = async () => {
     const baseDescription = document.getElementById('base-description').value;
     const photoFolder = document.getElementById('photo-folder').value;
     const variantCount = parseInt(document.getElementById('variant-count').value) || 10;
-    const productType = document.getElementById('product-type')?.value || document.getElementById('product-type-settings')?.value || '';
-    const priceUnit = document.getElementById('price-unit')?.value || document.getElementById('price-unit-settings')?.value || '';
-    const connect = document.getElementById('connect')?.value || '';
 
     const collectChecked = (id) => {
         const container = document.getElementById(id);
@@ -396,6 +318,8 @@ const generateAndExport = async () => {
     const widthDs = collectChecked('width-d');
     const lengthDs = collectChecked('length-d');
 
+    const connect = document.getElementById('connect')?.value || '';
+
     const msgEl = document.getElementById('generation-msg');
     msgEl.innerHTML = '<div class="success">⏳ Генерация... Пожалуйста, подождите</div>';
 
@@ -408,8 +332,6 @@ const generateAndExport = async () => {
                 base_description: baseDescription,
                 photo_folder: photoFolder,
                 variant_count: variantCount,
-                product_type: productType,
-                price_unit: priceUnit,
                 connect: connect,
                 lumber_types: lumberTypes,
                 wood_types: woodTypes,
@@ -482,7 +404,6 @@ const init = async () => {
     document.getElementById('base-description')?.addEventListener('input', updateDescCount);
     updateCharCount();
     updateDescCount();
-    setupPriceUnitDependency();
 };
 
 init();
