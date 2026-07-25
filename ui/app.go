@@ -432,7 +432,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		ProductType     string   `json:"product_type"`
 		PriceUnit       string   `json:"price_unit"`
 		Connect         string   `json:"connect"`
-		LumberTypes     []string `json:"lumber_types"`
+		LumberType      string   `json:"lumber_type"`
 		WoodTypes       []string `json:"wood_types"`
 		Edges           []string `json:"edges"`
 		Grades          []string `json:"grades"`
@@ -440,6 +440,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		Profiles        []string `json:"profiles"`
 		Structures      []string `json:"structures"`
 		LumberProfiles  []string `json:"lumber_profiles"`
+		PriceUnits      []string `json:"price_units"`
 		Thicknesses     []string `json:"thicknesses"`
 		Widths          []string `json:"widths"`
 		Lengths         []string `json:"lengths"`
@@ -666,67 +667,18 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	for i := range newContactMethods {
 		newContactMethods[i] = contactDefault
 	}
-	for i := range newPriceUnits {
-		if req.PriceUnit != "" {
-			newPriceUnits[i] = req.PriceUnit
-		} else {
-			pt := strings.ToLower(strings.TrimSpace(newProductTypes[i]))
-			if pt == "" {
-				pt = strings.ToLower(strings.TrimSpace(settings.ProductType))
-			}
-			switch pt {
-			case "брусок", "брус", "дрова":
-				units := []string{"Штуку", "м³"}
-				newPriceUnits[i] = units[i%len(units)]
-			case "доска":
-				units := []string{"Штуку", "м³"}
-				newPriceUnits[i] = units[i%len(units)]
-			case "планкен", "вагонка":
-				units := []string{"Штуку", "м²"}
-				newPriceUnits[i] = units[i%len(units)]
-			case "биг-бэг":
-				units := []string{"Биг-бэг", "м³"}
-				newPriceUnits[i] = units[i%len(units)]
-			case "мешок":
-				newPriceUnits[i] = "Мешок"
-			case "россыпью":
-				newPriceUnits[i] = "м³"
-			default:
-				units := []string{"Штуку", "Биг-бэг", "Мешок", "м²", "м³"}
-				newPriceUnits[i] = units[i%len(units)]
-			}
-		}
-	}
-	for i := range newConditions {
-		newConditions[i] = settings.Condition
-	}
-	for i := range newAvailabilities {
-		newAvailabilities[i] = settings.Availability
-	}
-	for i := range newAdTypes {
-		newAdTypes[i] = settings.AdType
-	}
-	for i := range newConnects {
-		if req.Connect == "Да" && settings.Condition == "Новое" && newProductTypes[i] == "Доска" {
-			newConnects[i] = "Да"
-		} else {
-			newConnects[i] = "Нет"
-		}
-	}
-	for i := range newProcessing {
-		newProcessing[i] = "Строгание | Шлифование | Камерная сушка"
-	}
-	for i := range newPurpose {
-		newPurpose[i] = "Баня | Дверь | Дом | Забор | Кровля | Лестница | Мебель | Окна | Опалубка | Поддоны | Пол | Полка | Потолок | Стена | Стропила | Терраса | Фасад"
-	}
 
-	lumberTypePool := req.LumberTypes
-	if len(lumberTypePool) == 0 {
+	lumberTypePool := req.LumberType
+	if lumberTypePool == "" {
 		if req.ProductType != "" {
-			lumberTypePool = []string{req.ProductType}
+			lumberTypePool = req.ProductType
 		} else {
-			lumberTypePool = []string{"Брус", "Вагонка", "Доска", "Планкен", "Брусок"}
+			lumberTypePool = "Брус"
 		}
+	}
+	priceUnitPool := req.PriceUnits
+	if len(priceUnitPool) == 0 {
+		priceUnitPool = []string{"Штуку", "м³", "м²"}
 	}
 	woodTypePool := req.WoodTypes
 	if len(woodTypePool) == 0 {
@@ -778,19 +730,49 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		lengthDPool = []string{"2 м", "3 м", "4 м"}
 	}
 
-	maxPossible := len(lumberTypePool) * len(woodTypePool) * len(edgePool) * len(gradePool) * len(moisturePool) * len(profilePool) * len(structurePool) * len(lumberProfilePool) * len(thicknessPool) * len(widthPool) * len(lengthPool) * len(heightPool) * len(widthDPool) * len(lengthDPool)
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for i := range newPriceUnits {
+		newPriceUnits[i] = core.PickRandom(rnd, priceUnitPool)
+	}
+	for i := range newConditions {
+		newConditions[i] = settings.Condition
+	}
+	for i := range newAvailabilities {
+		newAvailabilities[i] = settings.Availability
+	}
+	for i := range newAdTypes {
+		newAdTypes[i] = settings.AdType
+	}
+	for i := range newConnects {
+		if req.Connect == "Да" && settings.Condition == "Новое" && newProductTypes[i] == "Доска" {
+			newConnects[i] = "Да"
+		} else {
+			newConnects[i] = "Нет"
+		}
+	}
+	for i := range newProcessing {
+		newProcessing[i] = "Строгание | Шлифование | Камерная сушка"
+	}
+	for i := range newPurpose {
+		newPurpose[i] = "Баня | Дверь | Дом | Забор | Кровля | Лестница | Мебель | Окна | Опалубка | Поддоны | Пол | Полка | Потолок | Стена | Стропила | Терраса | Фасад"
+	}
+
+	maxPossible := len(woodTypePool) * len(edgePool) * len(gradePool) * len(moisturePool) * len(profilePool) * len(structurePool) * len(lumberProfilePool) * len(priceUnitPool) * len(thicknessPool) * len(widthPool) * len(lengthPool) * len(heightPool) * len(widthDPool) * len(lengthDPool)
+	if lumberTypePool != "" {
+		maxPossible = maxPossible * 1
+	}
 	if maxPossible > 0 && maxPossible < settingsCount {
 		app.jsonError(w, http.StatusBadRequest, fmt.Sprintf("Недостаточно уникальных комбинаций: возможно %d, запрошено %d. Увеличьте число выбранных вариантов.", maxPossible, settingsCount))
 		return
 	}
 
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	usedCombinations := make(map[string]bool)
 
 	for i := 0; i < settingsCount; i++ {
 		filled := false
 		for attempt := 0; attempt < 2000 && !filled; attempt++ {
-			lt := core.PickRandom(rnd, lumberTypePool)
+			lt := lumberTypePool
 			wood := core.PickRandom(rnd, woodTypePool)
 			edge := core.PickRandom(rnd, edgePool)
 			grade := core.PickRandom(rnd, gradePool)
@@ -850,7 +832,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 		if !filled {
-			newLumberTypes[i] = core.PickRandom(rnd, lumberTypePool)
+			newLumberTypes[i] = lumberTypePool
 			newWoodTypes[i] = core.PickRandom(rnd, woodTypePool)
 		}
 	}

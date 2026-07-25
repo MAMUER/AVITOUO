@@ -51,6 +51,16 @@ var AVITO_CATALOG = (function() {
   var STRUCTURE_LTS = ["Брус","Вагонка","Имитация бруса, рау-хаус","Брусок","Наличник","Нащельник","Плинтус","Раскладка","Рейка","Уголок"];
   var STRUCTURE_OPTIONS = ["Цельная","Клеёная"];
 
+  var PRICE_UNITS_BY_LT = {
+    "Брус": ["Штуку","м³"],
+    "Брусок": ["Штуку","м³"],
+    "Доска": ["Штуку","м³"],
+    "Планкен": ["Штуку","м²"],
+    "Вагонка": ["Штуку","м²"],
+    "Дрова": ["Штуку","м³"]
+  };
+  var PRICE_UNIT_OPTIONS = ["Штуку","м³","м²"];
+
   var DIMENSIONS = {
     thickness: ["20 мм","30 мм","40 мм","50 мм"],
     width: ["100 мм","150 мм","200 мм"],
@@ -114,7 +124,8 @@ var AVITO_CATALOG = (function() {
       grade: { lumberTypes: GRADE_LTS, woodTypes: GRADE_WOODS, options: GRADE_OPTIONS },
       moisture: { lumberTypes: MOISTURE_LTS, woodTypes: MOISTURE_WOODS, options: MOISTURE_OPTIONS },
       profile: { onlyLumberType: PROFILE_ONLY_LT, options: PROFILE_OPTIONS },
-      structure: { lumberTypes: STRUCTURE_LTS, options: STRUCTURE_OPTIONS }
+      structure: { lumberTypes: STRUCTURE_LTS, options: STRUCTURE_OPTIONS },
+      priceUnits: { lumberTypes: Object.keys(PRICE_UNITS_BY_LT), options: PRICE_UNIT_OPTIONS, byLumberType: PRICE_UNITS_BY_LT }
     },
     dimensions: DIMENSIONS,
     init: function() {

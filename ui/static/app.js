@@ -297,13 +297,13 @@ const generateAndExport = async () => {
     const photoFolder = document.getElementById('photo-folder').value;
     const variantCount = parseInt(document.getElementById('variant-count').value) || 10;
 
+    const lumberType = document.getElementById('lumber-types')?.value || '';
     const collectChecked = (id) => {
         const container = document.getElementById(id);
         if (!container) return [];
         return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.value);
     };
 
-    const lumberTypes = collectChecked('lumber-types');
     const woodTypes = collectChecked('wood-types');
     const edges = collectChecked('edges');
     const grades = collectChecked('grades');
@@ -311,6 +311,7 @@ const generateAndExport = async () => {
     const profiles = collectChecked('profiles');
     const structures = collectChecked('structures');
     const lumberProfiles = collectChecked('lumber-profiles');
+    const priceUnits = collectChecked('price-units');
     const thicknesses = collectChecked('thickness');
     const widths = collectChecked('width');
     const lengths = collectChecked('length');
@@ -333,7 +334,7 @@ const generateAndExport = async () => {
                 photo_folder: photoFolder,
                 variant_count: variantCount,
                 connect: connect,
-                lumber_types: lumberTypes,
+                lumber_type: lumberType,
                 wood_types: woodTypes,
                 edges: edges,
                 grades: grades,
@@ -341,6 +342,7 @@ const generateAndExport = async () => {
                 profiles: profiles,
                 structures: structures,
                 lumber_profiles: lumberProfiles,
+                price_units: priceUnits,
                 thicknesses: thicknesses,
                 widths: widths,
                 lengths: lengths,
