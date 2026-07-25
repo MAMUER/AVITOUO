@@ -182,121 +182,68 @@
             <div class="section">
                 <h3>Параметры генерации</h3>
                 <div class="form-group">
+                    <label>Тип пиломатериала:</label>
+                    <div class="checkbox-group" id="lumber-types" data-field="lumber_types" data-options-from-catalog="lumberTypes"></div>
+                    <div class="checkbox-field-hint">Выберите одно или несколько значений. Для каждого объявления будет случайным образом выбрано одно из них.</div>
+                </div>
+                <div class="form-group">
                     <label>Вид древесины:</label>
-                    <select id="wood-type">
-                        <option value="">— Не выбрано —</option>
-                        <option value="Сосна">Сосна</option>
-                        <option value="Липа">Липа</option>
-                        <option value="Дуб">Дуб</option>
-                        <option value="Ель">Ель</option>
-                        <option value="Кедр">Кедр</option>
-                    </select>
+                    <div class="checkbox-group" id="wood-types" data-field="wood_types" data-options-from-catalog="woods"></div>
+                    <div class="checkbox-field-hint" id="wood-types-hint"></div>
                 </div>
                 <div class="form-group">
                     <label>Кромка:</label>
-                    <select id="edge">
-                        <option value="">— Не выбрано —</option>
-                        <option value="Рейка">Рейка</option>
-                        <option value="Фаска">Фаска</option>
-                        <option value="Без кромки">Без кромки</option>
-                    </select>
+                    <div class="checkbox-group" id="edges" data-field="edges" data-options-from-catalog="edges"></div>
+                    <div class="checkbox-field-hint" id="edges-hint"></div>
                 </div>
                 <div class="form-group">
                     <label>Сорт древесины:</label>
-                    <select id="grade">
-                        <option value="">— Не выбрано —</option>
-                        <option value="1 (A)">1 (A)</option>
-                        <option value="2 (B)">2 (B)</option>
-                        <option value="3 (C)">3 (C)</option>
-                        <option value="Экстра">Экстра</option>
-                    </select>
+                    <div class="checkbox-group" id="grades" data-field="grades" data-options-from-catalog="grades"></div>
+                    <div class="checkbox-field-hint" id="grades-hint"></div>
                 </div>
                 <div class="form-group">
                     <label>Степень влажности:</label>
-                    <select id="moisture">
-                        <option value="">— Не выбрано —</option>
-                        <option value="Сухая">Сухая</option>
-                        <option value="Естественная">Естественная</option>
-                        <option value="Камерная сушка">Камерная сушка</option>
-                    </select>
+                    <div class="checkbox-group" id="moistures" data-field="moistures" data-options-from-catalog="moistures"></div>
+                    <div class="checkbox-field-hint" id="moistures-hint"></div>
                 </div>
                 <div class="form-group">
                     <label>Профилированный:</label>
-                    <select id="profile">
-                        <option value="">— Не выбрано —</option>
-                        <option value="Да">Да</option>
-                        <option value="Нет">Нет</option>
-                    </select>
+                    <div class="checkbox-group" id="profiles" data-field="profiles" data-options-from-catalog="profiles"></div>
+                    <div class="checkbox-field-hint" id="profiles-hint"></div>
                 </div>
                 <div class="form-group">
                     <label>Структура:</label>
-                    <select id="structure">
-                        <option value="">— Не выбрано —</option>
-                        <option value="Строганая">Строганая</option>
-                        <option value="Нет">Нет</option>
-                    </select>
+                    <div class="checkbox-group" id="structures" data-field="structures" data-options-from-catalog="structures"></div>
+                    <div class="checkbox-field-hint" id="structures-hint"></div>
                 </div>
                 <div class="form-group">
                     <label>Профиль:</label>
-                    <select id="lumber-profile">
-                        <option value="">— Не выбрано —</option>
-                    </select>
+                    <div class="checkbox-group" id="lumber-profiles" data-field="lumber_profiles" data-options-from-catalog="lumberProfiles"></div>
+                    <div class="checkbox-field-hint" id="lumber-profiles-hint"></div>
                 </div>
                 <div class="form-group">
                     <label>Толщина пиломатериала:</label>
-                    <select id="thickness">
-                        <option value="">— Не выбрано —</option>
-                        <option value="20 мм">20 мм</option>
-                        <option value="30 мм">30 мм</option>
-                        <option value="40 мм">40 мм</option>
-                        <option value="50 мм">50 мм</option>
-                    </select>
+                    <div class="checkbox-group" id="thickness" data-field="thicknesses" data-options='["20 мм","30 мм","40 мм","50 мм"]'></div>
                 </div>
                 <div class="form-group">
                     <label>Ширина пиломатериала:</label>
-                    <select id="width">
-                        <option value="">— Не выбрано —</option>
-                        <option value="100 мм">100 мм</option>
-                        <option value="150 мм">150 мм</option>
-                        <option value="200 мм">200 мм</option>
-                    </select>
+                    <div class="checkbox-group" id="width" data-field="widths" data-options='["100 мм","150 мм","200 мм"]'></div>
                 </div>
                 <div class="form-group">
                     <label>Длина пиломатериала:</label>
-                    <select id="length">
-                        <option value="">— Не выбрано —</option>
-                        <option value="2 м">2 м</option>
-                        <option value="3 м">3 м</option>
-                        <option value="4 м">4 м</option>
-                        <option value="6 м">6 м</option>
-                    </select>
+                    <div class="checkbox-group" id="length" data-field="lengths" data-options='["2 м","3 м","4 м","6 м"]'></div>
                 </div>
                 <div class="form-group">
                     <label>Высота:</label>
-                    <select id="height">
-                        <option value="">— Не выбрано —</option>
-                        <option value="40 мм">40 мм</option>
-                        <option value="50 мм">50 мм</option>
-                        <option value="60 мм">60 мм</option>
-                    </select>
+                    <div class="checkbox-group" id="height" data-field="heights" data-options='["40 мм","50 мм","60 мм"]'></div>
                 </div>
                 <div class="form-group">
                     <label>Ширина:</label>
-                    <select id="width-d">
-                        <option value="">— Не выбрано —</option>
-                        <option value="100 мм">100 мм</option>
-                        <option value="150 мм">150 мм</option>
-                        <option value="200 мм">200 мм</option>
-                    </select>
+                    <div class="checkbox-group" id="width-d" data-field="width_ds" data-options='["100 мм","150 мм","200 мм"]'></div>
                 </div>
                 <div class="form-group">
                     <label>Длина:</label>
-                    <select id="length-d">
-                        <option value="">— Не выбрано —</option>
-                        <option value="2 м">2 м</option>
-                        <option value="3 м">3 м</option>
-                        <option value="4 м">4 м</option>
-                    </select>
+                    <div class="checkbox-group" id="length-d" data-field="length_ds" data-options='["2 м","3 м","4 м"]'></div>
                 </div>
             </div>
 

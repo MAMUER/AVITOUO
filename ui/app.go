@@ -425,26 +425,27 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req struct {
-		BaseTitle       string `json:"base_title"`
-		BaseDescription string `json:"base_description"`
-		PhotoFolder     string `json:"photo_folder"`
-		VariantCount    int    `json:"variant_count"`
-		ProductType     string `json:"product_type"`
-		PriceUnit       string `json:"price_unit"`
-		Connect         string `json:"connect"`
-		WoodType        string `json:"wood_type"`
-		Edge            string `json:"edge"`
-		Grade           string `json:"grade"`
-		Moisture        string `json:"moisture"`
-		Profile         string `json:"profile"`
-		Structure       string `json:"structure"`
-		LumberProfile   string `json:"lumber_profile"`
-		Thickness       string `json:"thickness"`
-		Width           string `json:"width"`
-		Length          string `json:"length"`
-		Height          string `json:"height"`
-		WidthD          string `json:"width_d"`
-		LengthD         string `json:"length_d"`
+		BaseTitle       string   `json:"base_title"`
+		BaseDescription string   `json:"base_description"`
+		PhotoFolder     string   `json:"photo_folder"`
+		VariantCount    int      `json:"variant_count"`
+		ProductType     string   `json:"product_type"`
+		PriceUnit       string   `json:"price_unit"`
+		Connect         string   `json:"connect"`
+		LumberTypes     []string `json:"lumber_types"`
+		WoodTypes       []string `json:"wood_types"`
+		Edges           []string `json:"edges"`
+		Grades          []string `json:"grades"`
+		Moistures       []string `json:"moistures"`
+		Profiles        []string `json:"profiles"`
+		Structures      []string `json:"structures"`
+		LumberProfiles  []string `json:"lumber_profiles"`
+		Thicknesses     []string `json:"thicknesses"`
+		Widths          []string `json:"widths"`
+		Lengths         []string `json:"lengths"`
+		Heights         []string `json:"heights"`
+		WidthDs         []string `json:"width_ds"`
+		LengthDs        []string `json:"length_ds"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
 		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
@@ -719,88 +720,138 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		newPurpose[i] = "Баня | Дверь | Дом | Забор | Кровля | Лестница | Мебель | Окна | Опалубка | Поддоны | Пол | Полка | Потолок | Стена | Стропила | Терраса | Фасад"
 	}
 
-	lumberTypes := []string{"Брус", "Вагонка", "Доска", "Планкен", "Брусок"}
-	woodTypes := []string{"Сосна", "Липа", "Дуб", "Ель", "Кедр"}
-	edges := []string{"Рейка", "Фаска", "Без кромки"}
-	grades := []string{"1 (A)", "2 (B)", "3 (C)", "Экстра"}
-	moistures := []string{"Сухая", "Естественная", "Камерная сушка"}
-	profiles := []string{"Да", "Нет"}
-	structures := []string{"Строганая", "Нет"}
- 	thicknesses := []string{"20 мм", "30 мм", "40 мм", "50 мм"}
- 	widths := []string{"100 мм", "150 мм", "200 мм"}
- 	lengths := []string{"2 м", "3 м", "4 м", "6 м"}
- 	heights := []string{"40 мм", "50 мм", "60 мм"}
- 	widthDs := []string{"100 мм", "150 мм", "200 мм"}
- 	lengthDs := []string{"2 м", "3 м", "4 м"}
- 
- 	for i := 0; i < settingsCount; i++ {
- 		if req.ProductType != "" {
- 			newLumberTypes[i] = req.ProductType
- 		} else {
- 			newLumberTypes[i] = lumberTypes[i%len(lumberTypes)]
- 		}
- 		if req.WoodType != "" {
- 			newWoodTypes[i] = req.WoodType
- 		} else {
- 			newWoodTypes[i] = woodTypes[(i+1)%len(woodTypes)]
- 		}
- 		if req.Edge != "" {
- 			newEdges[i] = req.Edge
- 		} else {
- 			newEdges[i] = edges[(i+2)%len(edges)]
- 		}
- 		if req.Grade != "" {
- 			newGrades[i] = req.Grade
- 		} else {
- 			newGrades[i] = grades[(i+3)%len(grades)]
- 		}
- 		if req.Moisture != "" {
- 			newMoistures[i] = req.Moisture
- 		} else {
- 			newMoistures[i] = moistures[(i+4)%len(moistures)]
- 		}
- 		if req.Profile != "" {
- 			newProfiles[i] = req.Profile
- 		} else {
- 			newProfiles[i] = profiles[(i+5)%len(profiles)]
- 		}
-		if req.Structure != "" {
-			newStructures[i] = req.Structure
+	lumberTypePool := req.LumberTypes
+	if len(lumberTypePool) == 0 {
+		if req.ProductType != "" {
+			lumberTypePool = []string{req.ProductType}
 		} else {
-			newStructures[i] = structures[(i+6)%len(structures)]
+			lumberTypePool = []string{"Брус", "Вагонка", "Доска", "Планкен", "Брусок"}
 		}
-		if req.LumberProfile != "" {
-			newLumberProfiles[i] = req.LumberProfile
+	}
+	woodTypePool := req.WoodTypes
+	if len(woodTypePool) == 0 {
+		woodTypePool = []string{"Сосна", "Липа", "Дуб", "Ель", "Кедр"}
+	}
+	edgePool := req.Edges
+	if len(edgePool) == 0 {
+		edgePool = []string{"Рейка", "Фаска", "Без кромки"}
+	}
+	gradePool := req.Grades
+	if len(gradePool) == 0 {
+		gradePool = []string{"1 (A)", "2 (B)", "3 (C)", "Экстра"}
+	}
+	moisturePool := req.Moistures
+	if len(moisturePool) == 0 {
+		moisturePool = []string{"Сухая", "Естественная", "Камерная сушка"}
+	}
+	profilePool := req.Profiles
+	if len(profilePool) == 0 {
+		profilePool = []string{"Да", "Нет"}
+	}
+	structurePool := req.Structures
+	if len(structurePool) == 0 {
+		structurePool = []string{"Строганая", "Нет"}
+	}
+	lumberProfilePool := req.LumberProfiles
+	thicknessPool := req.Thicknesses
+	if len(thicknessPool) == 0 {
+		thicknessPool = []string{"20 мм", "30 мм", "40 мм", "50 мм"}
+	}
+	widthPool := req.Widths
+	if len(widthPool) == 0 {
+		widthPool = []string{"100 мм", "150 мм", "200 мм"}
+	}
+	lengthPool := req.Lengths
+	if len(lengthPool) == 0 {
+		lengthPool = []string{"2 м", "3 м", "4 м", "6 м"}
+	}
+	heightPool := req.Heights
+	if len(heightPool) == 0 {
+		heightPool = []string{"40 мм", "50 мм", "60 мм"}
+	}
+	widthDPool := req.WidthDs
+	if len(widthDPool) == 0 {
+		widthDPool = []string{"100 мм", "150 мм", "200 мм"}
+	}
+	lengthDPool := req.LengthDs
+	if len(lengthDPool) == 0 {
+		lengthDPool = []string{"2 м", "3 м", "4 м"}
+	}
+
+	maxPossible := len(lumberTypePool) * len(woodTypePool) * len(edgePool) * len(gradePool) * len(moisturePool) * len(profilePool) * len(structurePool) * len(lumberProfilePool) * len(thicknessPool) * len(widthPool) * len(lengthPool) * len(heightPool) * len(widthDPool) * len(lengthDPool)
+	if maxPossible > 0 && maxPossible < settingsCount {
+		app.jsonError(w, http.StatusBadRequest, fmt.Sprintf("Недостаточно уникальных комбинаций: возможно %d, запрошено %d. Увеличьте число выбранных вариантов.", maxPossible, settingsCount))
+		return
+	}
+
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	usedCombinations := make(map[string]bool)
+
+	for i := 0; i < settingsCount; i++ {
+		filled := false
+		for attempt := 0; attempt < 2000 && !filled; attempt++ {
+			lt := core.PickRandom(rnd, lumberTypePool)
+			wood := core.PickRandom(rnd, woodTypePool)
+			edge := core.PickRandom(rnd, edgePool)
+			grade := core.PickRandom(rnd, gradePool)
+			moisture := core.PickRandom(rnd, moisturePool)
+			profile := core.PickRandom(rnd, profilePool)
+			structure := core.PickRandom(rnd, structurePool)
+			lumberProfile := core.PickRandom(rnd, lumberProfilePool)
+			thickness := core.PickRandom(rnd, thicknessPool)
+			width := core.PickRandom(rnd, widthPool)
+			length := core.PickRandom(rnd, lengthPool)
+			height := core.PickRandom(rnd, heightPool)
+			widthD := core.PickRandom(rnd, widthDPool)
+			lengthD := core.PickRandom(rnd, lengthDPool)
+
+			if !core.IsValidEdge(lt) && edge != "" {
+				edge = ""
+			}
+			if !core.IsValidGrade(lt, wood) && grade != "" {
+				grade = ""
+			}
+			if !core.IsValidMoisture(lt, wood) && moisture != "" {
+				moisture = ""
+			}
+			if !core.IsValidProfile(lt) && profile != "" {
+				profile = ""
+			}
+			if !core.IsValidStructure(lt) && structure != "" {
+				structure = ""
+			}
+			validLPs := core.GetValidLumberProfiles(lt)
+			if len(validLPs) == 0 {
+				lumberProfile = ""
+			} else if lumberProfile != "" && !core.InArray(lumberProfile, validLPs) {
+				lumberProfile = ""
+			}
+
+		sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
+			lt, wood, edge, grade, moisture, profile, structure, lumberProfile,
+			thickness, width, length, height, widthD, lengthD)
+			if !usedCombinations[sig] {
+				usedCombinations[sig] = true
+				newLumberTypes[i] = lt
+				newWoodTypes[i] = wood
+				newEdges[i] = edge
+				newGrades[i] = grade
+				newMoistures[i] = moisture
+				newProfiles[i] = profile
+				newStructures[i] = structure
+				newLumberProfiles[i] = lumberProfile
+				newThicknesses[i] = thickness
+				newWidths[i] = width
+				newLengths[i] = length
+				newHeights[i] = height
+				newWidthDs[i] = widthD
+				newLengthDs[i] = lengthD
+				filled = true
+			}
 		}
-		if req.Thickness != "" {
-			newThicknesses[i] = req.Thickness
-		} else {
-			newThicknesses[i] = thicknesses[(i+7)%len(thicknesses)]
-		}
-		if req.Width != "" {
-			newWidths[i] = req.Width
-		} else {
-			newWidths[i] = widths[(i+8)%len(widths)]
-		}
-		if req.Length != "" {
-			newLengths[i] = req.Length
-		} else {
-			newLengths[i] = lengths[(i+9)%len(lengths)]
-		}
-		if req.Height != "" {
-			newHeights[i] = req.Height
-		} else {
-			newHeights[i] = heights[(i+10)%len(heights)]
-		}
-		if req.WidthD != "" {
-			newWidthDs[i] = req.WidthD
-		} else {
-			newWidthDs[i] = widthDs[(i+11)%len(widthDs)]
-		}
-		if req.LengthD != "" {
-			newLengthDs[i] = req.LengthD
-		} else {
-			newLengthDs[i] = lengthDs[(i+12)%len(lengthDs)]
+		if !filled {
+			newLumberTypes[i] = core.PickRandom(rnd, lumberTypePool)
+			newWoodTypes[i] = core.PickRandom(rnd, woodTypePool)
 		}
 	}
 

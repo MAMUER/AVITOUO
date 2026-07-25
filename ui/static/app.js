@@ -374,19 +374,27 @@ const generateAndExport = async () => {
     const productType = document.getElementById('product-type')?.value || document.getElementById('product-type-settings')?.value || '';
     const priceUnit = document.getElementById('price-unit')?.value || document.getElementById('price-unit-settings')?.value || '';
     const connect = document.getElementById('connect')?.value || '';
-    const woodType = document.getElementById('wood-type')?.value || '';
-    const edge = document.getElementById('edge')?.value || '';
-    const grade = document.getElementById('grade')?.value || '';
-    const moisture = document.getElementById('moisture')?.value || '';
-    const profile = document.getElementById('profile')?.value || '';
-    const structure = document.getElementById('structure')?.value || '';
-    const lumberProfile = document.getElementById('lumber-profile')?.value || '';
-    const thickness = document.getElementById('thickness')?.value || '';
-    const width = document.getElementById('width')?.value || '';
-    const length = document.getElementById('length')?.value || '';
-    const height = document.getElementById('height')?.value || '';
-    const widthD = document.getElementById('width-d')?.value || '';
-    const lengthD = document.getElementById('length-d')?.value || '';
+
+    const collectChecked = (id) => {
+        const container = document.getElementById(id);
+        if (!container) return [];
+        return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.value);
+    };
+
+    const lumberTypes = collectChecked('lumber-types');
+    const woodTypes = collectChecked('wood-types');
+    const edges = collectChecked('edges');
+    const grades = collectChecked('grades');
+    const moistures = collectChecked('moistures');
+    const profiles = collectChecked('profiles');
+    const structures = collectChecked('structures');
+    const lumberProfiles = collectChecked('lumber-profiles');
+    const thicknesses = collectChecked('thickness');
+    const widths = collectChecked('width');
+    const lengths = collectChecked('length');
+    const heights = collectChecked('height');
+    const widthDs = collectChecked('width-d');
+    const lengthDs = collectChecked('length-d');
 
     const msgEl = document.getElementById('generation-msg');
     msgEl.innerHTML = '<div class="success">⏳ Генерация... Пожалуйста, подождите</div>';
@@ -403,19 +411,20 @@ const generateAndExport = async () => {
                 product_type: productType,
                 price_unit: priceUnit,
                 connect: connect,
-                wood_type: woodType,
-                edge: edge,
-                grade: grade,
-                moisture: moisture,
-                profile: profile,
-                structure: structure,
-                lumber_profile: lumberProfile,
-                thickness: thickness,
-                width: width,
-                length: length,
-                height: height,
-                width_d: widthD,
-                length_d: lengthD
+                lumber_types: lumberTypes,
+                wood_types: woodTypes,
+                edges: edges,
+                grades: grades,
+                moistures: moistures,
+                profiles: profiles,
+                structures: structures,
+                lumber_profiles: lumberProfiles,
+                thicknesses: thicknesses,
+                widths: widths,
+                lengths: lengths,
+                heights: heights,
+                width_ds: widthDs,
+                length_ds: lengthDs
             })
         });
 
