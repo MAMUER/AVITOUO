@@ -128,11 +128,32 @@ const loadSettings = async () => {
         const data = await api('/api/settings');
         const set = (id, value) => { const el = document.getElementById(id); if (el) el.value = value; };
         const check = (id, value) => { const el = document.getElementById(id); if (el) el.checked = value; };
-        set('contacts', (data.contacts || []).join('\n'));
-        set('phones', (data.phones || []).join('\n'));
-        set('addresses', (data.addresses || []).join('\n'));
-        set('companies', data.companies || '');
-        set('emails', data.emails || '');
+    set('contacts', (data.contacts || []).join('\n'));
+    set('phones', (data.phones || []).join('\n'));
+    set('addresses', (data.addresses || []).join('\n'));
+    set('companies', data.companies || '');
+    set('emails', data.emails || '');
+
+    const contactSelect = document.getElementById('generation-contact');
+    const phoneSelect = document.getElementById('generation-phone');
+    if (contactSelect) {
+      contactSelect.innerHTML = '<option value="">— Автоиз настроек —</option>';
+      (data.contacts || []).forEach(function(c) {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        contactSelect.appendChild(opt);
+      });
+    }
+    if (phoneSelect) {
+      phoneSelect.innerHTML = '<option value="">— Автоиз настроек —</option>';
+      (data.phones || []).forEach(function(p) {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p;
+        phoneSelect.appendChild(opt);
+      });
+    }
         check('disableAddress', data.disable_address_auto_fill || false);
         if (data.ad_type) set('adType', data.ad_type);
         if (data.condition) set('condition', data.condition);
@@ -325,6 +346,8 @@ const generateAndExport = async () => {
     const lengthDs = (document.getElementById('length-d').value || '').toString();
 
     const connect = document.getElementById('connect')?.value || '';
+    const generationContact = document.getElementById('generation-contact')?.value || '';
+    const generationPhone = document.getElementById('generation-phone')?.value || '';
 
     const msgEl = document.getElementById('generation-msg');
     msgEl.innerHTML = '<div class="success">⏳ Генерация... Пожалуйста, подождите</div>';
@@ -339,6 +362,8 @@ const generateAndExport = async () => {
                 photo_folder: photoFolder,
                 variant_count: variantCount,
                 connect: connect,
+                generation_contact: generationContact,
+                generation_phone: generationPhone,
                 lumber_type: lumberType,
                 wood_types: woodTypes,
                 edges: edges,

@@ -234,6 +234,14 @@
                     <input type="number" id="variant-count" value="10" min="1" max="50000" style="width:120px">
                     <div style="font-size:12px;color:#666;margin-top:5px">Максимум 50000 за раз</div>
                 </div>
+                <div class="form-group">
+                    <label>Контактное лицо для генерации:</label>
+                    <select id="generation-contact"><option value="">— Автоиз настроек —</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Телефон для генерации:</label>
+                    <select id="generation-phone"><option value="">— Автоиз настроек —</option></select>
+                </div>
             </div>
 
             <button onclick="generateAndExport()" style="background: #388e3c; font-size: 16px; padding: 12px 24px;">🚀 Сгенерировать и Экспортировать</button>

@@ -448,6 +448,8 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		LumberProfiles  []string `json:"lumber_profiles"`
 		PriceUnit       string   `json:"price_unit"`
 		PriceValue      int      `json:"price_value"`
+		GenerationContact string `json:"generation_contact"`
+		GenerationPhone    string `json:"generation_phone"`
 		Diameters       []string `json:"diameters"`
 		Thicknesses     []string `json:"thicknesses"`
 		Widths          []string `json:"widths"`
@@ -830,6 +832,15 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 
 	usedCombinations := make(map[string]bool)
 
+	selectedContact := req.GenerationContact
+	selectedPhone := req.GenerationPhone
+	if selectedContact == "" && len(settings.Contacts) > 0 {
+		selectedContact = settings.Contacts[0]
+	}
+	if selectedPhone == "" && len(settings.Phones) > 0 {
+		selectedPhone = settings.Phones[0]
+	}
+
 	for i := 0; i < settingsCount; i++ {
 		filled := false
 		for attempt := 0; attempt < 2000 && !filled; attempt++ {
@@ -916,12 +927,20 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	if len(settings.Contacts) > 0 {
+	if selectedContact != "" {
+		for i := range newContacts {
+			newContacts[i] = selectedContact
+		}
+	} else if len(settings.Contacts) > 0 {
 		for i := range newContacts {
 			newContacts[i] = settings.Contacts[i%len(settings.Contacts)]
 		}
 	}
-	if len(settings.Phones) > 0 {
+	if selectedPhone != "" {
+		for i := range newPhones {
+			newPhones[i] = selectedPhone
+		}
+	} else if len(settings.Phones) > 0 {
 		for i := range newPhones {
 			newPhones[i] = settings.Phones[i%len(settings.Phones)]
 		}

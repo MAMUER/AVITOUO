@@ -136,6 +136,27 @@
     });
   }
 
+  function updateDimensionVisibility() {
+    if (!AVITO_CATALOG) {
+      return;
+    }
+    var lt = getSelectedLumberType();
+    var visibility = AVITO_CATALOG.dimensionVisibility || {};
+    Object.keys(visibility).forEach(function(fieldId) {
+      var container = document.getElementById(fieldId);
+      if (!container) return;
+      var parent = container.parentElement;
+      if (!parent) return;
+      var allowed = visibility[fieldId] || [];
+      var visible = allowed.indexOf(lt) >= 0;
+      if (visible) {
+        parent.classList.remove('hidden');
+      } else {
+        parent.classList.add('hidden');
+      }
+    });
+  }
+
   function syncDependentFields() {
     if (!AVITO_CATALOG) {
       console.warn('AVITO_CATALOG not loaded');
@@ -199,6 +220,7 @@
     setContainerVisibility('price-units', 'price-units-hint', showPriceUnits, 'Зависит от типа пиломатериала');
 
     syncDependentDimensions();
+    updateDimensionVisibility();
   }
 
   function init() {
@@ -245,6 +267,7 @@
     document.getElementById('availability').addEventListener('change', syncDependentFields);
 
     syncDependentFields();
+    updateDimensionVisibility();
   }
 
   if (document.readyState === 'loading') {
