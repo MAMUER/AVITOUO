@@ -221,7 +221,7 @@ func CheckSizeLimit(photoCount int, estimatePhotoSize int64) error {
 }
 
 // SaveExcelWithNewRows добавляет новые строки в Excel файл и сохраняет
-func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx int, newTitles, newDescriptions, newImageNames []string, newContacts, newPhones, newAddresses, newCompanies, newEmails []string, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, gostColIdx int, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newLumberProfiles, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs, newGOSTValues []string, targetActionColIdx, targetActionManualColIdx int, newTargetActionManual, newTargetActionManualSettings []string, diameterColIdx int, newDiameters []string) error {
+func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx int, newTitles, newDescriptions, newImageNames []string, newContacts, newPhones, newAddresses, newCompanies, newEmails []string, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, gostColIdx int, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newLumberProfiles, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs, newGOSTValues []string, targetActionColIdx, targetActionManualColIdx int, newTargetActionManual, newTargetActionManualSettings []string, diameterColIdx int, newDiameters []string, priceValueColIdx int, newPriceValues []string) error {
 	f, err := excelize.OpenFile(templatePath)
 	if err != nil {
 		return fmt.Errorf("ошибка открытия шаблона: %w", err)
@@ -451,6 +451,9 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		if diameterColIdx < 0 {
 			diameterColIdx = findColumnInFirstRow(firstRow, "диаметр")
 		}
+		if priceValueColIdx < 0 {
+			priceValueColIdx = findColumnInFirstRow(firstRow, "цена")
+		}
 	}
 
 	startRow := len(rows) + 1
@@ -587,6 +590,9 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		}
 		if diameterColIdx >= 0 && i < len(newDiameters) {
 			writeCol(diameterColIdx, newDiameters[i])
+		}
+		if priceValueColIdx >= 0 && i < len(newPriceValues) {
+			writeCol(priceValueColIdx, newPriceValues[i])
 		}
 		wrote++
 	}
