@@ -66,27 +66,29 @@ const updateCharCount = () => {
     if (counter) counter.textContent = Math.max(0, 100 - title.length);
 };
 
+const updateDescCount = () => {
+    const desc = document.getElementById('base-description').value;
+    const counter = document.getElementById('desc-count');
+    if (counter) counter.textContent = Math.max(0, 7500 - desc.length);
+};
+
 const priceUnitRules = {
     "Брус": ["Штуку", "м³"],
     "Брусок": ["Штуку", "м³"],
     "Доска": ["Штуку", "м³"],
     "Планкен": ["Штуку", "м²"],
     "Вагонка": ["Штуку", "м²"],
-    "Дрова": ["Штуку", "м³"],
-    "Биг-бэг": ["Биг-бэг", "м³"],
-    "Мешок": ["Мешок"],
-    "Россыпью": ["м³"],
-    "__default__": ["Штуку", "Биг-бэг", "Мешок", "м²", "м³"]
+    "Дрова": ["Штуку", "м³"]
 };
 const priceUnitApplicable = new Set(["Брус", "Брусок", "Доска", "Планкен", "Вагонка", "Дрова"]);
 
 const setupPriceUnitDependency = () => {
-    const setup = (productTypeId, priceUnitId) => {
+    const updateFor = (productTypeId, priceUnitId) => {
         const productTypeSelect = document.getElementById(productTypeId);
         const priceUnitSelect = document.getElementById(priceUnitId);
-        if (!productTypeSelect || !priceUnitSelect) return;
+        if (!productTypeSelect || !priceUnitSelect) return null;
 
-        const updatePriceUnitOptions = () => {
+        const update = () => {
             const type = productTypeSelect.value;
             console.log('[price-unit] update', productTypeId, 'type=', type);
             priceUnitSelect.innerHTML = '';
@@ -106,44 +108,28 @@ const setupPriceUnitDependency = () => {
             });
         };
 
-        productTypeSelect.addEventListener('change', () => {
-            updatePriceUnitOptions();
-            if (productTypeId === 'product-type-settings') {
-                const gen = document.getElementById('product-type');
-                if (gen) { gen.value = productTypeSelect.value; gen.dispatchEvent(new Event('change', { bubbles: true })); }
-            } else if (productTypeId === 'product-type') {
-                const settings = document.getElementById('product-type-settings');
-                if (settings) { settings.value = productTypeSelect.value; settings.dispatchEvent(new Event('change', { bubbles: true })); }
-            }
-        });
-        updatePriceUnitOptions();
+        productTypeSelect.addEventListener('change', update);
+        update();
+        return update;
     };
 
-    setup('product-type', 'price-unit');
-    setup('product-type-settings', 'price-unit-settings');
-};
+    const updateSettingsPrice = updateFor('product-type-settings', 'price-unit-settings');
+    const updateGenPrice = updateFor('product-type', 'price-unit');
 
-const refreshPriceUnitByType = (productTypeId, priceUnitId) => {
-    const productTypeSelect = document.getElementById(productTypeId);
-    const priceUnitSelect = document.getElementById(priceUnitId);
-    if (!productTypeSelect || !priceUnitSelect) return;
-    const type = productTypeSelect.value;
-    console.log('[price-unit] refresh', productTypeId, 'type=', type);
-    priceUnitSelect.innerHTML = '';
-    if (!type || !priceUnitApplicable.has(type)) {
-        priceUnitSelect.disabled = true;
-        priceUnitSelect.innerHTML = '<option value="">— Сначала выберите тип пиломатериала —</option>';
-        return;
-    }
-    priceUnitSelect.disabled = false;
-    const options = priceUnitRules[type] || ["Штуку", "Биг-бэг", "Мешок", "м²", "м³"];
-    console.log('[price-unit] refresh options for', type, '=', options);
-    options.forEach(opt => {
-        const option = document.createElement('option');
-        option.value = opt;
-        option.textContent = opt;
-        priceUnitSelect.appendChild(option);
-    });
+    const sync = (sourceId) => {
+        const value = document.getElementById(sourceId)?.value;
+        if (!value) return;
+        if (sourceId === 'product-type' && document.getElementById('product-type-settings')?.value !== value) {
+            document.getElementById('product-type-settings').value = value;
+            updateSettingsPrice?.();
+        } else if (sourceId === 'product-type-settings' && document.getElementById('product-type')?.value !== value) {
+            document.getElementById('product-type').value = value;
+            updateGenPrice?.();
+        }
+    };
+
+    document.getElementById('product-type')?.addEventListener('change', () => sync('product-type'));
+    document.getElementById('product-type-settings')?.addEventListener('change', () => sync('product-type-settings'));
 };
 
 const renderTable = () => {
@@ -192,9 +178,6 @@ const loadSettings = async () => {
         if (data.product_type) set('product-type-settings', data.product_type);
         if (data.price_unit) set('price-unit-settings', data.price_unit);
         if (data.connect) set('connect', data.connect);
-
-        refreshPriceUnitByType('product-type', 'price-unit');
-        refreshPriceUnitByType('product-type-settings', 'price-unit-settings');
     } catch (e) {
         debugLog('Не удалось загрузить настройки: ' + e.message, true);
     }
@@ -427,8 +410,6 @@ const init = async () => {
     updateCharCount();
     updateDescCount();
     setupPriceUnitDependency();
-    refreshPriceUnitByType('product-type', 'price-unit');
-    refreshPriceUnitByType('product-type-settings', 'price-unit-settings');
 };
 
 init();

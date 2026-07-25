@@ -601,7 +601,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				pt = strings.ToLower(strings.TrimSpace(settings.ProductType))
 			}
 			switch pt {
-			case "брусок", "брус":
+			case "брусок", "брус", "дрова":
 				units := []string{"Штуку", "м³"}
 				newPriceUnits[i] = units[i%len(units)]
 			case "доска":
@@ -633,7 +633,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		newAdTypes[i] = settings.AdType
 	}
 	for i := range newConnects {
-		if (settings.Condition == "Новое" || req.ProductType != "") && newProductTypes[i] == "Доска" {
+		if settings.Condition == "Новое" && newProductTypes[i] == "Доска" {
 			newConnects[i] = "Да"
 		} else {
 			newConnects[i] = ""
