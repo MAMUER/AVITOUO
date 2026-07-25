@@ -21,6 +21,143 @@ func NewTextGenerator() *TextGenerator {
 	}
 }
 
+// GenerateUniqueTitle создаёт уникальное название на основе шаблона
+func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existingData [][]string, titleColIdx int) string {
+	baseTitle = strings.TrimSpace(baseTitle)
+	if baseTitle == "" {
+		baseTitle = "Объявление"
+	}
+
+	candidates := []string{
+		baseTitle,
+		baseTitle + " (фото, характеристики)",
+		baseTitle + " — доступен по предзаказу",
+		strings.ReplaceAll(baseTitle, "брус", "стройбрус") + " для строительства",
+		strings.ReplaceAll(baseTitle, "доска", "пиломатериал") + " сухая",
+		baseTitle + " от производителя",
+	}
+
+	if index < len(candidates) {
+		candidate := candidates[index]
+		if len(candidate) > 0 {
+			candidate = strings.ToUpper(candidate[:1]) + candidate[1:]
+		}
+		if !tg.used["title_"+candidate] {
+			tg.used["title_"+candidate] = true
+			return candidate
+		}
+	}
+
+	for attempt := 0; attempt < 200; attempt++ {
+		words := strings.Fields(baseTitle)
+		if len(words) >= 2 && attempt < len(candidates) {
+			title := candidates[attempt%len(candidates)]
+			if len(title) > 0 {
+				title = strings.ToUpper(title[:1]) + title[1:]
+			}
+			if !tg.used["title_"+title] {
+				tg.used["title_"+title] = true
+				return title
+			}
+		}
+		suffixes := []string{" premium", " elite", " extra", " plus", " pro", ""}
+		suffix := suffixes[attempt%len(suffixes)]
+		title := baseTitle + suffix
+		if len(title) > 0 {
+			title = strings.ToUpper(title[:1]) + title[1:]
+		}
+		if !tg.used["title_"+title] {
+			tg.used["title_"+title] = true
+			return title
+		}
+	}
+
+	title := baseTitle
+	if len(title) > 0 {
+		title = strings.ToUpper(title[:1]) + title[1:]
+	}
+	return title
+}
+
+// GenerateUniqueDescription создаёт уникальное описание в HTML формате
+func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index int) string {
+	baseDescription = strings.TrimSpace(baseDescription)
+	if baseDescription == "" {
+		return "<p>Качественные материалы для строительства и отделки. Звоните для консультации.</p>"
+	}
+
+	paragraphs := strings.Split(baseDescription, "\n")
+	var cleanParagraphs []string
+	for _, p := range paragraphs {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			cleanParagraphs = append(cleanParagraphs, p)
+		}
+	}
+
+	if len(cleanParagraphs) == 0 {
+		cleanParagraphs = []string{baseDescription}
+	}
+
+	variantSuffixes := []string{
+		" Только качественные материалы. Звоните!",
+		" Гарантия качества. Доставка по Москве и МО.",
+		" Работаем с физ. и юр. лицами. НДС.",
+		" От производителя. Свое производство.",
+		" Бесплатная консультация. Работаем без выходных.",
+	}
+
+	uniqueHints := []string{
+		" Индивидуальный подход к каждому клиенту.",
+		" Профессиональная консультация бесплатно.",
+		" Надежный поставщик с 2010 года.",
+		" Работаем по всей России.",
+		" Собственный автопарк для доставки.",
+	}
+
+	var result strings.Builder
+	for i, p := range cleanParagraphs {
+		if i == 1 && index < len(variantSuffixes) {
+			p += variantSuffixes[index]
+		}
+		if strings.Contains(p, "–") || strings.Contains(p, "- ") || strings.Contains(p, ":") {
+			parts := strings.Split(p, ":")
+			if len(parts) > 1 {
+				result.WriteString("<p><strong>")
+				result.WriteString(parts[0])
+				result.WriteString("</strong>:")
+				for j := 1; j < len(parts); j++ {
+					result.WriteString(parts[j])
+					if j < len(parts)-1 {
+						result.WriteString(":")
+					}
+				}
+				result.WriteString("</p>\n")
+				continue
+			}
+		}
+		if strings.HasPrefix(p, "–") || strings.HasPrefix(p, "- ") {
+			result.WriteString("<p><strong>")
+			result.WriteString(strings.TrimPrefix(strings.TrimPrefix(p, "–"), "- "))
+			result.WriteString("</strong></p>\n")
+			continue
+		}
+		result.WriteString("<p>")
+		result.WriteString(p)
+		if len(cleanParagraphs) == 1 && index < len(uniqueHints) {
+			result.WriteString(uniqueHints[index])
+		}
+		result.WriteString("</p>\n")
+	}
+
+	desc := strings.TrimSpace(result.String())
+	if len(desc) > 7500 {
+		desc = desc[:7497] + "..."
+	}
+
+	return desc
+}
+
 // GenerateVariations генерирует N уникальных вариаций из шаблона
 // Поддерживаемые конструкции: {вариант1|вариант2|вариант3}
 func (tg *TextGenerator) GenerateVariations(template string, count int) ([]string, error) {
@@ -52,101 +189,6 @@ func (tg *TextGenerator) GenerateVariations(template string, count int) ([]strin
 	}
 
 	return results, nil
-}
-
-// GenerateUniqueTexts генерирует уникальные тексты на основе базового заголовка и описания
-// Без спантекса - использует синонимы и перестановки слов
-func (tg *TextGenerator) GenerateUniqueTexts(baseTitle, baseDescription string, count int) ([]string, []string, error) {
-	titles := make([]string, 0, count)
-	descriptions := make([]string, 0, count)
-
-	for i := 0; i < count; i++ {
-		title := applyTextTransformations(baseTitle, tg.rnd)
-		desc := applyTextTransformations(baseDescription, tg.rnd)
-
-		// Убеждаемся в уникальности
-		attempts := 0
-		for (tg.used["title_"+title] || tg.used["desc_"+desc]) && attempts < 100 {
-			title = applyTextTransformations(baseTitle, tg.rnd)
-			desc = applyTextTransformations(baseDescription, tg.rnd)
-			attempts++
-		}
-
-		tg.used["title_"+title] = true
-		tg.used["desc_"+desc] = true
-		titles = append(titles, title)
-		descriptions = append(descriptions, desc)
-	}
-
-	return titles, descriptions, nil
-}
-
-// applyTextTransformations применяет трансформации к тексту для уникальности
-func applyTextTransformations(text string, rnd *rand.Rand) string {
-	// Синонимы и варианты замены
-	synonyms := map[string][]string{
-		"купить":    {"приобрести", "закупить", "заказать"},
-		"продать":   {"продать", "продажа", "отдать"},
-		"новый":     {"новый", "свежий", "новинка"},
-		"качество":  {"качество", "качественный материал", "отличное качество"},
-		"дерево":    {"дерево", "древесина", "лесоматериал"},
-		"доска":     {"доска", "доска хвойная", "стружка"},
-		"брус":      {"брус", "брус целой древесины", "строительный брус"},
-		"горячо":    {"горячо", "спешка", "быстро"},
-		"доставка":  {"доставка", "доставляем", "привозим", "доставим"},
-		"цена":      {"цена", "стоимость", "стоимость товара"},
-		"отличная":  {"отличная", "замечательная", "прекрасная"},
-		"хорошая":   {"хорошая", "неплохая", "достойная"},
-		"большая":   {"большая", "значительная", "великая"},
-		"маленькая": {"маленькая", "небольшая", "компактная"},
-	}
-
-	result := text
-
-	// Применяем случайные синонимы
-	for word, replacements := range synonyms {
-		if strings.Contains(strings.ToLower(result), word) && len(replacements) > 1 {
-			choice := replacements[rnd.Intn(len(replacements))]
-			// Замена только в нижнем регистре (чтобы не ломать начало предложения)
-			result = replaceWord(result, word, choice)
-		}
-	}
-
-	// Перестановка слов для коротких фраз
-	words := strings.Fields(result)
-	if len(words) >= 3 {
-		// Иногда меняем порядок слов
-		if rnd.Intn(3) == 0 {
-			// Перемешиваем 2 случайных слова местами
-			if len(words) >= 2 {
-				i, j := rnd.Intn(len(words)), rnd.Intn(len(words))
-				if i != j {
-					words[i], words[j] = words[j], words[i]
-					result = strings.Join(words, " ")
-				}
-			}
-		}
-	}
-
-	return result
-}
-
-func replaceWord(text, old, new string) string {
-	lowerText := strings.ToLower(text)
-	lowerOld := strings.ToLower(old)
-	result := text
-	start := 0
-	for {
-		idx := strings.Index(lowerText[start:], lowerOld)
-		if idx == -1 {
-			break
-		}
-		actualIdx := start + idx
-		result = result[:actualIdx] + new + result[actualIdx+len(old):]
-		lowerText = strings.ToLower(result)
-		start = actualIdx + len(new)
-	}
-	return result
 }
 
 type optionGroup struct {
@@ -215,4 +257,29 @@ func calculateCombinations(groups []optionGroup) int {
 		}
 	}
 	return total
+}
+
+func ResolvePriceUnit(productType, defaultUnit string, index int) string {
+	pt := strings.ToLower(strings.TrimSpace(productType))
+	switch pt {
+	case "брусок", "брус":
+		units := []string{"Штуку", "м³"}
+		return units[index%len(units)]
+	case "доска":
+		units := []string{"Штуку", "м³"}
+		return units[index%len(units)]
+	case "планкен", "вагонка":
+		units := []string{"Штуку", "м²"}
+		return units[index%len(units)]
+	case "биг-бэг":
+		units := []string{"Биг-бэг", "м³"}
+		return units[index%len(units)]
+	case "мешок":
+		return "Мешок"
+	case "россыпью":
+		return "м³"
+	default:
+		units := []string{"Штуку", "Биг-бэг", "Мешок", "м²", "м³"}
+		return units[index%len(units)]
+	}
 }

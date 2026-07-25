@@ -95,12 +95,9 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 			"companies":                 settings.Companies,
 			"emails":                    settings.Emails,
 			"disable_address_auto_fill": settings.DisableAddressAutoFill,
-			"placement":                 settings.Placement,
-			"contact_method":            settings.ContactMethod,
 			"ad_type":                   settings.AdType,
 			"condition":                 settings.Condition,
 			"availability":              settings.Availability,
-			"sales_type":                settings.SalesType,
 			"price_unit":                settings.PriceUnit,
 			"connect":                   settings.Connect,
 		})
@@ -112,12 +109,9 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 			Companies              string   `json:"companies"`
 			Emails                 string   `json:"emails"`
 			DisableAddressAutoFill bool     `json:"disable_address_auto_fill"`
-			Placement              string   `json:"placement"`
-			ContactMethod          string   `json:"contact_method"`
 			AdType                 string   `json:"ad_type"`
 			Condition              string   `json:"condition"`
 			Availability           string   `json:"availability"`
-			SalesType              string   `json:"sales_type"`
 			PriceUnit              string   `json:"price_unit"`
 			Connect                string   `json:"connect"`
 		}
@@ -132,12 +126,6 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		settings.Companies = strings.Split(req.Companies, "\n")
 		settings.Emails = strings.Split(req.Emails, "\n")
 		settings.DisableAddressAutoFill = req.DisableAddressAutoFill
-		if req.Placement != "" {
-			settings.Placement = req.Placement
-		}
-		if req.ContactMethod != "" {
-			settings.ContactMethod = req.ContactMethod
-		}
 		if req.AdType != "" {
 			settings.AdType = req.AdType
 		}
@@ -146,9 +134,6 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		if req.Availability != "" {
 			settings.Availability = req.Availability
-		}
-		if req.SalesType != "" {
-			settings.SalesType = req.SalesType
 		}
 		if req.PriceUnit != "" {
 			settings.PriceUnit = req.PriceUnit
@@ -422,6 +407,8 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		BaseDescription string `json:"base_description"`
 		PhotoFolder     string `json:"photo_folder"`
 		VariantCount    int    `json:"variant_count"`
+		ProductType     string `json:"product_type"`
+		PriceUnit       string `json:"price_unit"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
 		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
@@ -499,6 +486,19 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	newConnects := make([]string, settingsCount)
 	newProcessing := make([]string, settingsCount)
 	newPurpose := make([]string, settingsCount)
+	newLumberTypes := make([]string, settingsCount)
+	newWoodTypes := make([]string, settingsCount)
+	newEdges := make([]string, settingsCount)
+	newGrades := make([]string, settingsCount)
+	newMoistures := make([]string, settingsCount)
+	newProfiles := make([]string, settingsCount)
+	newStructures := make([]string, settingsCount)
+	newThicknesses := make([]string, settingsCount)
+	newWidths := make([]string, settingsCount)
+	newLengths := make([]string, settingsCount)
+	newHeights := make([]string, settingsCount)
+	newWidthDs := make([]string, settingsCount)
+	newLengthDs := make([]string, settingsCount)
 
 	categoryPath := ""
 	if len(headersCopy) > 0 {
@@ -535,8 +535,14 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	for i := range newCategories {
 		newCategories[i] = categoryPart
 	}
-	for i := range newProductTypes {
-		newProductTypes[i] = productTypePart
+	if req.ProductType != "" {
+		for i := range newProductTypes {
+			newProductTypes[i] = req.ProductType
+		}
+	} else {
+		for i := range newProductTypes {
+			newProductTypes[i] = productTypePart
+		}
 	}
 	for i := range newSubProductTypes {
 		newSubProductTypes[i] = subProductTypePart
@@ -546,8 +552,20 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	if len(dataCopy) > 0 && len(dataCopy[len(dataCopy)-1]) > 0 {
 		_, _ = fmt.Sscanf(dataCopy[len(dataCopy)-1][0], "%d", &lastID)
 	}
+	usedIDs := make(map[string]bool)
+	for _, row := range dataCopy {
+		if len(row) > 0 && row[0] != "" {
+			usedIDs[row[0]] = true
+		}
+	}
 	for i := range newIDs {
-		newIDs[i] = strconv.Itoa(lastID + 1 + i)
+		candidate := strconv.Itoa(lastID + 1 + i)
+		for usedIDs[candidate] {
+			lastID++
+			candidate = strconv.Itoa(lastID + 1 + i)
+		}
+		newIDs[i] = candidate
+		usedIDs[candidate] = true
 	}
 
 	for i := range newPlacements {
@@ -566,7 +584,32 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		newContactMethods[i] = contactDefault
 	}
 	for i := range newPriceUnits {
-		newPriceUnits[i] = settings.PriceUnit
+		if req.PriceUnit != "" {
+			newPriceUnits[i] = req.PriceUnit
+		} else {
+			pt := strings.ToLower(strings.TrimSpace(newProductTypes[i]))
+			switch pt {
+			case "брусок", "брус":
+				units := []string{"Штуку", "м³"}
+				newPriceUnits[i] = units[i%len(units)]
+			case "доска":
+				units := []string{"Штуку", "м³"}
+				newPriceUnits[i] = units[i%len(units)]
+			case "планкен", "вагонка":
+				units := []string{"Штуку", "м²"}
+				newPriceUnits[i] = units[i%len(units)]
+			case "биг-бэг":
+				units := []string{"Биг-бэг", "м³"}
+				newPriceUnits[i] = units[i%len(units)]
+			case "мешок":
+				newPriceUnits[i] = "Мешок"
+			case "россыпью":
+				newPriceUnits[i] = "м³"
+			default:
+				units := []string{"Штуку", "Биг-бэг", "Мешок", "м²", "м³"}
+				newPriceUnits[i] = units[i%len(units)]
+			}
+		}
 	}
 	for i := range newConditions {
 		newConditions[i] = settings.Condition
@@ -577,17 +620,48 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	for i := range newAdTypes {
 		newAdTypes[i] = settings.AdType
 	}
-	for i := range newSalesTypes {
-		newSalesTypes[i] = settings.SalesType
-	}
 	for i := range newConnects {
-		newConnects[i] = settings.Connect
+		if (settings.Condition == "Новое" || req.ProductType != "") && newProductTypes[i] == "Доска" {
+			newConnects[i] = "Да"
+		} else {
+			newConnects[i] = ""
+		}
 	}
 	for i := range newProcessing {
 		newProcessing[i] = "Строгание | Шлифование | Камерная сушка"
 	}
 	for i := range newPurpose {
 		newPurpose[i] = "Баня | Дверь | Дом | Забор | Кровля | Лестница | Мебель | Окна | Опалубка | Поддоны | Пол | Полка | Потолок | Стена | Стропила | Терраса | Фасад"
+	}
+
+	lumberTypes := []string{"Брус", "Вагонка", "Доска", "Планкен", "Брусок"}
+	woodTypes := []string{"Сосна", "Липа", "Дуб", "Ель", "Кедр"}
+	edges := []string{"Рейка", "Фаска", "Без кромки"}
+	grades := []string{"1 (A)", "2 (B)", "3 (C)", "Экстра"}
+	moistures := []string{"Сухая", "Естественная", "Камерная сушка"}
+	profiles := []string{"Да", "Нет"}
+	structures := []string{"Строганая", "Нет"}
+	thicknesses := []string{"20 мм", "30 мм", "40 мм", "50 мм"}
+	widths := []string{"100 мм", "150 мм", "200 мм"}
+	lengths := []string{"2 м", "3 м", "4 м", "6 м"}
+	heights := []string{"40 мм", "50 мм", "60 мм"}
+	widthDs := []string{"100 мм", "150 мм", "200 мм"}
+	lengthDs := []string{"2 м", "3 м", "4 м"}
+
+	for i := 0; i < settingsCount; i++ {
+		newLumberTypes[i] = lumberTypes[i%len(lumberTypes)]
+		newWoodTypes[i] = woodTypes[(i+1)%len(woodTypes)]
+		newEdges[i] = edges[(i+2)%len(edges)]
+		newGrades[i] = grades[(i+3)%len(grades)]
+		newMoistures[i] = moistures[(i+4)%len(moistures)]
+		newProfiles[i] = profiles[(i+5)%len(profiles)]
+		newStructures[i] = structures[(i+6)%len(structures)]
+		newThicknesses[i] = thicknesses[(i+7)%len(thicknesses)]
+		newWidths[i] = widths[(i+8)%len(widths)]
+		newLengths[i] = lengths[(i+9)%len(lengths)]
+		newHeights[i] = heights[(i+10)%len(heights)]
+		newWidthDs[i] = widthDs[(i+11)%len(widthDs)]
+		newLengthDs[i] = lengthDs[(i+12)%len(lengthDs)]
 	}
 
 	if len(settings.Contacts) > 0 {
@@ -634,22 +708,9 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		newTitles = make([]string, req.VariantCount)
 		newDescriptions = make([]string, req.VariantCount)
 		for i := 0; i < req.VariantCount; i++ {
-			title := baseTitle
-			if i > 0 {
-				title = fmt.Sprintf("%s #%d", baseTitle, i+1)
-			}
-			desc := baseDescription
-			if i > 0 {
-				desc = fmt.Sprintf("%s #%d", baseDescription, i+1)
-			}
-			if len(title) > 0 {
-				title = strings.ToUpper(title[:1]) + title[1:]
-			}
-			newTitles[i] = title
-			newDescriptions[i] = desc
+			newTitles[i] = gen.GenerateUniqueTitle(baseTitle, i, dataCopy, titleIdx)
+			newDescriptions[i] = gen.GenerateUniqueDescription(baseDescription, i)
 		}
-		_ = gen
-		_ = err
 	}
 
 	fmt.Printf("[DEBUG] Text generation done: titles=%d descriptions=%d photoFolder=%q\n", len(newTitles), len(newDescriptions), req.PhotoFolder)
@@ -687,6 +748,19 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	connectColIdx := -1
 	processingColIdx := -1
 	purposeColIdx := -1
+	lumberTypeColIdx := -1
+	woodTypeColIdx := -1
+	edgeColIdx := -1
+	gradeColIdx := -1
+	moistureColIdx := -1
+	profileColIdx := -1
+	structureColIdx := -1
+	thicknessColIdx := -1
+	widthColIdx := -1
+	lengthColIdx := -1
+	heightColIdx := -1
+	widthDColIdx := -1
+	lengthDColIdx := -1
 
 	if len(headersCopy) > 0 {
 		idColIdx = storage.FindColumnIndex(headersCopy, "Уникальный идентификатор объявления")
@@ -703,12 +777,25 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		connectColIdx = storage.FindColumnIndex(headersCopy, "Соединять это объявление с другими объявлениями")
 		processingColIdx = storage.FindColumnIndex(headersCopy, "Обработка")
 		purposeColIdx = storage.FindColumnIndex(headersCopy, "Назначение")
+		lumberTypeColIdx = storage.FindColumnIndex(headersCopy, "Тип пиломатериала")
+		woodTypeColIdx = storage.FindColumnIndex(headersCopy, "Вид древесины")
+		edgeColIdx = storage.FindColumnIndex(headersCopy, "Кромка")
+		gradeColIdx = storage.FindColumnIndex(headersCopy, "Сорт древесины")
+		moistureColIdx = storage.FindColumnIndex(headersCopy, "Степень влажности")
+		profileColIdx = storage.FindColumnIndex(headersCopy, "Профилированный")
+		structureColIdx = storage.FindColumnIndex(headersCopy, "Структура")
+		thicknessColIdx = storage.FindColumnIndex(headersCopy, "Толщина пиломатериала")
+		widthColIdx = storage.FindColumnIndex(headersCopy, "Ширина пиломатериала")
+		lengthColIdx = storage.FindColumnIndex(headersCopy, "Длина пиломатериала")
+		heightColIdx = storage.FindColumnIndex(headersCopy, "Высота")
+		widthDColIdx = storage.FindColumnIndex(headersCopy, "Ширина")
+		lengthDColIdx = storage.FindColumnIndex(headersCopy, "Длина")
 	}
 
-	fmt.Printf("[DEBUG] Additional column indices - id=%d placement=%d method=%d category=%d product=%d subProduct=%d priceUnit=%d condition=%d availability=%d adType=%d salesType=%d connect=%d processing=%d purpose=%d\n", idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx)
+	fmt.Printf("[DEBUG] Additional column indices - id=%d placement=%d method=%d category=%d product=%d subProduct=%d priceUnit=%d condition=%d availability=%d adType=%d salesType=%d connect=%d processing=%d purpose=%d lumber=%d wood=%d edge=%d grade=%d moisture=%d profile=%d structure=%d thickness=%d width=%d length=%d height=%d widthD=%d lengthD=%d\n", idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, lumberTypeColIdx, woodTypeColIdx, edgeColIdx, gradeColIdx, moistureColIdx, profileColIdx, structureColIdx, thicknessColIdx, widthColIdx, lengthColIdx, heightColIdx, widthDColIdx, lengthDColIdx)
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
-	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose); err != nil {
+	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения Excel: "+err.Error())
 		return
 	}

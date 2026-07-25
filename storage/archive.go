@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"AVITOUO/core"
-
 	"github.com/disintegration/imaging"
 	"github.com/xuri/excelize/v2"
 )
@@ -28,7 +26,7 @@ func isImage(name string) bool {
 type PhotoGenerator struct{}
 
 // GenerateUniquePhotos создает N наборов фото из папки.
-// Для каждого набора берется ВСЕ фото из папки, и КАЖДОЕ фото уникализируется.
+// Для каждого набора берется ВСЕ фото из папки (до 10 штук), и КАЖДОЕ фото уникализируется.
 // Возвращает слайс строк, где каждая строка — имена фото для одного объявления через " | ".
 func (pg *PhotoGenerator) GenerateUniquePhotos(sourceDir string, count int) ([]string, error) {
 	fullDir := filepath.Join(PhotosDir, filepath.Clean(sourceDir))
@@ -49,16 +47,19 @@ func (pg *PhotoGenerator) GenerateUniquePhotos(sourceDir string, count int) ([]s
 		return nil, fmt.Errorf("в папке нет изображений")
 	}
 
-	fmt.Printf("[DEBUG] Found %d source images in folder\n", len(sourceImages))
-
-	id := core.GenerateUniqueID()[:8]
 	var result []string
+	globalPhotoIdx := 0
 
 	for adIdx := 0; adIdx < count; adIdx++ {
 		var names []string
-		for photoIdx, srcPath := range sourceImages {
+		maxPhotos := len(sourceImages)
+		if maxPhotos > 10 {
+			maxPhotos = 10
+		}
+		for photoIdx := 0; photoIdx < maxPhotos; photoIdx++ {
+			srcPath := sourceImages[photoIdx]
 			ext := strings.ToLower(filepath.Ext(srcPath))
-			baseName := fmt.Sprintf("%s_ad%d_photo%d%s", id, adIdx+1, photoIdx+1, ext)
+			baseName := fmt.Sprintf("a%d%s", globalPhotoIdx+1, ext)
 			savePath := filepath.Join(fullDir, baseName)
 
 			srcData, err := os.ReadFile(srcPath)
@@ -71,12 +72,12 @@ func (pg *PhotoGenerator) GenerateUniquePhotos(sourceDir string, count int) ([]s
 				return nil, fmt.Errorf("ошибка декодирования изображения: %w", err)
 			}
 
-			uniqueImg := applyUniqueTransformations(img, adIdx*len(sourceImages)+photoIdx)
+			uniqueImg := applyUniqueTransformations(img, globalPhotoIdx)
 			if err := imaging.Save(uniqueImg, savePath); err != nil {
 				return nil, fmt.Errorf("ошибка сохранения уникального фото: %w", err)
 			}
 			names = append(names, baseName)
-			fmt.Printf("[DEBUG] Ad %d: unique photo %d/%d: %s\n", adIdx+1, photoIdx+1, len(sourceImages), baseName)
+			globalPhotoIdx++
 		}
 		result = append(result, strings.Join(names, " | "))
 	}
@@ -220,7 +221,7 @@ func CheckSizeLimit(photoCount int, estimatePhotoSize int64) error {
 }
 
 // SaveExcelWithNewRows добавляет новые строки в Excel файл и сохраняет
-func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx int, newTitles, newDescriptions, newImageNames []string, newContacts, newPhones, newAddresses, newCompanies, newEmails []string, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx int, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose []string) error {
+func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx int, newTitles, newDescriptions, newImageNames []string, newContacts, newPhones, newAddresses, newCompanies, newEmails []string, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx int, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose []string, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs []string) error {
 	f, err := excelize.OpenFile(templatePath)
 	if err != nil {
 		return fmt.Errorf("ошибка открытия шаблона: %w", err)
@@ -382,6 +383,63 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		purposeColIdx = -1
 	}
 
+	lumberTypeColIdx := -1
+	woodTypeColIdx := -1
+	edgeColIdx := -1
+	gradeColIdx := -1
+	moistureColIdx := -1
+	profileColIdx := -1
+	structureColIdx := -1
+	thicknessColIdx := -1
+	widthColIdx := -1
+	lengthColIdx := -1
+	heightColIdx := -1
+	widthDColIdx := -1
+	lengthDColIdx := -1
+
+	if len(rows) > 0 {
+		firstRow := rows[0]
+		if lumberTypeColIdx < 0 {
+			lumberTypeColIdx = findColumnInFirstRow(firstRow, "тип пиломатериала")
+		}
+		if woodTypeColIdx < 0 {
+			woodTypeColIdx = findColumnInFirstRow(firstRow, "вид древесины")
+		}
+		if edgeColIdx < 0 {
+			edgeColIdx = findColumnInFirstRow(firstRow, "кромка")
+		}
+		if gradeColIdx < 0 {
+			gradeColIdx = findColumnInFirstRow(firstRow, "сорт древесины")
+		}
+		if moistureColIdx < 0 {
+			moistureColIdx = findColumnInFirstRow(firstRow, "степень влажности")
+		}
+		if profileColIdx < 0 {
+			profileColIdx = findColumnInFirstRow(firstRow, "профилированный")
+		}
+		if structureColIdx < 0 {
+			structureColIdx = findColumnInFirstRow(firstRow, "структура")
+		}
+		if thicknessColIdx < 0 {
+			thicknessColIdx = findColumnInFirstRow(firstRow, "толщина пиломатериала", "толщина")
+		}
+		if widthColIdx < 0 {
+			widthColIdx = findColumnInFirstRow(firstRow, "ширина пиломатериала", "ширина бруса")
+		}
+		if lengthColIdx < 0 {
+			lengthColIdx = findColumnInFirstRow(firstRow, "длина пиломатериала", "длина бруса")
+		}
+		if heightColIdx < 0 {
+			heightColIdx = findColumnInFirstRow(firstRow, "высота")
+		}
+		if widthDColIdx < 0 {
+			widthDColIdx = findColumnInFirstRow(firstRow, "ширина")
+		}
+		if lengthDColIdx < 0 {
+			lengthDColIdx = findColumnInFirstRow(firstRow, "длина")
+		}
+	}
+
 	startRow := len(rows) + 1
 	wrote := 0
 
@@ -462,6 +520,45 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		}
 		if purposeColIdx >= 0 && i < len(newPurpose) {
 			writeCol(purposeColIdx, newPurpose[i])
+		}
+		if lumberTypeColIdx >= 0 && i < len(newLumberTypes) {
+			writeCol(lumberTypeColIdx, newLumberTypes[i])
+		}
+		if woodTypeColIdx >= 0 && i < len(newWoodTypes) {
+			writeCol(woodTypeColIdx, newWoodTypes[i])
+		}
+		if edgeColIdx >= 0 && i < len(newEdges) {
+			writeCol(edgeColIdx, newEdges[i])
+		}
+		if gradeColIdx >= 0 && i < len(newGrades) {
+			writeCol(gradeColIdx, newGrades[i])
+		}
+		if moistureColIdx >= 0 && i < len(newMoistures) {
+			writeCol(moistureColIdx, newMoistures[i])
+		}
+		if profileColIdx >= 0 && i < len(newProfiles) {
+			writeCol(profileColIdx, newProfiles[i])
+		}
+		if structureColIdx >= 0 && i < len(newStructures) {
+			writeCol(structureColIdx, newStructures[i])
+		}
+		if thicknessColIdx >= 0 && i < len(newThicknesses) {
+			writeCol(thicknessColIdx, newThicknesses[i])
+		}
+		if widthColIdx >= 0 && i < len(newWidths) {
+			writeCol(widthColIdx, newWidths[i])
+		}
+		if lengthColIdx >= 0 && i < len(newLengths) {
+			writeCol(lengthColIdx, newLengths[i])
+		}
+		if heightColIdx >= 0 && i < len(newHeights) {
+			writeCol(heightColIdx, newHeights[i])
+		}
+		if widthDColIdx >= 0 && i < len(newWidthDs) {
+			writeCol(widthDColIdx, newWidthDs[i])
+		}
+		if lengthDColIdx >= 0 && i < len(newLengthDs) {
+			writeCol(lengthDColIdx, newLengthDs[i])
 		}
 		wrote++
 	}

@@ -89,23 +89,6 @@
             <div class="section">
                 <h3>Параметры объявления</h3>
                 <div class="form-group">
-                    <label>Способ размещения:</label>
-                    <select id="placement">
-                        <option value="Package">Package</option>
-                        <option value="Free">Free</option>
-                        <option value="Premium">Premium</option>
-                        <option value="VIP">VIP</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Способ связи:</label>
-                    <select id="contactMethod">
-                        <option value="По телефону и в сообщениям">По телефону и в сообщениям</option>
-                        <option value="По телефону">По телефону</option>
-                        <option value="В сообщениях">В сообщениях</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label>Вид объявления:</label>
                     <select id="adType">
                         <option value="Товар от производителя">Товар от производителя</option>
@@ -124,13 +107,6 @@
                     <select id="availability">
                         <option value="В наличии">В наличии</option>
                         <option value="Под заказ">Под заказ</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Вид продажи:</label>
-                    <select id="salesType">
-                        <option value="Товар произведён мной">Товар произведён мной</option>
-                        <option value="Перепродажа">Перепродажа</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -190,6 +166,32 @@
                     <label>Количество вариантов (N):</label>
                     <input type="number" id="variant-count" value="10" min="1" max="50000" style="width:120px">
                     <div style="font-size:12px;color:#666;margin-top:5px">Максимум 50000 за раз</div>
+                </div>
+                <div class="form-group">
+                    <label>Тип пиломатериала:</label>
+                    <select id="product-type">
+                        <option value="">— Не выбрано —</option>
+                        <option value="Брус">Брус</option>
+                        <option value="Брусок">Брусок</option>
+                        <option value="Доска">Доска</option>
+                        <option value="Планкен">Планкен</option>
+                        <option value="Вагонка">Вагонка</option>
+                        <option value="Биг-бэг">Биг-бэг</option>
+                        <option value="Мешок">Мешок</option>
+                        <option value="Россыпью">Россыпью</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Цена за:</label>
+                    <select id="price-unit" disabled>
+                        <option value="">— Сначала выберите тип пиломатериала —</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Цена за:</label>
+                    <select id="price-unit" disabled>
+                        <option value="">— Сначала выберите тип пиломатериала —</option>
+                    </select>
                 </div>
             </div>
 
