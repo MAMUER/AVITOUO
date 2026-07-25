@@ -297,7 +297,7 @@ const generateAndExport = async () => {
     const photoFolder = document.getElementById('photo-folder').value;
     const variantCount = parseInt(document.getElementById('variant-count').value) || 10;
 
-    const lumberType = document.getElementById('lumber-types')?.value || '';
+    const lumberType = document.getElementById('lumber-types')?.value || 'Доска';
     const collectChecked = (id) => {
         const container = document.getElementById(id);
         if (!container) return [];

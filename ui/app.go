@@ -687,7 +687,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		if req.ProductType != "" {
 			lumberTypePool = req.ProductType
 		} else {
-			lumberTypePool = "Брус"
+			lumberTypePool = "Доска"
 		}
 	}
 	priceUnitPool := req.PriceUnit

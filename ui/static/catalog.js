@@ -12,7 +12,15 @@
 
   function getSelectedLumberType() {
     var el = document.getElementById('lumber-types');
-    return el ? el.value : '';
+    if (!el) return 'Доска';
+    var v = el.value;
+    if (!v) {
+      var opts = el.options;
+      if (opts && opts.length > 0) {
+        v = opts[0].value;
+      }
+    }
+    return v || 'Доска';
   }
 
   function renderCheckboxes(containerId, options, selectedValues) {
@@ -157,7 +165,11 @@
       return;
     }
 
-    setSelectOptions('lumber-types', AVITO_CATALOG.lumberTypes.slice(), '');
+    var defaultLumberType = (AVITO_CATALOG.lumberTypes.indexOf('Доска') >= 0) ? 'Доска' : (AVITO_CATALOG.lumberTypes[0] || '');
+    if (!defaultLumberType && AVITO_CATALOG.lumberTypes.length > 0) {
+      defaultLumberType = AVITO_CATALOG.lumberTypes[0];
+    }
+    setSelectOptions('lumber-types', AVITO_CATALOG.lumberTypes.slice(), defaultLumberType);
     renderStaticGroup('wood-types', AVITO_CATALOG.woods.slice());
 
     document.querySelectorAll('.checkbox-group').forEach(function(group) {
