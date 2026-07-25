@@ -742,12 +742,33 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	if len(lengthDPool) == 0 {
 		lengthDPool = []string{"2 м", "3 м", "4 м"}
 	}
-	diameterPool := req.Diameters
-	if len(diameterPool) == 0 {
-		diameterPool = []string{"10 мм", "20 мм", "30 мм", "40 мм", "50 мм"}
-	}
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	heightVal := 50
+	if len(req.Heights) > 0 {
+		if v, err := strconv.Atoi(req.Heights[0]); err == nil {
+			heightVal = v
+		}
+	}
+	widthVal := 50
+	if len(req.Widths) > 0 {
+		if v, err := strconv.Atoi(req.Widths[0]); err == nil {
+			widthVal = v
+		}
+	}
+	lengthVal := 3000
+	if len(req.Lengths) > 0 {
+		if v, err := strconv.Atoi(req.Lengths[0]); err == nil {
+			lengthVal = v
+		}
+	}
+	diameterVal := 200
+	if len(req.Diameters) > 0 {
+		if v, err := strconv.Atoi(req.Diameters[0]); err == nil {
+			diameterVal = v
+		}
+	}
 
 	for i := range newPriceUnits {
 		if priceUnitPool != "" {
@@ -816,12 +837,10 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			structure := core.PickRandom(rnd, structurePool)
 			lumberProfile := core.PickRandom(rnd, lumberProfilePool)
 			thickness := core.PickRandom(rnd, thicknessPool)
-			width := core.PickRandom(rnd, widthPool)
-			length := core.PickRandom(rnd, lengthPool)
-			height := core.PickRandom(rnd, heightPool)
+			_ = core.PickRandom(rnd, widthPool)
+			_ = core.PickRandom(rnd, lengthPool)
 			widthD := core.PickRandom(rnd, widthDPool)
 			lengthD := core.PickRandom(rnd, lengthDPool)
-			diameter := core.PickRandom(rnd, diameterPool)
 
 			if !core.IsValidEdge(lt) && edge != "" {
 				edge = ""
@@ -845,9 +864,14 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				lumberProfile = ""
 			}
 
+			heightStr := strconv.Itoa(heightVal + rnd.Intn(21) - 10)
+			itemWidth := strconv.Itoa(widthVal + rnd.Intn(21) - 10)
+			itemLength := strconv.Itoa(lengthVal + rnd.Intn(301) - 150)
+			itemDiameter := strconv.Itoa(diameterVal + rnd.Intn(21) - 10)
+
 		sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
 			lt, wood, edge, grade, moisture, profile, structure, lumberProfile,
-			thickness, width, length, height, widthD, lengthD, diameter)
+			thickness, itemWidth, itemLength, heightStr, widthD, lengthD, itemDiameter)
 			if !usedCombinations[sig] {
 				usedCombinations[sig] = true
 				newLumberTypes[i] = lt
@@ -859,12 +883,12 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				newStructures[i] = structure
 				newLumberProfiles[i] = lumberProfile
 				newThicknesses[i] = thickness
-				newWidths[i] = width
-				newLengths[i] = length
-				newHeights[i] = height
+				newWidths[i] = itemWidth
+				newLengths[i] = itemLength
+				newHeights[i] = heightStr
 				newWidthDs[i] = widthD
 				newLengthDs[i] = lengthD
-				newDiameters[i] = diameter
+				newDiameters[i] = itemDiameter
 				filled = true
 			}
 		}
@@ -880,10 +904,10 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			newThicknesses[i] = core.PickRandom(rnd, thicknessPool)
 			newWidths[i] = core.PickRandom(rnd, widthPool)
 			newLengths[i] = core.PickRandom(rnd, lengthPool)
-			newHeights[i] = core.PickRandom(rnd, heightPool)
-			newWidthDs[i] = core.PickRandom(rnd, widthDPool)
-			newLengthDs[i] = core.PickRandom(rnd, lengthDPool)
-			newDiameters[i] = core.PickRandom(rnd, diameterPool)
+			newHeights[i] = strconv.Itoa(heightVal + rnd.Intn(21) - 10)
+			newWidthDs[i] = strconv.Itoa(widthVal + rnd.Intn(21) - 10)
+			newLengthDs[i] = strconv.Itoa(lengthVal + rnd.Intn(301) - 150)
+			newDiameters[i] = strconv.Itoa(diameterVal + rnd.Intn(21) - 10)
 		}
 	}
 

@@ -315,13 +315,13 @@ const generateAndExport = async () => {
     const structures = collectChecked('structures');
     const lumberProfiles = collectChecked('lumber-profiles');
     const priceUnit = document.getElementById('price-units')?.value || '';
-    const diameters = collectChecked('diameter');
+    const diameters = (document.getElementById('diameter').value || '').toString();
     const thicknesses = collectChecked('thickness');
     const widths = collectChecked('width');
     const lengths = collectChecked('length');
-    const heights = collectChecked('height');
-    const widthDs = collectChecked('width-d');
-    const lengthDs = collectChecked('length-d');
+    const heights = (document.getElementById('height').value || '').toString();
+    const widthDs = (document.getElementById('width-d').value || '').toString();
+    const lengthDs = (document.getElementById('length-d').value || '').toString();
 
     const connect = document.getElementById('connect')?.value || '';
 

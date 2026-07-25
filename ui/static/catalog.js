@@ -123,8 +123,8 @@
     }
     var lt = getSelectedLumberType();
     var availability = getAvailability();
-    var dims = AVITO_CATALOG.dimensions && AVITO_CATALOG.dimensions.dependent ? AVITO_CATALOG.dimensions.dependent : {};
-    ['thickness','width','length','height','widthD','lengthD','diameter'].forEach(function(key) {
+    var dims = AVITO_CATALOG.dependent || {};
+    ['thickness','width','length'].forEach(function(key) {
       var group = dims[key];
       var options = [];
       if (group && group[availability] && group[availability][lt]) {
@@ -242,6 +242,7 @@
 
     document.getElementById('lumber-types').addEventListener('change', syncDependentFields);
     document.getElementById('wood-types').addEventListener('change', syncDependentFields);
+    document.getElementById('availability').addEventListener('change', syncDependentFields);
 
     syncDependentFields();
   }
