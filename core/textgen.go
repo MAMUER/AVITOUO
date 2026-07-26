@@ -156,8 +156,7 @@ func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index
 		"📞 Звоните! Бесплатно рассчитаем объём, подберём оптимальный вариант, оформим доставку.",
 	}
 
-	var buildDesc func() string
-	buildDesc = func() string {
+	var buildDesc = func() string {
 		r := tg.rnd
 		var result strings.Builder
 

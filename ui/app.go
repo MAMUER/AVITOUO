@@ -432,31 +432,31 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req struct {
-		BaseTitle       string   `json:"base_title"`
-		BaseDescription string   `json:"base_description"`
-		PhotoFolder     string   `json:"photo_folder"`
-		VariantCount    int      `json:"variant_count"`
-		ProductType     string   `json:"product_type"`
-		Connect         string   `json:"connect"`
-		LumberType      string   `json:"lumber_type"`
-		WoodTypes       []string `json:"wood_types"`
-		Edges           []string `json:"edges"`
-		Grades          []string `json:"grades"`
-		Moistures       []string `json:"moistures"`
-		Profiles        []string `json:"profiles"`
-		Structures      []string `json:"structures"`
-		LumberProfiles  []string `json:"lumber_profiles"`
-		PriceUnit       string   `json:"price_unit"`
-		PriceValue      int      `json:"price_value"`
-		GenerationContact string `json:"generation_contact"`
-		GenerationPhone    string `json:"generation_phone"`
-		Height          string   `json:"heights"`
-		WidthD          string   `json:"width_ds"`
-		LengthD         string   `json:"length_ds"`
-		Diameter        string   `json:"diameters"`
-		Thicknesses     []string `json:"thicknesses"`
-		Widths          []string `json:"widths"`
-		Lengths         []string `json:"lengths"`
+		BaseTitle         string   `json:"base_title"`
+		BaseDescription   string   `json:"base_description"`
+		PhotoFolder       string   `json:"photo_folder"`
+		VariantCount      int      `json:"variant_count"`
+		ProductType       string   `json:"product_type"`
+		Connect           string   `json:"connect"`
+		LumberType        string   `json:"lumber_type"`
+		WoodTypes         []string `json:"wood_types"`
+		Edges             []string `json:"edges"`
+		Grades            []string `json:"grades"`
+		Moistures         []string `json:"moistures"`
+		Profiles          []string `json:"profiles"`
+		Structures        []string `json:"structures"`
+		LumberProfiles    []string `json:"lumber_profiles"`
+		PriceUnit         string   `json:"price_unit"`
+		PriceValue        int      `json:"price_value"`
+		GenerationContact string   `json:"generation_contact"`
+		GenerationPhone   string   `json:"generation_phone"`
+		Height            string   `json:"heights"`
+		WidthD            string   `json:"width_ds"`
+		LengthD           string   `json:"length_ds"`
+		Diameter          string   `json:"diameters"`
+		Thicknesses       []string `json:"thicknesses"`
+		Widths            []string `json:"widths"`
+		Lengths           []string `json:"lengths"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
 		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
@@ -537,25 +537,25 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	newConnects := make([]string, settingsCount)
 	newProcessing := make([]string, settingsCount)
 	newPurpose := make([]string, settingsCount)
- 	newLumberTypes := make([]string, settingsCount)
- 	newWoodTypes := make([]string, settingsCount)
- 	newEdges := make([]string, settingsCount)
- 	newGrades := make([]string, settingsCount)
- 	newMoistures := make([]string, settingsCount)
- 	newProfiles := make([]string, settingsCount)
- 	newStructures := make([]string, settingsCount)
- 	newLumberProfiles := make([]string, settingsCount)
- 	newThicknesses := make([]string, settingsCount)
- 	newWidths := make([]string, settingsCount)
- 	newLengths := make([]string, settingsCount)
+	newLumberTypes := make([]string, settingsCount)
+	newWoodTypes := make([]string, settingsCount)
+	newEdges := make([]string, settingsCount)
+	newGrades := make([]string, settingsCount)
+	newMoistures := make([]string, settingsCount)
+	newProfiles := make([]string, settingsCount)
+	newStructures := make([]string, settingsCount)
+	newLumberProfiles := make([]string, settingsCount)
+	newThicknesses := make([]string, settingsCount)
+	newWidths := make([]string, settingsCount)
+	newLengths := make([]string, settingsCount)
 	newHeights := make([]string, settingsCount)
- 	newWidthDs := make([]string, settingsCount)
- 	newLengthDs := make([]string, settingsCount)
- 	newGOSTValues := make([]string, settingsCount)
- 	newTargetActionManual := make([]string, settingsCount)
- 	newTargetActionManualSettings := make([]string, settingsCount)
- 	newDiameters := make([]string, settingsCount)
- 	newPriceValues := make([]string, settingsCount)
+	newWidthDs := make([]string, settingsCount)
+	newLengthDs := make([]string, settingsCount)
+	newGOSTValues := make([]string, settingsCount)
+	newTargetActionManual := make([]string, settingsCount)
+	newTargetActionManualSettings := make([]string, settingsCount)
+	newDiameters := make([]string, settingsCount)
+	newPriceValues := make([]string, settingsCount)
 	for i := range newGOSTValues {
 		newGOSTValues[i] = "Да"
 	}
@@ -771,17 +771,39 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	}
 
 	maxPossible := 1
-	if len(woodTypePool) > 0 { maxPossible *= len(woodTypePool) }
-	if len(edgePool) > 0 { maxPossible *= len(edgePool) }
-	if len(gradePool) > 0 { maxPossible *= len(gradePool) }
-	if len(moisturePool) > 0 { maxPossible *= len(moisturePool) }
-	if len(profilePool) > 0 { maxPossible *= len(profilePool) }
-	if len(structurePool) > 0 { maxPossible *= len(structurePool) }
-	if len(lumberProfilePool) > 0 { maxPossible *= len(lumberProfilePool) }
-	if priceUnitPool != "" { maxPossible *= 1 }
-	if len(thicknessPool) > 0 { maxPossible *= len(thicknessPool) }
-	if len(widthPool) > 0 { maxPossible *= len(widthPool) }
-	if len(lengthPool) > 0 { maxPossible *= len(lengthPool) }
+	if len(woodTypePool) > 0 {
+		maxPossible *= len(woodTypePool)
+	}
+	if len(edgePool) > 0 {
+		maxPossible *= len(edgePool)
+	}
+	if len(gradePool) > 0 {
+		maxPossible *= len(gradePool)
+	}
+	if len(moisturePool) > 0 {
+		maxPossible *= len(moisturePool)
+	}
+	if len(profilePool) > 0 {
+		maxPossible *= len(profilePool)
+	}
+	if len(structurePool) > 0 {
+		maxPossible *= len(structurePool)
+	}
+	if len(lumberProfilePool) > 0 {
+		maxPossible *= len(lumberProfilePool)
+	}
+	if priceUnitPool != "" {
+		maxPossible *= 1
+	}
+	if len(thicknessPool) > 0 {
+		maxPossible *= len(thicknessPool)
+	}
+	if len(widthPool) > 0 {
+		maxPossible *= len(widthPool)
+	}
+	if len(lengthPool) > 0 {
+		maxPossible *= len(lengthPool)
+	}
 	if lumberTypePool != "" {
 		maxPossible = maxPossible * 1
 	}
@@ -834,15 +856,15 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				structure = ""
 			}
 			validLPs := core.GetValidLumberProfiles(lt)
-		if len(validLPs) == 0 {
-			lumberProfile = ""
-		} else if lumberProfile != "" && !core.InArray(lumberProfile, validLPs) {
-			lumberProfile = ""
-		}
+			if len(validLPs) == 0 {
+				lumberProfile = ""
+			} else if lumberProfile != "" && !core.InArray(lumberProfile, validLPs) {
+				lumberProfile = ""
+			}
 
-		sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
-			lt, wood, edge, grade, moisture, profile, structure, lumberProfile,
-			thickness, width, length)
+			sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
+				lt, wood, edge, grade, moisture, profile, structure, lumberProfile,
+				thickness, width, length)
 			if !usedCombinations[sig] {
 				usedCombinations[sig] = true
 				newLumberTypes[i] = lt
@@ -853,26 +875,26 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				newProfiles[i] = profile
 				newStructures[i] = structure
 				newLumberProfiles[i] = lumberProfile
-			newThicknesses[i] = thickness
-			newWidths[i] = width
-			newLengths[i] = length
-			if req.Height != "" {
-				if v, err := strconv.Atoi(req.Height); err == nil {
-					newHeights[i] = strconv.Itoa(v + rnd.Intn(21) - 10)
+				newThicknesses[i] = thickness
+				newWidths[i] = width
+				newLengths[i] = length
+				if req.Height != "" {
+					if v, err := strconv.Atoi(req.Height); err == nil {
+						newHeights[i] = strconv.Itoa(v + rnd.Intn(21) - 10)
+					}
 				}
-			}
-			if req.WidthD != "" {
-				newWidthDs[i] = widthD
-			}
-			if req.LengthD != "" {
-				newLengthDs[i] = lengthD
-			}
-			if req.Diameter != "" {
-				if v, err := strconv.Atoi(req.Diameter); err == nil {
-					newDiameters[i] = strconv.Itoa(v + rnd.Intn(21) - 10)
+				if req.WidthD != "" {
+					newWidthDs[i] = widthD
 				}
-			}
-			filled = true
+				if req.LengthD != "" {
+					newLengthDs[i] = lengthD
+				}
+				if req.Diameter != "" {
+					if v, err := strconv.Atoi(req.Diameter); err == nil {
+						newDiameters[i] = strconv.Itoa(v + rnd.Intn(21) - 10)
+					}
+				}
+				filled = true
 			}
 		}
 		if !filled {

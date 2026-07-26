@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"fmt"
 	"image"
-	"image/color"
 	"io"
 	"mime"
 	"os"
@@ -87,56 +86,13 @@ func (pg *PhotoGenerator) GenerateUniquePhotos(sourceDir string, count int) ([]s
 
 // applyUniqueTransformations применяет уникальные трансформации к изображению
 func applyUniqueTransformations(img image.Image, index int) image.Image {
-	bounds := img.Bounds()
-
-	shiftX := (index * 7) % bounds.Dx()
-	shiftY := (index * 11) % bounds.Dy()
-
-	newW := bounds.Dx() + 1
-	newH := bounds.Dy() + 1
-	dst := imaging.New(newW, newH, getColorForIndex(index))
-
-	for y := 0; y < bounds.Dy(); y++ {
-		for x := 0; x < bounds.Dx(); x++ {
-			pxX := (x + shiftX) % bounds.Dx()
-			pxY := (y + shiftY) % bounds.Dy()
-			c := colorAt(img, pxX, pxY)
-			r, g, b, a := c.RGBA()
-			switch index % 3 {
-			case 0:
-				r = clampColor(r + uint32(index%10))
-			case 1:
-				g = clampColor(g + uint32(index%10))
-			default:
-				b = clampColor(b + uint32(index%10))
-			}
-			dst.Set(x, y, color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)})
-		}
+	if img == nil {
+		return nil
 	}
 
-	return dst
-}
-
-func getColorForIndex(index int) color.RGBA {
-	colors := []color.RGBA{
-		{255, 255, 255, 0},
-		{250, 250, 250, 0},
-		{245, 245, 245, 0},
-	}
-	return colors[index%len(colors)]
-}
-
-func clampColor(v uint32) uint32 {
-	if v > 65535 {
-		return 65535
-	}
-	return v
-}
-
-func colorAt(img image.Image, x, y int) color.RGBA {
-	c := img.At(x, y)
-	r, g, b, a := c.RGBA()
-	return color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)}
+	brightness := float64((index%20)-10) / 120.0
+	contrast := float64((index%15)-7) / 120.0
+	return imaging.AdjustBrightness(imaging.AdjustContrast(img, contrast), brightness)
 }
 
 // CreatePhotoZip создает ZIP-архив со всеми фото из папки (без вложенных папок)
@@ -664,19 +620,6 @@ func FindColumnIndex(headers []string, name string) int {
 	for i, h := range headers {
 		if strings.Contains(strings.ToLower(h), strings.ToLower(name)) {
 			return i
-		}
-	}
-	return -1
-}
-
-// findColumnInFirstRow ищет колонку в первой строке по нескольким синонимам
-func findColumnInFirstRow(row []string, names ...string) int {
-	for i, h := range row {
-		lower := strings.ToLower(h)
-		for _, name := range names {
-			if strings.Contains(lower, strings.ToLower(name)) {
-				return i
-			}
 		}
 	}
 	return -1
