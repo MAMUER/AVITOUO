@@ -232,99 +232,109 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		return fmt.Errorf("ошибка чтения листа: %w", err)
 	}
 
-	fmt.Printf("[DEBUG] SaveExcelWithNewRows: sheet=%q rows_in=%d newTitles=%d titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d idIdx=%d placementIdx=%d methodIdx=%d categoryIdx=%d productIdx=%d subProductIdx=%d priceUnitIdx=%d conditionIdx=%d availabilityIdx=%d adTypeIdx=%d salesTypeIdx=%d connectIdx=%d processingIdx=%d purposeIdx=%d output=%q\n", sheetName, len(rows), len(newTitles), titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, outputPath)
-
 	if len(rows) == 0 {
 		return fmt.Errorf("лист пустой")
 	}
 
-	if titleColIdx < 0 || descColIdx < 0 || imageNamesIdx < 0 || contactColIdx < 0 || phoneColIdx < 0 || addressColIdx < 0 || companyColIdx < 0 || emailColIdx < 0 || idColIdx < 0 || placementColIdx < 0 || contactMethodColIdx < 0 || categoryColIdx < 0 || productTypeColIdx < 0 || subProductTypeColIdx < 0 {
-		if len(rows) > 0 {
-			firstRow := rows[0]
-			fmt.Printf("[DEBUG] Fallback scan on first row: %v\n", firstRow)
-			if titleColIdx < 0 {
-				for i, h := range firstRow {
-					if strings.Contains(strings.ToLower(h), "title") || strings.Contains(strings.ToLower(h), "название") || strings.Contains(strings.ToLower(h), "заголовок") {
-						titleColIdx = i
-						break
-					}
-				}
-			}
-			if descColIdx < 0 {
-				for i, h := range firstRow {
-					if strings.Contains(strings.ToLower(h), "description") || strings.Contains(strings.ToLower(h), "описание") || strings.Contains(strings.ToLower(h), "текст") {
-						descColIdx = i
-						break
-					}
-				}
-			}
-			if imageNamesIdx < 0 {
-				for i, h := range firstRow {
-					if strings.Contains(strings.ToLower(h), "image") || strings.Contains(strings.ToLower(h), "фото") || strings.Contains(strings.ToLower(h), "изображение") {
-						imageNamesIdx = i
-						break
-					}
-				}
-			}
-			if contactColIdx < 0 {
-				contactColIdx = findColumnInFirstRow(firstRow, "контактное лицо", "контакт", "contact")
-			}
-			if phoneColIdx < 0 {
-				phoneColIdx = findColumnInFirstRow(firstRow, "номер телефона", "телефон", "phone")
-			}
-			if addressColIdx < 0 {
-				addressColIdx = findColumnInFirstRow(firstRow, "адрес", "address")
-			}
-			if companyColIdx < 0 {
-				companyColIdx = findColumnInFirstRow(firstRow, "название компании", "компания", "организация", "company")
-			}
-			if emailColIdx < 0 {
-				emailColIdx = findColumnInFirstRow(firstRow, "почта", "email", "e-mail", "электронная почта")
-			}
-			if idColIdx < 0 {
-				idColIdx = findColumnInFirstRow(firstRow, "уникальный идентификатор", "id")
-			}
-			if placementColIdx < 0 {
-				placementColIdx = findColumnInFirstRow(firstRow, "способ размещения", "размещения")
-			}
-			if contactMethodColIdx < 0 {
-				contactMethodColIdx = findColumnInFirstRow(firstRow, "способ связи", "связи")
-			}
-			if categoryColIdx < 0 {
-				categoryColIdx = findColumnInFirstRow(firstRow, "категория")
-			}
-			if productTypeColIdx < 0 {
-				productTypeColIdx = findColumnInFirstRow(firstRow, "вид товара", "товара")
-			}
-			if subProductTypeColIdx < 0 {
-				subProductTypeColIdx = findColumnInFirstRow(firstRow, "подвид товара", "подвид")
-			}
-			if priceUnitColIdx < 0 {
-				priceUnitColIdx = findColumnInFirstRow(firstRow, "цена за", "единица")
-			}
-			if conditionColIdx < 0 {
-				conditionColIdx = findColumnInFirstRow(firstRow, "состояние")
-			}
-			if availabilityColIdx < 0 {
-				availabilityColIdx = findColumnInFirstRow(firstRow, "доступность")
-			}
-			if adTypeColIdx < 0 {
-				adTypeColIdx = findColumnInFirstRow(firstRow, "вид объявления")
-			}
-			if salesTypeColIdx < 0 {
-				salesTypeColIdx = findColumnInFirstRow(firstRow, "вид продажи", "продажи")
-			}
-			if connectColIdx < 0 {
-				connectColIdx = findColumnInFirstRow(firstRow, "соединять")
-			}
-			if processingColIdx < 0 {
-				processingColIdx = findColumnInFirstRow(firstRow, "обработка")
-			}
-			if purposeColIdx < 0 {
-				purposeColIdx = findColumnInFirstRow(firstRow, "назначение")
-			}
-			fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d idIdx=%d placementIdx=%d methodIdx=%d categoryIdx=%d productIdx=%d subProductIdx=%d priceUnitIdx=%d conditionIdx=%d availabilityIdx=%d adTypeIdx=%d salesTypeIdx=%d connectIdx=%d processingIdx=%d purposeIdx=%d\n", titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx)
+	headerRowIdx := -1
+	for i := 0; i < len(rows) && i < 20; i++ {
+		if isHeaderRow(rows[i]) {
+			headerRowIdx = i
+			break
 		}
+	}
+	if headerRowIdx < 0 {
+		headerRowIdx = 0
+	}
+	headerRow := rows[headerRowIdx]
+
+	if titleColIdx < 0 || descColIdx < 0 || imageNamesIdx < 0 || contactColIdx < 0 || phoneColIdx < 0 || addressColIdx < 0 || companyColIdx < 0 || emailColIdx < 0 || idColIdx < 0 || placementColIdx < 0 || contactMethodColIdx < 0 || categoryColIdx < 0 || productTypeColIdx < 0 || subProductTypeColIdx < 0 {
+		fmt.Printf("[DEBUG] Fallback scan on header row %d: %v\n", headerRowIdx, headerRow)
+		if titleColIdx < 0 {
+			for i, h := range headerRow {
+				if strings.Contains(strings.ToLower(h), "title") || strings.Contains(strings.ToLower(h), "название") || strings.Contains(strings.ToLower(h), "заголовок") {
+					titleColIdx = i
+					break
+				}
+			}
+		}
+		if descColIdx < 0 {
+			for i, h := range headerRow {
+				if strings.Contains(strings.ToLower(h), "description") || strings.Contains(strings.ToLower(h), "описание") || strings.Contains(strings.ToLower(h), "текст") {
+					descColIdx = i
+					break
+				}
+			}
+		}
+		if imageNamesIdx < 0 {
+			for i, h := range headerRow {
+				if strings.Contains(strings.ToLower(h), "image") || strings.Contains(strings.ToLower(h), "фото") || strings.Contains(strings.ToLower(h), "изображение") {
+					imageNamesIdx = i
+					break
+				}
+			}
+		}
+		if contactColIdx < 0 {
+			contactColIdx = findColumnInFirstRow(headerRow, "контактное лицо", "контакт", "contact")
+		}
+		if phoneColIdx < 0 {
+			phoneColIdx = findColumnInFirstRow(headerRow, "номер телефона", "телефон", "phone")
+		}
+		if addressColIdx < 0 {
+			addressColIdx = findColumnInFirstRow(headerRow, "адрес", "address")
+		}
+		if companyColIdx < 0 {
+			companyColIdx = findColumnInFirstRow(headerRow, "название компании", "компания", "организация", "company")
+		}
+		if emailColIdx < 0 {
+			emailColIdx = findColumnInFirstRow(headerRow, "почта", "email", "e-mail", "электронная почта")
+		}
+		if idColIdx < 0 {
+			idColIdx = findColumnInFirstRow(headerRow, "уникальный идентификатор", "id")
+		}
+		if placementColIdx < 0 {
+			placementColIdx = findColumnInFirstRow(headerRow, "способ размещения", "размещения")
+		}
+		if contactMethodColIdx < 0 {
+			contactMethodColIdx = findColumnInFirstRow(headerRow, "способ связи", "связи")
+		}
+		if categoryColIdx < 0 {
+			categoryColIdx = findColumnInFirstRow(headerRow, "категория")
+		}
+		if productTypeColIdx < 0 {
+			productTypeColIdx = findColumnInFirstRow(headerRow, "вид товара", "товара")
+		}
+		if subProductTypeColIdx < 0 {
+			subProductTypeColIdx = findColumnInFirstRow(headerRow, "подвид товара", "подвид")
+		}
+		if priceUnitColIdx < 0 {
+			priceUnitColIdx = findColumnInFirstRow(headerRow, "цена за", "единица")
+		}
+		if priceValueColIdx < 0 {
+			priceValueColIdx = findColumnInFirstRow(headerRow, "цена")
+		}
+		if conditionColIdx < 0 {
+			conditionColIdx = findColumnInFirstRow(headerRow, "состояние")
+		}
+		if availabilityColIdx < 0 {
+			availabilityColIdx = findColumnInFirstRow(headerRow, "доступность")
+		}
+		if adTypeColIdx < 0 {
+			adTypeColIdx = findColumnInFirstRow(headerRow, "вид объявления")
+		}
+		if salesTypeColIdx < 0 {
+			salesTypeColIdx = findColumnInFirstRow(headerRow, "вид продажи", "продажи")
+		}
+		if connectColIdx < 0 {
+			connectColIdx = findColumnInFirstRow(headerRow, "соединять")
+		}
+		if processingColIdx < 0 {
+			processingColIdx = findColumnInFirstRow(headerRow, "обработка")
+		}
+		if purposeColIdx < 0 {
+			purposeColIdx = findColumnInFirstRow(headerRow, "назначение")
+		}
+		fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d idIdx=%d placementIdx=%d methodIdx=%d categoryIdx=%d productIdx=%d subProductIdx=%d priceUnitIdx=%d priceValueIdx=%d conditionIdx=%d availabilityIdx=%d adTypeIdx=%d salesTypeIdx=%d connectIdx=%d processingIdx=%d purposeIdx=%d\n", titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, priceValueColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx)
 	}
 
 	if titleColIdx < 0 {
@@ -360,6 +370,9 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 	}
 	if priceUnitColIdx < 0 {
 		priceUnitColIdx = -1
+	}
+	if priceValueColIdx < 0 {
+		priceValueColIdx = -1
 	}
 	if conditionColIdx < 0 {
 		conditionColIdx = -1
@@ -398,61 +411,86 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 	widthDColIdx := -1
 	lengthDColIdx := -1
 
-	if len(rows) > 0 {
-		firstRow := rows[0]
+	if len(headerRow) > 0 {
 		if lumberTypeColIdx < 0 {
-			lumberTypeColIdx = findColumnInFirstRow(firstRow, "тип пиломатериала")
+			lumberTypeColIdx = findColumnInFirstRow(headerRow, "тип пиломатериала")
 		}
 		if woodTypeColIdx < 0 {
-			woodTypeColIdx = findColumnInFirstRow(firstRow, "вид древесины")
+			woodTypeColIdx = findColumnInFirstRow(headerRow, "вид древесины")
 		}
 		if edgeColIdx < 0 {
-			edgeColIdx = findColumnInFirstRow(firstRow, "кромка")
+			edgeColIdx = findColumnInFirstRow(headerRow, "кромка")
 		}
 		if gradeColIdx < 0 {
-			gradeColIdx = findColumnInFirstRow(firstRow, "сорт древесины")
+			gradeColIdx = findColumnInFirstRow(headerRow, "сорт древесины")
 		}
 		if moistureColIdx < 0 {
-			moistureColIdx = findColumnInFirstRow(firstRow, "степень влажности")
+			moistureColIdx = findColumnInFirstRow(headerRow, "степень влажности")
 		}
 		if profileColIdx < 0 {
-			profileColIdx = findColumnInFirstRow(firstRow, "профилированный")
+			profileColIdx = findColumnInFirstRow(headerRow, "профилированный")
 		}
 		if structureColIdx < 0 {
-			structureColIdx = findColumnInFirstRow(firstRow, "структура")
+			structureColIdx = findColumnInFirstRow(headerRow, "структура")
 		}
 		if lumberProfileColIdx < 0 {
-			lumberProfileColIdx = findColumnInFirstRow(firstRow, "профиль")
+			lumberProfileColIdx = findColumnInFirstRow(headerRow, "профиль")
 		}
 		if thicknessColIdx < 0 {
-			thicknessColIdx = findColumnInFirstRow(firstRow, "толщина пиломатериала", "толщина")
+			thicknessColIdx = findColumnInFirstRow(headerRow, "толщина пиломатериала", "толщина")
 		}
 		if widthColIdx < 0 {
-			widthColIdx = findColumnInFirstRow(firstRow, "ширина пиломатериала", "ширина бруса")
+			widthColIdx = findColumnInFirstRow(headerRow, "ширина пиломатериала", "ширина бруса")
 		}
 		if lengthColIdx < 0 {
-			lengthColIdx = findColumnInFirstRow(firstRow, "длина пиломатериала", "длина бруса")
+			lengthColIdx = findColumnInFirstRow(headerRow, "длина пиломатериала", "длина бруса")
 		}
 		if heightColIdx < 0 {
-			heightColIdx = findColumnInFirstRow(firstRow, "высота")
+			heightColIdx = findColumnInFirstRow(headerRow, "высота")
 		}
 		if widthDColIdx < 0 {
-			widthDColIdx = findColumnInFirstRow(firstRow, "ширина")
+			widthDColIdx = findColumnInFirstRow(headerRow, "ширина")
 		}
 		if lengthDColIdx < 0 {
-			lengthDColIdx = findColumnInFirstRow(firstRow, "длина")
+			lengthDColIdx = findColumnInFirstRow(headerRow, "длина")
 		}
 		if targetActionColIdx < 0 {
-			targetActionColIdx = findColumnInFirstRow(firstRow, "настройка цены целевого действия")
+			targetActionColIdx = findColumnInFirstRow(headerRow, "настройка цены целевого действия")
 		}
 		if targetActionManualColIdx < 0 {
-			targetActionManualColIdx = findColumnInFirstRow(firstRow, "настройка цены целевого действия: ручная")
+			targetActionManualColIdx = findColumnInFirstRow(headerRow, "настройка цены целевого действия: ручная")
 		}
 		if diameterColIdx < 0 {
-			diameterColIdx = findColumnInFirstRow(firstRow, "диаметр")
+			diameterColIdx = findColumnInFirstRow(headerRow, "диаметр")
 		}
 		if priceValueColIdx < 0 {
-			priceValueColIdx = findColumnInFirstRow(firstRow, "цена")
+			priceValueColIdx = findColumnInFirstRow(headerRow, "цена")
+		}
+	}
+
+	if targetActionColIdx < 0 {
+		targetActionColIdx = len(headerRow)
+		headerRow = append(headerRow, "Настройка цены целевого действия")
+		colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
+		if err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
+		}
+		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
+		if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия"); err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
+		}
+	}
+
+	if targetActionManualColIdx < 0 {
+		targetActionManualColIdx = len(headerRow)
+		headerRow = append(headerRow, "Настройка цены целевого действия: ручная")
+		colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
+		if err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
+		}
+		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
+		if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия: ручная"); err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
 		}
 	}
 

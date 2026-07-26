@@ -450,13 +450,13 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		PriceValue      int      `json:"price_value"`
 		GenerationContact string `json:"generation_contact"`
 		GenerationPhone    string `json:"generation_phone"`
-		Diameters       []string `json:"diameters"`
+		Height          string   `json:"heights"`
+		WidthD          string   `json:"width_ds"`
+		LengthD         string   `json:"length_ds"`
+		Diameter        string   `json:"diameters"`
 		Thicknesses     []string `json:"thicknesses"`
 		Widths          []string `json:"widths"`
 		Lengths         []string `json:"lengths"`
-		Heights         []string `json:"heights"`
-		WidthDs         []string `json:"width_ds"`
-		LengthDs        []string `json:"length_ds"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
 		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
@@ -737,44 +737,24 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	if len(lengthPool) == 0 {
 		lengthPool = []string{"2 м", "3 м", "4 м", "6 м"}
 	}
-	heightPool := req.Heights
-	if len(heightPool) == 0 {
-		heightPool = []string{"40 мм", "50 мм", "60 мм"}
-	}
-	widthDPool := req.WidthDs
-	if len(widthDPool) == 0 {
-		widthDPool = []string{"100 мм", "150 мм", "200 мм"}
-	}
-	lengthDPool := req.LengthDs
-	if len(lengthDPool) == 0 {
-		lengthDPool = []string{"2 м", "3 м", "4 м"}
-	}
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	heightVal := 50
-	if len(req.Heights) > 0 {
-		if v, err := strconv.Atoi(req.Heights[0]); err == nil {
-			heightVal = v
-		}
+	if v, err := strconv.Atoi(req.Height); err == nil {
+		heightVal = v
 	}
 	widthVal := 50
-	if len(req.Widths) > 0 {
-		if v, err := strconv.Atoi(req.Widths[0]); err == nil {
-			widthVal = v
-		}
+	if v, err := strconv.Atoi(req.WidthD); err == nil {
+		widthVal = v
 	}
 	lengthVal := 3000
-	if len(req.Lengths) > 0 {
-		if v, err := strconv.Atoi(req.Lengths[0]); err == nil {
-			lengthVal = v
-		}
+	if v, err := strconv.Atoi(req.LengthD); err == nil {
+		lengthVal = v
 	}
 	diameterVal := 200
-	if len(req.Diameters) > 0 {
-		if v, err := strconv.Atoi(req.Diameters[0]); err == nil {
-			diameterVal = v
-		}
+	if v, err := strconv.Atoi(req.Diameter); err == nil {
+		diameterVal = v
 	}
 
 	for i := range newPriceUnits {
@@ -819,9 +799,6 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	if len(thicknessPool) > 0 { maxPossible *= len(thicknessPool) }
 	if len(widthPool) > 0 { maxPossible *= len(widthPool) }
 	if len(lengthPool) > 0 { maxPossible *= len(lengthPool) }
-	if len(heightPool) > 0 { maxPossible *= len(heightPool) }
-	if len(widthDPool) > 0 { maxPossible *= len(widthDPool) }
-	if len(lengthDPool) > 0 { maxPossible *= len(lengthDPool) }
 	if lumberTypePool != "" {
 		maxPossible = maxPossible * 1
 	}
@@ -853,10 +830,10 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			structure := core.PickRandom(rnd, structurePool)
 			lumberProfile := core.PickRandom(rnd, lumberProfilePool)
 			thickness := core.PickRandom(rnd, thicknessPool)
-			_ = core.PickRandom(rnd, widthPool)
-			_ = core.PickRandom(rnd, lengthPool)
-			widthD := core.PickRandom(rnd, widthDPool)
-			lengthD := core.PickRandom(rnd, lengthDPool)
+			width := core.PickRandom(rnd, widthPool)
+			length := core.PickRandom(rnd, lengthPool)
+			widthD := req.WidthD
+			lengthD := req.LengthD
 
 			if !core.IsValidEdge(lt) && edge != "" {
 				edge = ""
@@ -881,13 +858,11 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			}
 
 			heightStr := strconv.Itoa(heightVal + rnd.Intn(21) - 10)
-			itemWidth := strconv.Itoa(widthVal + rnd.Intn(21) - 10)
-			itemLength := strconv.Itoa(lengthVal + rnd.Intn(301) - 150)
 			itemDiameter := strconv.Itoa(diameterVal + rnd.Intn(21) - 10)
 
-		sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
+		sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
 			lt, wood, edge, grade, moisture, profile, structure, lumberProfile,
-			thickness, itemWidth, itemLength, heightStr, widthD, lengthD, itemDiameter)
+			thickness, width, length)
 			if !usedCombinations[sig] {
 				usedCombinations[sig] = true
 				newLumberTypes[i] = lt
@@ -899,8 +874,8 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				newStructures[i] = structure
 				newLumberProfiles[i] = lumberProfile
 				newThicknesses[i] = thickness
-				newWidths[i] = itemWidth
-				newLengths[i] = itemLength
+				newWidths[i] = width
+				newLengths[i] = length
 				newHeights[i] = heightStr
 				newWidthDs[i] = widthD
 				newLengthDs[i] = lengthD
@@ -1033,7 +1008,19 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		productTypeColIdx = storage.FindColumnIndex(headersCopy, "Вид товара")
 		subProductTypeColIdx = storage.FindColumnIndex(headersCopy, "Подвид товара")
 		priceUnitColIdx = storage.FindColumnIndex(headersCopy, "Цена за")
-		priceValueColIdx = storage.FindColumnIndex(headersCopy, "Цена")
+		priceValueColIdx = -1
+		for j, h := range headersCopy {
+			if j == priceUnitColIdx {
+				continue
+			}
+			if strings.Contains(strings.ToLower(h), "цена") && !strings.Contains(strings.ToLower(h), "цена за") {
+				priceValueColIdx = j
+				break
+			}
+		}
+		if priceValueColIdx < 0 {
+			priceValueColIdx = priceUnitColIdx
+		}
 		conditionColIdx = storage.FindColumnIndex(headersCopy, "Состояние")
 		availabilityColIdx = storage.FindColumnIndex(headersCopy, "Доступность")
 		adTypeColIdx = storage.FindColumnIndex(headersCopy, "Вид объявления")

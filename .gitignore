@@ -1,6 +1,6 @@
 *.json
 .kilo/
 *.xlsx
-~*.exe
+*.exe~
 photos/
 *.zip

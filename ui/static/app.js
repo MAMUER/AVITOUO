@@ -137,7 +137,7 @@ const loadSettings = async () => {
     const contactSelect = document.getElementById('generation-contact');
     const phoneSelect = document.getElementById('generation-phone');
     if (contactSelect) {
-      contactSelect.innerHTML = '<option value="">— Автоиз настроек —</option>';
+      contactSelect.innerHTML = '<option value="">— Авто из настроек —</option>';
       (data.contacts || []).forEach(function(c) {
         const opt = document.createElement('option');
         opt.value = c;
@@ -146,7 +146,7 @@ const loadSettings = async () => {
       });
     }
     if (phoneSelect) {
-      phoneSelect.innerHTML = '<option value="">— Автоиз настроек —</option>';
+      phoneSelect.innerHTML = '<option value="">— Авто из настроек —</option>';
       (data.phones || []).forEach(function(p) {
         const opt = document.createElement('option');
         opt.value = p;

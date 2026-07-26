@@ -81,9 +81,17 @@
     var el = document.getElementById(containerId);
     if (!el) return;
     if (el.tagName === 'SELECT') {
-      setSelectOptions(containerId, options, []);
+      var current = [];
+      if (el.multiple) {
+        current = Array.from(el.selectedOptions).map(function(opt) { return opt.value; }).filter(function(v) { return v; });
+      }
+      setSelectOptions(containerId, options, current);
     } else {
-      renderCheckboxes(containerId, options, []);
+      var currentChecked = getCheckedValues(containerId);
+      if (options.length === 0 && AVITO_CATALOG && AVITO_CATALOG.dimensions && AVITO_CATALOG.dimensions[containerId]) {
+        options = AVITO_CATALOG.dimensions[containerId].slice();
+      }
+      renderCheckboxes(containerId, options, currentChecked);
     }
   }
 
@@ -132,7 +140,8 @@
       } else if (AVITO_CATALOG.dimensions && AVITO_CATALOG.dimensions[key]) {
         options = AVITO_CATALOG.dimensions[key].slice();
       }
-      renderStaticGroup(key, options);
+      var current = getCheckedValues(key);
+      renderCheckboxes(key, options, current);
     });
   }
 
@@ -251,6 +260,9 @@
         if (catalogAttr === 'structures') options = AVITO_CATALOG.rules.structure.options.slice();
         if (catalogAttr === 'lumberProfiles') options = [];
         if (catalogAttr === 'priceUnits') options = AVITO_CATALOG.rules.priceUnits.options.slice();
+        if (catalogAttr === 'thickness') options = (AVITO_CATALOG.dimensions && AVITO_CATALOG.dimensions.thickness) ? AVITO_CATALOG.dimensions.thickness.slice() : [];
+        if (catalogAttr === 'width') options = (AVITO_CATALOG.dimensions && AVITO_CATALOG.dimensions.width) ? AVITO_CATALOG.dimensions.width.slice() : [];
+        if (catalogAttr === 'length') options = (AVITO_CATALOG.dimensions && AVITO_CATALOG.dimensions.length) ? AVITO_CATALOG.dimensions.length.slice() : [];
         renderStaticGroup(group.id, options);
       }
     });
