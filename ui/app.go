@@ -740,23 +740,6 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	heightVal := 50
-	if v, err := strconv.Atoi(req.Height); err == nil {
-		heightVal = v
-	}
-	widthVal := 50
-	if v, err := strconv.Atoi(req.WidthD); err == nil {
-		widthVal = v
-	}
-	lengthVal := 3000
-	if v, err := strconv.Atoi(req.LengthD); err == nil {
-		lengthVal = v
-	}
-	diameterVal := 200
-	if v, err := strconv.Atoi(req.Diameter); err == nil {
-		diameterVal = v
-	}
-
 	for i := range newPriceUnits {
 		if priceUnitPool != "" {
 			newPriceUnits[i] = priceUnitPool
@@ -851,14 +834,11 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				structure = ""
 			}
 			validLPs := core.GetValidLumberProfiles(lt)
-			if len(validLPs) == 0 {
-				lumberProfile = ""
-			} else if lumberProfile != "" && !core.InArray(lumberProfile, validLPs) {
-				lumberProfile = ""
-			}
-
-			heightStr := strconv.Itoa(heightVal + rnd.Intn(21) - 10)
-			itemDiameter := strconv.Itoa(diameterVal + rnd.Intn(21) - 10)
+		if len(validLPs) == 0 {
+			lumberProfile = ""
+		} else if lumberProfile != "" && !core.InArray(lumberProfile, validLPs) {
+			lumberProfile = ""
+		}
 
 		sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
 			lt, wood, edge, grade, moisture, profile, structure, lumberProfile,
@@ -873,14 +853,26 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				newProfiles[i] = profile
 				newStructures[i] = structure
 				newLumberProfiles[i] = lumberProfile
-				newThicknesses[i] = thickness
-				newWidths[i] = width
-				newLengths[i] = length
-				newHeights[i] = heightStr
+			newThicknesses[i] = thickness
+			newWidths[i] = width
+			newLengths[i] = length
+			if req.Height != "" {
+				if v, err := strconv.Atoi(req.Height); err == nil {
+					newHeights[i] = strconv.Itoa(v + rnd.Intn(21) - 10)
+				}
+			}
+			if req.WidthD != "" {
 				newWidthDs[i] = widthD
+			}
+			if req.LengthD != "" {
 				newLengthDs[i] = lengthD
-				newDiameters[i] = itemDiameter
-				filled = true
+			}
+			if req.Diameter != "" {
+				if v, err := strconv.Atoi(req.Diameter); err == nil {
+					newDiameters[i] = strconv.Itoa(v + rnd.Intn(21) - 10)
+				}
+			}
+			filled = true
 			}
 		}
 		if !filled {
@@ -895,10 +887,6 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			newThicknesses[i] = core.PickRandom(rnd, thicknessPool)
 			newWidths[i] = core.PickRandom(rnd, widthPool)
 			newLengths[i] = core.PickRandom(rnd, lengthPool)
-			newHeights[i] = strconv.Itoa(heightVal + rnd.Intn(21) - 10)
-			newWidthDs[i] = strconv.Itoa(widthVal + rnd.Intn(21) - 10)
-			newLengthDs[i] = strconv.Itoa(lengthVal + rnd.Intn(301) - 150)
-			newDiameters[i] = strconv.Itoa(diameterVal + rnd.Intn(21) - 10)
 		}
 	}
 
