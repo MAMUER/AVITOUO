@@ -248,91 +248,126 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 	}
 	headerRow := rows[headerRowIdx]
 
+	usedIdxs := make(map[int]bool)
+	markUsed := func(idx int) {
+		if idx >= 0 {
+			usedIdxs[idx] = true
+		}
+	}
+	findUnique := func(names ...string) int {
+		for i, h := range headerRow {
+			if usedIdxs[i] {
+				continue
+			}
+			lower := strings.ToLower(h)
+			for _, name := range names {
+				if strings.Contains(lower, strings.ToLower(name)) {
+					usedIdxs[i] = true
+					return i
+				}
+			}
+		}
+		return -1
+	}
+
+	markUsed(titleColIdx)
+	markUsed(descColIdx)
+	markUsed(imageNamesIdx)
+	markUsed(contactColIdx)
+	markUsed(phoneColIdx)
+	markUsed(addressColIdx)
+	markUsed(companyColIdx)
+	markUsed(emailColIdx)
+	markUsed(idColIdx)
+	markUsed(placementColIdx)
+	markUsed(contactMethodColIdx)
+	markUsed(categoryColIdx)
+	markUsed(productTypeColIdx)
+	markUsed(subProductTypeColIdx)
+	markUsed(priceUnitColIdx)
+	markUsed(priceValueColIdx)
+	markUsed(conditionColIdx)
+	markUsed(availabilityColIdx)
+	markUsed(adTypeColIdx)
+	markUsed(salesTypeColIdx)
+	markUsed(connectColIdx)
+	markUsed(processingColIdx)
+	markUsed(purposeColIdx)
+	markUsed(gostColIdx)
+	markUsed(targetActionColIdx)
+	markUsed(targetActionManualColIdx)
+	markUsed(diameterColIdx)
+
 	if titleColIdx < 0 || descColIdx < 0 || imageNamesIdx < 0 || contactColIdx < 0 || phoneColIdx < 0 || addressColIdx < 0 || companyColIdx < 0 || emailColIdx < 0 || idColIdx < 0 || placementColIdx < 0 || contactMethodColIdx < 0 || categoryColIdx < 0 || productTypeColIdx < 0 || subProductTypeColIdx < 0 {
 		fmt.Printf("[DEBUG] Fallback scan on header row %d: %v\n", headerRowIdx, headerRow)
 		if titleColIdx < 0 {
-			for i, h := range headerRow {
-				if strings.Contains(strings.ToLower(h), "title") || strings.Contains(strings.ToLower(h), "название") || strings.Contains(strings.ToLower(h), "заголовок") {
-					titleColIdx = i
-					break
-				}
-			}
+			titleColIdx = findUnique("title", "название", "заголовок")
 		}
 		if descColIdx < 0 {
-			for i, h := range headerRow {
-				if strings.Contains(strings.ToLower(h), "description") || strings.Contains(strings.ToLower(h), "описание") || strings.Contains(strings.ToLower(h), "текст") {
-					descColIdx = i
-					break
-				}
-			}
+			descColIdx = findUnique("description", "описание", "текст")
 		}
 		if imageNamesIdx < 0 {
-			for i, h := range headerRow {
-				if strings.Contains(strings.ToLower(h), "image") || strings.Contains(strings.ToLower(h), "фото") || strings.Contains(strings.ToLower(h), "изображение") {
-					imageNamesIdx = i
-					break
-				}
-			}
+			imageNamesIdx = findUnique("image", "фото", "изображение")
 		}
 		if contactColIdx < 0 {
-			contactColIdx = findColumnInFirstRow(headerRow, "контактное лицо", "контакт", "contact")
+			contactColIdx = findUnique("контактное лицо", "контакт", "contact")
 		}
 		if phoneColIdx < 0 {
-			phoneColIdx = findColumnInFirstRow(headerRow, "номер телефона", "телефон", "phone")
+			phoneColIdx = findUnique("номер телефона", "телефон", "phone")
 		}
 		if addressColIdx < 0 {
-			addressColIdx = findColumnInFirstRow(headerRow, "адрес", "address")
+			addressColIdx = findUnique("адрес", "address")
 		}
 		if companyColIdx < 0 {
-			companyColIdx = findColumnInFirstRow(headerRow, "название компании", "компания", "организация", "company")
+			companyColIdx = findUnique("название компании", "компания", "организация", "company")
 		}
 		if emailColIdx < 0 {
-			emailColIdx = findColumnInFirstRow(headerRow, "почта", "email", "e-mail", "электронная почта")
+			emailColIdx = findUnique("почта", "email", "e-mail", "электронная почта")
 		}
 		if idColIdx < 0 {
-			idColIdx = findColumnInFirstRow(headerRow, "уникальный идентификатор", "id")
+			idColIdx = findUnique("уникальный идентификатор", "id")
 		}
 		if placementColIdx < 0 {
-			placementColIdx = findColumnInFirstRow(headerRow, "способ размещения", "размещения")
+			placementColIdx = findUnique("способ размещения", "размещения")
 		}
 		if contactMethodColIdx < 0 {
-			contactMethodColIdx = findColumnInFirstRow(headerRow, "способ связи", "связи")
+			contactMethodColIdx = findUnique("способ связи", "связи")
 		}
 		if categoryColIdx < 0 {
-			categoryColIdx = findColumnInFirstRow(headerRow, "категория")
+			categoryColIdx = findUnique("категория")
 		}
 		if productTypeColIdx < 0 {
-			productTypeColIdx = findColumnInFirstRow(headerRow, "вид товара", "товара")
+			productTypeColIdx = findUnique("вид товара", "товара")
 		}
 		if subProductTypeColIdx < 0 {
-			subProductTypeColIdx = findColumnInFirstRow(headerRow, "подвид товара", "подвид")
+			subProductTypeColIdx = findUnique("подвид товара", "подвид")
 		}
 		if priceUnitColIdx < 0 {
-			priceUnitColIdx = findColumnInFirstRow(headerRow, "цена за", "единица")
+			priceUnitColIdx = findUnique("цена за", "единица")
 		}
 		if priceValueColIdx < 0 {
-			priceValueColIdx = findColumnInFirstRow(headerRow, "цена")
+			priceValueColIdx = findUnique("цена")
 		}
 		if conditionColIdx < 0 {
-			conditionColIdx = findColumnInFirstRow(headerRow, "состояние")
+			conditionColIdx = findUnique("состояние")
 		}
 		if availabilityColIdx < 0 {
-			availabilityColIdx = findColumnInFirstRow(headerRow, "доступность")
+			availabilityColIdx = findUnique("доступность")
 		}
 		if adTypeColIdx < 0 {
-			adTypeColIdx = findColumnInFirstRow(headerRow, "вид объявления")
+			adTypeColIdx = findUnique("вид объявления")
 		}
 		if salesTypeColIdx < 0 {
-			salesTypeColIdx = findColumnInFirstRow(headerRow, "вид продажи", "продажи")
+			salesTypeColIdx = findUnique("вид продажи", "продажи")
 		}
 		if connectColIdx < 0 {
-			connectColIdx = findColumnInFirstRow(headerRow, "соединять")
+			connectColIdx = findUnique("соединять")
 		}
 		if processingColIdx < 0 {
-			processingColIdx = findColumnInFirstRow(headerRow, "обработка")
+			processingColIdx = findUnique("обработка")
 		}
 		if purposeColIdx < 0 {
-			purposeColIdx = findColumnInFirstRow(headerRow, "назначение")
+			purposeColIdx = findUnique("назначение")
 		}
 		fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d idIdx=%d placementIdx=%d methodIdx=%d categoryIdx=%d productIdx=%d subProductIdx=%d priceUnitIdx=%d priceValueIdx=%d conditionIdx=%d availabilityIdx=%d adTypeIdx=%d salesTypeIdx=%d connectIdx=%d processingIdx=%d purposeIdx=%d\n", titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, priceValueColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx)
 	}
@@ -413,84 +448,58 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 
 	if len(headerRow) > 0 {
 		if lumberTypeColIdx < 0 {
-			lumberTypeColIdx = findColumnInFirstRow(headerRow, "тип пиломатериала")
+			lumberTypeColIdx = findUnique("тип пиломатериала")
 		}
 		if woodTypeColIdx < 0 {
-			woodTypeColIdx = findColumnInFirstRow(headerRow, "вид древесины")
+			woodTypeColIdx = findUnique("вид древесины")
 		}
 		if edgeColIdx < 0 {
-			edgeColIdx = findColumnInFirstRow(headerRow, "кромка")
+			edgeColIdx = findUnique("кромка")
 		}
 		if gradeColIdx < 0 {
-			gradeColIdx = findColumnInFirstRow(headerRow, "сорт древесины")
+			gradeColIdx = findUnique("сорт древесины")
 		}
 		if moistureColIdx < 0 {
-			moistureColIdx = findColumnInFirstRow(headerRow, "степень влажности")
+			moistureColIdx = findUnique("степень влажности")
 		}
 		if profileColIdx < 0 {
-			profileColIdx = findColumnInFirstRow(headerRow, "профилированный")
+			profileColIdx = findUnique("профилированный")
 		}
 		if structureColIdx < 0 {
-			structureColIdx = findColumnInFirstRow(headerRow, "структура")
+			structureColIdx = findUnique("структура")
 		}
 		if lumberProfileColIdx < 0 {
-			lumberProfileColIdx = findColumnInFirstRow(headerRow, "профиль")
+			lumberProfileColIdx = findUnique("профиль")
 		}
 		if thicknessColIdx < 0 {
-			thicknessColIdx = findColumnInFirstRow(headerRow, "толщина пиломатериала", "толщина")
+			thicknessColIdx = findUnique("толщина пиломатериала", "толщина")
 		}
 		if widthColIdx < 0 {
-			widthColIdx = findColumnInFirstRow(headerRow, "ширина пиломатериала", "ширина бруса")
+			widthColIdx = findUnique("ширина пиломатериала", "ширина бруса")
 		}
 		if lengthColIdx < 0 {
-			lengthColIdx = findColumnInFirstRow(headerRow, "длина пиломатериала", "длина бруса")
+			lengthColIdx = findUnique("длина пиломатериала", "длина бруса")
 		}
 		if heightColIdx < 0 {
-			heightColIdx = findColumnInFirstRow(headerRow, "высота")
+			heightColIdx = findUnique("высота")
 		}
 		if widthDColIdx < 0 {
-			widthDColIdx = findColumnInFirstRow(headerRow, "ширина")
+			widthDColIdx = findUnique("ширина")
 		}
 		if lengthDColIdx < 0 {
-			lengthDColIdx = findColumnInFirstRow(headerRow, "длина")
+			lengthDColIdx = findUnique("длина")
 		}
 		if targetActionColIdx < 0 {
-			targetActionColIdx = findColumnInFirstRow(headerRow, "настройка цены целевого действия")
+			targetActionColIdx = findUnique("настройка цены целевого действия")
 		}
 		if targetActionManualColIdx < 0 {
-			targetActionManualColIdx = findColumnInFirstRow(headerRow, "настройка цены целевого действия: ручная")
+			targetActionManualColIdx = findUnique("настройка цены целевого действия: ручная")
 		}
 		if diameterColIdx < 0 {
-			diameterColIdx = findColumnInFirstRow(headerRow, "диаметр")
+			diameterColIdx = findUnique("диаметр")
 		}
 		if priceValueColIdx < 0 {
-			priceValueColIdx = findColumnInFirstRow(headerRow, "цена")
-		}
-	}
-
-	if targetActionColIdx < 0 {
-		targetActionColIdx = len(headerRow)
-		headerRow = append(headerRow, "Настройка цены целевого действия")
-		colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
-		if err != nil {
-			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
-		}
-		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
-		if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия"); err != nil {
-			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
-		}
-	}
-
-	if targetActionManualColIdx < 0 {
-		targetActionManualColIdx = len(headerRow)
-		headerRow = append(headerRow, "Настройка цены целевого действия: ручная")
-		colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
-		if err != nil {
-			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
-		}
-		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
-		if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия: ручная"); err != nil {
-			return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
+			priceValueColIdx = findUnique("цена")
 		}
 	}
 
