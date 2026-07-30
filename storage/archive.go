@@ -459,6 +459,51 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		}
 	}
 
+	if targetActionColIdx < 0 {
+		targetActionColIdx = len(headerRow)
+		headerRow = append(headerRow, "Настройка цены целевого действия")
+		colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
+		if err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
+		}
+		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
+		if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия"); err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
+		}
+	}
+
+	if targetActionManualColIdx < 0 {
+		targetActionManualColIdx = len(headerRow)
+		headerRow = append(headerRow, "Настройка цены целевого действия: ручная")
+		colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
+		if err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
+		}
+		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
+		if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия: ручная"); err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
+		}
+	}
+
+	if targetActionColIdx >= 0 || targetActionManualColIdx >= 0 {
+		valueTarget := "Manual"
+		valueTargetManual := "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5"
+		for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
+			if targetActionColIdx >= 0 {
+				colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
+				if err == nil {
+					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), valueTarget)
+				}
+			}
+			if targetActionManualColIdx >= 0 {
+				colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
+				if err == nil {
+					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), valueTargetManual)
+				}
+			}
+		}
+	}
+
 	startRow := len(rows) + 1
 	wrote := 0
 

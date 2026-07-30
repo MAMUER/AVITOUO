@@ -562,9 +562,6 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	for i := range newTargetActionManual {
 		newTargetActionManual[i] = "Manual"
 	}
-	for i := range newTargetActionManualSettings {
-		newTargetActionManualSettings[i] = "|1000\nМосковская область |1000\nМосква |1000"
-	}
 	for i := range newPriceValues {
 		newPriceValues[i] = strconv.Itoa(req.PriceValue)
 	}
@@ -940,6 +937,9 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 			}
 			newAddresses[i] = strings.TrimSpace(addr)
 		}
+	}
+	for i := range newTargetActionManualSettings {
+		newTargetActionManualSettings[i] = "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5"
 	}
 	if len(settings.Companies) > 0 {
 		for i := range newCompanies {
