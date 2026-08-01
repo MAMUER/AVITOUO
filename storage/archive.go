@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"math/rand"
 	"mime"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/disintegration/imaging"
 	"github.com/xuri/excelize/v2"
@@ -485,25 +487,6 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		}
 	}
 
-	if targetActionColIdx >= 0 || targetActionManualColIdx >= 0 {
-		valueTarget := "Manual"
-		valueTargetManual := "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5"
-		for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
-			if targetActionColIdx >= 0 {
-				colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
-				if err == nil {
-					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), valueTarget)
-				}
-			}
-			if targetActionManualColIdx >= 0 {
-				colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
-				if err == nil {
-					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), valueTargetManual)
-				}
-			}
-		}
-	}
-
 	startRow := len(rows) + 1
 	wrote := 0
 
@@ -677,4 +660,69 @@ func GetMimeType(filename string) string {
 		return "application/octet-stream"
 	}
 	return mime
+}
+
+// ShuffleAddresses перемешивает адреса в столбце "Адрес" для всех строк данных (начиная с 5-й)
+func ShuffleAddresses(templatePath, outputPath string, addresses []string) error {
+	if len(addresses) == 0 {
+		return fmt.Errorf("список адресов пуст")
+	}
+
+	f, err := excelize.OpenFile(templatePath)
+	if err != nil {
+		return fmt.Errorf("ошибка открытия файла: %w", err)
+	}
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		return fmt.Errorf("в файле нет листов")
+	}
+
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for _, sheetName := range sheets {
+		rows, err := f.GetRows(sheetName)
+		if err != nil || len(rows) == 0 {
+			continue
+		}
+
+		headerRowIdx := -1
+		for i := 0; i < len(rows) && i < 20; i++ {
+			if isHeaderRow(rows[i]) {
+				headerRowIdx = i
+				break
+			}
+		}
+		if headerRowIdx < 0 {
+			headerRowIdx = 0
+		}
+
+		addressColIdx := -1
+		for i, h := range rows[headerRowIdx] {
+			if strings.Contains(strings.ToLower(h), "адрес") {
+				addressColIdx = i
+				break
+			}
+		}
+		if addressColIdx < 0 {
+			continue
+		}
+
+		for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
+			addr := addresses[rnd.Intn(len(addresses))]
+			cellName, err := excelize.CoordinatesToCellName(addressColIdx+1, rowIdx+1)
+			if err != nil {
+				continue
+			}
+			if err := f.SetCellValue(sheetName, cellName, addr); err != nil {
+				continue
+			}
+		}
+	}
+
+	if err := f.SaveAs(outputPath); err != nil {
+		return fmt.Errorf("ошибка сохранения файла: %w", err)
+	}
+
+	return nil
 }

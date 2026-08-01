@@ -58,6 +58,7 @@ func NewApp() *App {
 	mux.HandleFunc("/api/sheet", app.handleSheet)
 	mux.HandleFunc("/api/generate-and-export", app.handleGenerateAndExport)
 	mux.HandleFunc("/api/download", app.handleDownloadFile)
+	mux.HandleFunc("/api/shuffle-addresses", app.handleShuffleAddresses)
 
 	return app
 }
@@ -939,7 +940,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	for i := range newTargetActionManualSettings {
-		newTargetActionManualSettings[i] = "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5"
+		newTargetActionManualSettings[i] = "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5\nВладимирская область|5"
 	}
 	if len(settings.Companies) > 0 {
 		for i := range newCompanies {
@@ -1074,6 +1075,40 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		"generated":   settingsCount,
 		"photo_count": len(imageNamesStrings),
 		"files":       files,
+	})
+}
+
+func (app *App) handleShuffleAddresses(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Filename string `json:"filename"`
+	}
+	if err := app.decodeJSON(r, &req); err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
+		return
+	}
+	if req.Filename == "" {
+		app.jsonError(w, http.StatusBadRequest, "Файл не указан")
+		return
+	}
+	settings, _ := storage.LoadSettings()
+	if len(settings.Addresses) == 0 {
+		app.jsonError(w, http.StatusBadRequest, "Список адресов пуст")
+		return
+	}
+
+	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
+	if err := storage.ShuffleAddresses(req.Filename, outputXLSX, settings.Addresses); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка перемешивания адресов: "+err.Error())
+		return
+	}
+
+	app.jsonResponse(w, map[string]interface{}{
+		"status":    "ok",
+		"xlsx_file": outputXLSX,
 	})
 }
 

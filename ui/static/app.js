@@ -4,6 +4,7 @@ let currentHeaders = [];
 let currentSheets = [];
 let currentActiveSheet = '';
 let totalAds = 0;
+let lastGeneratedFile = null;
 
 const debugLog = (message, isError = false) => {
     const logEl = document.getElementById('upload-debug');
@@ -386,6 +387,8 @@ const generateAndExport = async () => {
 
         msgEl.innerHTML = `<div class="success">✅ Сгенерировано: ${data.generated} вариантов, фото: ${data.photo_count}</div>`;
 
+        lastGeneratedFile = data.xlsx_file || null;
+
         const downloadBlock = document.getElementById('download-block');
         const linksDiv = document.getElementById('download-links');
 
@@ -396,6 +399,28 @@ const generateAndExport = async () => {
         downloadBlock.classList.remove('hidden');
     } catch (e) {
         msgEl.innerHTML = `<div class="error">❌ ${escapeHtml(e.message)}</div>`;
+    }
+};
+
+const shuffleAddresses = async () => {
+    if (!lastGeneratedFile) {
+        alert('Сначала сгенерируйте файл');
+        return;
+    }
+    try {
+        const response = await fetch('/api/shuffle-addresses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: lastGeneratedFile })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Ошибка перемешивания адресов');
+        }
+        lastGeneratedFile = data.xlsx_file || lastGeneratedFile;
+        alert('Адреса перемешаны: ' + (data.generated || '') + ' вариантов');
+    } catch (e) {
+        alert('Ошибка: ' + e.message);
     }
 };
 
@@ -436,6 +461,7 @@ const init = async () => {
 
     document.getElementById('base-title')?.addEventListener('input', updateCharCount);
     document.getElementById('base-description')?.addEventListener('input', updateDescCount);
+    document.getElementById('shuffle-addresses-btn')?.addEventListener('click', shuffleAddresses);
     updateCharCount();
     updateDescCount();
 };
