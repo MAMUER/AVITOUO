@@ -92,9 +92,103 @@ func applyUniqueTransformations(img image.Image, index int) image.Image {
 		return nil
 	}
 
-	brightness := float64((index%20)-10) / 120.0
-	contrast := float64((index%15)-7) / 120.0
+	brightness := float64((index%20) - 10) / 120.0
+	contrast := float64((index%15) - 7) / 120.0
 	return imaging.AdjustBrightness(imaging.AdjustContrast(img, contrast), brightness)
+}
+
+// AddServices создает столбцы услуг (если их нет) и заполняет их значением для всех строк данных (начиная с 5-й)
+func AddServices(templatePath, outputPath string, value string) error {
+	if value == "" {
+		return fmt.Errorf("значение для услуг не указано")
+	}
+
+	f, err := excelize.OpenFile(templatePath)
+	if err != nil {
+		return fmt.Errorf("ошибка открытия файла: %w", err)
+	}
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		return fmt.Errorf("в файле нет листов")
+	}
+
+	for _, sheetName := range sheets {
+		rows, err := f.GetRows(sheetName)
+		if err != nil || len(rows) == 0 {
+			continue
+		}
+
+		headerRowIdx := -1
+		for i := 0; i < len(rows) && i < 20; i++ {
+			if isHeaderRow(rows[i]) {
+				headerRowIdx = i
+				break
+			}
+		}
+		if headerRowIdx < 0 {
+			headerRowIdx = 0
+		}
+		headerRow := rows[headerRowIdx]
+
+		targetActionColIdx := -1
+		targetActionManualColIdx := -1
+		for i, h := range headerRow {
+			if strings.Contains(strings.ToLower(h), "настройка цены целевого действия") && !strings.Contains(strings.ToLower(h), "ручная") {
+				targetActionColIdx = i
+			}
+			if strings.Contains(strings.ToLower(h), "настройка цены целевого действия: ручная") {
+				targetActionManualColIdx = i
+			}
+		}
+
+		if targetActionColIdx < 0 {
+			targetActionColIdx = len(headerRow)
+			headerRow = append(headerRow, "Настройка цены целевого действия")
+			colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
+			if err != nil {
+				return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
+			}
+			cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
+			if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия"); err != nil {
+				return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
+			}
+		}
+
+		if targetActionManualColIdx < 0 {
+			targetActionManualColIdx = len(headerRow)
+			headerRow = append(headerRow, "Настройка цены целевого действия: ручная")
+			colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
+			if err != nil {
+				return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
+			}
+			cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
+			if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия: ручная"); err != nil {
+				return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
+			}
+		}
+
+		for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
+			if targetActionColIdx >= 0 {
+				colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
+				if err == nil {
+					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), "Manual")
+				}
+			}
+			if targetActionManualColIdx >= 0 {
+				colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
+				if err == nil {
+					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), value)
+				}
+			}
+		}
+	}
+
+	if err := f.SaveAs(outputPath); err != nil {
+		return fmt.Errorf("ошибка сохранения файла: %w", err)
+	}
+
+	return nil
 }
 
 // CreatePhotoZip создает ZIP-архив со всеми фото из папки (без вложенных папок)
@@ -680,6 +774,17 @@ func ShuffleAddresses(templatePath, outputPath string, addresses []string) error
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
+	regionMap := make(map[string][]string)
+	for _, addr := range addresses {
+		region := extractRegion(addr)
+		regionMap[region] = append(regionMap[region], addr)
+	}
+
+	regionKeys := make([]string, 0, len(regionMap))
+	for k := range regionMap {
+		regionKeys = append(regionKeys, k)
+	}
+
 	for _, sheetName := range sheets {
 		rows, err := f.GetRows(sheetName)
 		if err != nil || len(rows) == 0 {
@@ -709,12 +814,28 @@ func ShuffleAddresses(templatePath, outputPath string, addresses []string) error
 		}
 
 		for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
-			addr := addresses[rnd.Intn(len(addresses))]
+			currentAddr := ""
+			if rowIdx < len(rows) && addressColIdx < len(rows[rowIdx]) {
+				currentAddr = strings.TrimSpace(rows[rowIdx][addressColIdx])
+			}
+			currentRegion := extractRegion(currentAddr)
+
+			var candidates []string
+			for _, key := range regionKeys {
+				if key != "" && key != currentRegion {
+					candidates = append(candidates, regionMap[key]...)
+				}
+			}
+			if len(candidates) == 0 {
+				candidates = addresses
+			}
+
+			newAddr := candidates[rnd.Intn(len(candidates))]
 			cellName, err := excelize.CoordinatesToCellName(addressColIdx+1, rowIdx+1)
 			if err != nil {
 				continue
 			}
-			if err := f.SetCellValue(sheetName, cellName, addr); err != nil {
+			if err := f.SetCellValue(sheetName, cellName, newAddr); err != nil {
 				continue
 			}
 		}
@@ -725,4 +846,19 @@ func ShuffleAddresses(templatePath, outputPath string, addresses []string) error
 	}
 
 	return nil
+}
+
+func extractRegion(addr string) string {
+	lower := strings.ToLower(addr)
+	if strings.Contains(lower, "москва") {
+		return "москва"
+	}
+	parts := strings.Split(addr, ",")
+	for _, part := range parts {
+		p := strings.ToLower(strings.TrimSpace(part))
+		if strings.Contains(p, "область") || strings.Contains(p, "край") || strings.Contains(p, "округ") {
+			return strings.TrimSpace(part)
+		}
+	}
+	return ""
 }

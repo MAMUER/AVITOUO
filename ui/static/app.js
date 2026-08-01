@@ -200,6 +200,9 @@ const processUploadResponse = (data, file) => {
     currentData = data.rows || [];
     currentHeaders = data.headers || [];
     totalAds = data.total_ads ?? currentData.length;
+    if (data.filename) {
+        lastGeneratedFile = data.filename;
+    }
 
     debugLog(`Загружен файл: ${file.name}, строк: ${currentData.length}, листов: ${currentSheets.length}`);
 
@@ -404,7 +407,7 @@ const generateAndExport = async () => {
 
 const shuffleAddresses = async () => {
     if (!lastGeneratedFile) {
-        alert('Сначала сгенерируйте файл');
+        showMessage('generation-msg', '<div class="error">❌ Сначала загрузите файл</div>');
         return;
     }
     try {
@@ -418,9 +421,31 @@ const shuffleAddresses = async () => {
             throw new Error(data.error || 'Ошибка перемешивания адресов');
         }
         lastGeneratedFile = data.xlsx_file || lastGeneratedFile;
-        alert('Адреса перемешаны: ' + (data.generated || '') + ' вариантов');
+        showMessage('generation-msg', '<div class="success">✅ Адреса перемешаны</div>');
     } catch (e) {
-        alert('Ошибка: ' + e.message);
+        showMessage('generation-msg', `<div class="error">❌ ${escapeHtml(e.message)}</div>`);
+    }
+};
+
+const addServices = async () => {
+    if (!lastGeneratedFile) {
+        showMessage('generation-msg', '<div class="error">❌ Сначала загрузите файл</div>');
+        return;
+    }
+    try {
+        const response = await fetch('/api/add-services', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: lastGeneratedFile })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Ошибка добавления услуг');
+        }
+        lastGeneratedFile = data.xlsx_file || lastGeneratedFile;
+        showMessage('generation-msg', '<div class="success">✅ Услуги добавлены</div>');
+    } catch (e) {
+        showMessage('generation-msg', `<div class="error">❌ ${escapeHtml(e.message)}</div>`);
     }
 };
 
@@ -462,6 +487,7 @@ const init = async () => {
     document.getElementById('base-title')?.addEventListener('input', updateCharCount);
     document.getElementById('base-description')?.addEventListener('input', updateDescCount);
     document.getElementById('shuffle-addresses-btn')?.addEventListener('click', shuffleAddresses);
+    document.getElementById('add-services-btn')?.addEventListener('click', addServices);
     updateCharCount();
     updateDescCount();
 };

@@ -59,6 +59,7 @@ func NewApp() *App {
 	mux.HandleFunc("/api/generate-and-export", app.handleGenerateAndExport)
 	mux.HandleFunc("/api/download", app.handleDownloadFile)
 	mux.HandleFunc("/api/shuffle-addresses", app.handleShuffleAddresses)
+	mux.HandleFunc("/api/add-services", app.handleAddServices)
 
 	return app
 }
@@ -338,6 +339,7 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 		"data_rows":    len(data),
 		"categories":   len(categorySheets),
 		"total_ads":    totalAds,
+		"filename":     tmpPath,
 	})
 
 	app.mu.Lock()
@@ -1103,6 +1105,36 @@ func (app *App) handleShuffleAddresses(w http.ResponseWriter, r *http.Request) {
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
 	if err := storage.ShuffleAddresses(req.Filename, outputXLSX, settings.Addresses); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка перемешивания адресов: "+err.Error())
+		return
+	}
+
+	app.jsonResponse(w, map[string]interface{}{
+		"status":    "ok",
+		"xlsx_file": outputXLSX,
+	})
+}
+
+func (app *App) handleAddServices(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Filename string `json:"filename"`
+	}
+	if err := app.decodeJSON(r, &req); err != nil {
+		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
+		return
+	}
+	if req.Filename == "" {
+		app.jsonError(w, http.StatusBadRequest, "Файл не указан")
+		return
+	}
+
+	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
+	value := "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5\nВладимирская область|5"
+	if err := storage.AddServices(req.Filename, outputXLSX, value); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка добавления услуг: "+err.Error())
 		return
 	}
 
