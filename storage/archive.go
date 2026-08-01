@@ -92,8 +92,8 @@ func applyUniqueTransformations(img image.Image, index int) image.Image {
 		return nil
 	}
 
-	brightness := float64((index%20) - 10) / 120.0
-	contrast := float64((index%15) - 7) / 120.0
+	brightness := float64((index%20)-10) / 120.0
+	contrast := float64((index%15)-7) / 120.0
 	return imaging.AdjustBrightness(imaging.AdjustContrast(img, contrast), brightness)
 }
 
@@ -133,12 +133,16 @@ func AddServices(templatePath, outputPath string, value string) error {
 
 		targetActionColIdx := -1
 		targetActionManualColIdx := -1
+		productTypeColIdx := -1
 		for i, h := range headerRow {
 			if strings.Contains(strings.ToLower(h), "настройка цены целевого действия") && !strings.Contains(strings.ToLower(h), "ручная") {
 				targetActionColIdx = i
 			}
 			if strings.Contains(strings.ToLower(h), "настройка цены целевого действия: ручная") {
 				targetActionManualColIdx = i
+			}
+			if strings.Contains(strings.ToLower(h), "вид товара") {
+				productTypeColIdx = i
 			}
 		}
 
@@ -157,7 +161,6 @@ func AddServices(templatePath, outputPath string, value string) error {
 
 		if targetActionManualColIdx < 0 {
 			targetActionManualColIdx = len(headerRow)
-			headerRow = append(headerRow, "Настройка цены целевого действия: ручная")
 			colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
 			if err != nil {
 				return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
@@ -169,6 +172,13 @@ func AddServices(templatePath, outputPath string, value string) error {
 		}
 
 		for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
+			rowValue := value
+			if productTypeColIdx >= 0 && productTypeColIdx < len(rows[rowIdx]) {
+				productType := strings.TrimSpace(rows[rowIdx][productTypeColIdx])
+				if productType == "Окна и балконы" || productType == "Двери" {
+					rowValue = "Москва|8\nМосковская область|8\nКалужская область|8\nТверская область|8\nТульская область|8\nЯрославская область|8\nВладимирская область|8"
+				}
+			}
 			if targetActionColIdx >= 0 {
 				colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
 				if err == nil {
@@ -178,7 +188,7 @@ func AddServices(templatePath, outputPath string, value string) error {
 			if targetActionManualColIdx >= 0 {
 				colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
 				if err == nil {
-					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), value)
+					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), rowValue)
 				}
 			}
 		}
