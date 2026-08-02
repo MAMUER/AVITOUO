@@ -16,7 +16,12 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-const PhotosDir = "photos"
+const (
+	PhotosDir = "photos"
+	TargetActionHeader       = "Настройка цены целевого действия"
+	TargetActionManualHeader = "Настройка цены целевого действия: ручная"
+	ProductTypeHeader        = "вид товара"
+)
 
 func isImage(name string) bool {
 	ext := strings.ToLower(filepath.Ext(name))
@@ -57,33 +62,41 @@ func (pg *PhotoGenerator) GenerateUniquePhotos(sourceDir string, count int) ([]s
 		if maxPhotos > 10 {
 			maxPhotos = 10
 		}
-		for photoIdx := 0; photoIdx < maxPhotos; photoIdx++ {
-			srcPath := sourceImages[photoIdx]
-			ext := strings.ToLower(filepath.Ext(srcPath))
-			baseName := fmt.Sprintf("a%d%s", globalPhotoIdx+1, ext)
-			savePath := filepath.Join(fullDir, baseName)
+	for photoIdx := 0; photoIdx < maxPhotos; photoIdx++ {
+		srcPath := sourceImages[photoIdx]
+		ext := strings.ToLower(filepath.Ext(srcPath))
+		baseName := fmt.Sprintf("a%d%s", globalPhotoIdx+1, ext)
+		savePath := filepath.Join(fullDir, baseName)
 
-			srcData, err := os.ReadFile(srcPath)
-			if err != nil {
-				return nil, fmt.Errorf("ошибка чтения фото: %w", err)
-			}
-
-			img, err := imaging.Decode(strings.NewReader(string(srcData)))
-			if err != nil {
-				return nil, fmt.Errorf("ошибка декодирования изображения: %w", err)
-			}
-
-			uniqueImg := applyUniqueTransformations(img, globalPhotoIdx)
-			if err := imaging.Save(uniqueImg, savePath); err != nil {
-				return nil, fmt.Errorf("ошибка сохранения уникального фото: %w", err)
-			}
-			names = append(names, baseName)
-			globalPhotoIdx++
+		if err := processOnePhoto(srcPath, savePath, globalPhotoIdx); err != nil {
+			return nil, err
 		}
+		names = append(names, baseName)
+		globalPhotoIdx++
+	}
 		result = append(result, strings.Join(names, " | "))
 	}
 
 	return result, nil
+}
+
+func processOnePhoto(srcPath, savePath string, index int) error {
+	srcData, err := os.ReadFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("ошибка чтения фото: %w", err)
+	}
+
+	img, err := imaging.Decode(strings.NewReader(string(srcData)))
+	if err != nil {
+		return fmt.Errorf("ошибка декодирования изображения: %w", err)
+	}
+
+	uniqueImg := applyUniqueTransformations(img, index)
+	if err := imaging.Save(uniqueImg, savePath); err != nil {
+		return fmt.Errorf("ошибка сохранения уникального фото: %w", err)
+	}
+
+	return nil
 }
 
 // applyUniqueTransformations применяет уникальные трансформации к изображению
@@ -95,6 +108,95 @@ func applyUniqueTransformations(img image.Image, index int) image.Image {
 	brightness := float64((index%20)-10) / 120.0
 	contrast := float64((index%15)-7) / 120.0
 	return imaging.AdjustBrightness(imaging.AdjustContrast(img, contrast), brightness)
+}
+
+func findHeaderRow(rows [][]string) int {
+	for i := 0; i < len(rows) && i < 20; i++ {
+		if isHeaderRow(rows[i]) {
+			return i
+		}
+	}
+	return 0
+}
+
+func findServiceColumns(headerRow []string) (int, int, int) {
+	targetActionColIdx := -1
+	targetActionManualColIdx := -1
+	productTypeColIdx := -1
+	for i, h := range headerRow {
+		if strings.Contains(strings.ToLower(h), "настройка цены целевого действия") && !strings.Contains(strings.ToLower(h), "ручная") {
+			targetActionColIdx = i
+		}
+		if strings.Contains(strings.ToLower(h), "настройка цены целевого действия: ручная") {
+			targetActionManualColIdx = i
+		}
+		if strings.Contains(strings.ToLower(h), ProductTypeHeader) {
+			productTypeColIdx = i
+		}
+	}
+	return targetActionColIdx, targetActionManualColIdx, productTypeColIdx
+}
+
+func ensureServiceColumns(f *excelize.File, sheetName string, headerRowIdx int, headerRow *[]string, targetActionColIdx, targetActionManualColIdx *int) error {
+	if *targetActionColIdx < 0 {
+		*targetActionColIdx = len(*headerRow)
+		*headerRow = append(*headerRow, TargetActionHeader)
+		colName, err := excelize.ColumnNumberToName(*targetActionColIdx + 1)
+		if err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
+		}
+		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
+		if err := f.SetCellValue(sheetName, cell, TargetActionHeader); err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
+		}
+	}
+
+	if *targetActionManualColIdx < 0 {
+		*targetActionManualColIdx = len(*headerRow)
+		colName, err := excelize.ColumnNumberToName(*targetActionManualColIdx + 1)
+		if err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
+		}
+		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
+		if err := f.SetCellValue(sheetName, cell, TargetActionManualHeader); err != nil {
+			return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
+		}
+	}
+	return nil
+}
+
+func resolveServiceRowValue(productType, value string) string {
+	productLower := strings.ToLower(productType)
+	if strings.Contains(productLower, "окна") || strings.Contains(productLower, "балкон") ||
+		strings.Contains(productLower, "двери") || strings.Contains(productLower, "дверь") ||
+		strings.Contains(productLower, "баня") || strings.Contains(productLower, "сауна") || strings.Contains(productLower, "бассейн") {
+		return "Москва|8\nМосковская область|8\nКалужская область|8\nТверская область|8\nТульская область|8\nЯрославская область|8\nВладимирская область|8"
+	}
+	return value
+}
+
+func writeServiceCell(f *excelize.File, sheetName string, colIdx, rowIdx int, text string) {
+	if colIdx < 0 {
+		return
+	}
+	colName, err := excelize.ColumnNumberToName(colIdx + 1)
+	if err != nil {
+		return
+	}
+	_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), text)
+}
+
+func processSheetForServices(f *excelize.File, sheetName string, rows [][]string, targetActionColIdx, targetActionManualColIdx, productTypeColIdx int, value string) error {
+	for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
+		productType := ""
+		if productTypeColIdx >= 0 && productTypeColIdx < len(rows[rowIdx]) {
+			productType = strings.TrimSpace(rows[rowIdx][productTypeColIdx])
+		}
+		rowValue := resolveServiceRowValue(productType, value)
+		writeServiceCell(f, sheetName, targetActionColIdx, rowIdx, "Manual")
+		writeServiceCell(f, sheetName, targetActionManualColIdx, rowIdx, rowValue)
+	}
+	return nil
 }
 
 // AddServices создает столбцы услуг (если их нет) и заполняет их значением для всех строк данных (начиная с 5-й)
@@ -122,78 +224,15 @@ func AddServices(templatePath, outputPath string, value string) error {
 			continue
 		}
 
-		headerRowIdx := -1
-		for i := 0; i < len(rows) && i < 20; i++ {
-			if isHeaderRow(rows[i]) {
-				headerRowIdx = i
-				break
-			}
-		}
-		if headerRowIdx < 0 {
-			headerRowIdx = 0
-		}
+		headerRowIdx := findHeaderRow(rows)
 		headerRow := rows[headerRowIdx]
 
-		targetActionColIdx := -1
-		targetActionManualColIdx := -1
-		productTypeColIdx := -1
-		for i, h := range headerRow {
-			if strings.Contains(strings.ToLower(h), "настройка цены целевого действия") && !strings.Contains(strings.ToLower(h), "ручная") {
-				targetActionColIdx = i
-			}
-			if strings.Contains(strings.ToLower(h), "настройка цены целевого действия: ручная") {
-				targetActionManualColIdx = i
-			}
-			if strings.Contains(strings.ToLower(h), "вид товара") {
-				productTypeColIdx = i
-			}
+		targetActionColIdx, targetActionManualColIdx, productTypeColIdx := findServiceColumns(headerRow)
+		if err := ensureServiceColumns(f, sheetName, headerRowIdx, &headerRow, &targetActionColIdx, &targetActionManualColIdx); err != nil {
+			return err
 		}
-
-		if targetActionColIdx < 0 {
-			targetActionColIdx = len(headerRow)
-			headerRow = append(headerRow, "Настройка цены целевого действия")
-			colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
-			if err != nil {
-				return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
-			}
-			cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
-			if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия"); err != nil {
-				return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
-			}
-		}
-
-		if targetActionManualColIdx < 0 {
-			targetActionManualColIdx = len(headerRow)
-			colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
-			if err != nil {
-				return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
-			}
-			cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
-			if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия: ручная"); err != nil {
-				return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
-			}
-		}
-
-		for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
-			rowValue := value
-			if productTypeColIdx >= 0 && productTypeColIdx < len(rows[rowIdx]) {
-				productType := strings.TrimSpace(rows[rowIdx][productTypeColIdx])
-				if productType == "Окна и балконы" || productType == "Двери" {
-					rowValue = "Москва|8\nМосковская область|8\nКалужская область|8\nТверская область|8\nТульская область|8\nЯрославская область|8\nВладимирская область|8"
-				}
-			}
-			if targetActionColIdx >= 0 {
-				colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
-				if err == nil {
-					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), "Manual")
-				}
-			}
-			if targetActionManualColIdx >= 0 {
-				colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
-				if err == nil {
-					_ = f.SetCellValue(sheetName, fmt.Sprintf("%s%d", colName, rowIdx+1), rowValue)
-				}
-			}
+		if err := processSheetForServices(f, sheetName, rows, targetActionColIdx, targetActionManualColIdx, productTypeColIdx, value); err != nil {
+			return err
 		}
 	}
 
@@ -235,26 +274,32 @@ func CreatePhotoZip(sourceDir string, zipPath string) (string, error) {
 		if entry.IsDir() || !isImage(entry.Name()) {
 			continue
 		}
-
-		srcPath := filepath.Join(fullDir, entry.Name())
-		fileToZip, openErr := os.Open(srcPath)
-		if openErr != nil {
-			continue
+		name, err := addImageToZip(zipWriter, fullDir, entry.Name())
+		if err == nil {
+			fileNames = append(fileNames, name)
 		}
-		defer func() { _ = fileToZip.Close() }()
-
-		w, createErr := zipWriter.Create(entry.Name())
-		if createErr != nil {
-			continue
-		}
-
-		if _, copyErr := io.Copy(w, fileToZip); copyErr != nil {
-			continue
-		}
-		fileNames = append(fileNames, entry.Name())
 	}
 
 	return strings.Join(fileNames, "|"), nil
+}
+
+func addImageToZip(zipWriter *zip.Writer, fullDir, entryName string) (string, error) {
+	srcPath := filepath.Join(fullDir, entryName)
+	fileToZip, err := os.Open(srcPath)
+	if err != nil {
+		return "", nil
+	}
+	defer func() { _ = fileToZip.Close() }()
+
+	w, err := zipWriter.Create(entryName)
+	if err != nil {
+		return "", nil
+	}
+
+	if _, err := io.Copy(w, fileToZip); err != nil {
+		return "", nil
+	}
+	return entryName, nil
 }
 
 // CheckTotalSize проверяет общий размер файлов
@@ -285,14 +330,274 @@ func CheckSizeLimit(photoCount int, estimatePhotoSize int64) error {
 	return nil
 }
 
+// SaveExcelParams содержит параметры для SaveExcelWithNewRows
+type SaveExcelParams struct {
+	TemplatePath string
+	OutputPath   string
+	SheetName    string
+
+	TitleColIdx         int
+	DescColIdx          int
+	ImageNamesIdx       int
+	ContactColIdx       int
+	PhoneColIdx         int
+	AddressColIdx       int
+	CompanyColIdx       int
+	EmailColIdx         int
+	NewTitles           []string
+	NewDescriptions     []string
+	NewImageNames       []string
+	NewContacts         []string
+	NewPhones           []string
+	NewAddresses        []string
+	NewCompanies        []string
+	NewEmails           []string
+	IDColIdx            int
+	PlacementColIdx     int
+	ContactMethodColIdx int
+	CategoryColIdx      int
+	ProductTypeColIdx   int
+	SubProductTypeColIdx int
+	PriceUnitColIdx     int
+	ConditionColIdx     int
+	AvailabilityColIdx  int
+	AdTypeColIdx        int
+	SalesTypeColIdx     int
+	ConnectColIdx       int
+	ProcessingColIdx    int
+	PurposeColIdx       int
+	GOSTColIdx          int
+	NewIDs              []string
+	NewPlacements       []string
+	NewContactMethods   []string
+	NewCategories       []string
+	NewProductTypes     []string
+	NewSubProductTypes  []string
+	NewPriceUnits       []string
+	NewConditions       []string
+	NewAvailabilities   []string
+	NewAdTypes          []string
+	NewSalesTypes       []string
+	NewConnects         []string
+	NewProcessing       []string
+	NewPurpose          []string
+	NewLumberTypes      []string
+	NewWoodTypes        []string
+	NewEdges            []string
+	NewGrades           []string
+	NewMoistures        []string
+	NewProfiles         []string
+	NewStructures       []string
+	NewLumberProfiles   []string
+	NewThicknesses      []string
+	NewWidths           []string
+	NewLengths          []string
+	NewHeights          []string
+	NewWidthDs          []string
+	NewLengthDs         []string
+	NewGOSTValues       []string
+	TargetActionColIdx  int
+	TargetActionManualColIdx int
+	NewTargetActionManual      []string
+	NewTargetActionManualSettings []string
+	DiameterColIdx     int
+	NewDiameters       []string
+	PriceValueColIdx   int
+	NewPriceValues     []string
+}
+
 // SaveExcelWithNewRows добавляет новые строки в Excel файл и сохраняет
-func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx int, newTitles, newDescriptions, newImageNames []string, newContacts, newPhones, newAddresses, newCompanies, newEmails []string, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, gostColIdx int, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newLumberProfiles, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs, newGOSTValues []string, targetActionColIdx, targetActionManualColIdx int, newTargetActionManual, newTargetActionManualSettings []string, diameterColIdx int, newDiameters []string, priceValueColIdx int, newPriceValues []string) error {
-	f, err := excelize.OpenFile(templatePath)
+
+func buildColumnFinder(headerRow []string, usedIdxs map[int]bool) func(names ...string) int {
+	return func(names ...string) int {
+		for i, h := range headerRow {
+			if usedIdxs[i] {
+				continue
+			}
+			lower := strings.ToLower(h)
+			for _, name := range names {
+				if strings.Contains(lower, strings.ToLower(name)) {
+					usedIdxs[i] = true
+					return i
+				}
+			}
+		}
+		return -1
+	}
+}
+
+func markUsedColumns(p *SaveExcelParams, markUsed func(int)) {
+	markUsed(p.TitleColIdx)
+	markUsed(p.DescColIdx)
+	markUsed(p.ImageNamesIdx)
+	markUsed(p.ContactColIdx)
+	markUsed(p.PhoneColIdx)
+	markUsed(p.AddressColIdx)
+	markUsed(p.CompanyColIdx)
+	markUsed(p.EmailColIdx)
+	markUsed(p.IDColIdx)
+	markUsed(p.PlacementColIdx)
+	markUsed(p.ContactMethodColIdx)
+	markUsed(p.CategoryColIdx)
+	markUsed(p.ProductTypeColIdx)
+	markUsed(p.SubProductTypeColIdx)
+	markUsed(p.PriceUnitColIdx)
+	markUsed(p.PriceValueColIdx)
+	markUsed(p.ConditionColIdx)
+	markUsed(p.AvailabilityColIdx)
+	markUsed(p.AdTypeColIdx)
+	markUsed(p.SalesTypeColIdx)
+	markUsed(p.ConnectColIdx)
+	markUsed(p.ProcessingColIdx)
+	markUsed(p.PurposeColIdx)
+	markUsed(p.GOSTColIdx)
+	markUsed(p.TargetActionColIdx)
+	markUsed(p.TargetActionManualColIdx)
+	markUsed(p.DiameterColIdx)
+}
+
+func fallbackScanColumns(p *SaveExcelParams, findUnique func(names ...string) int, headerRowIdx int, headerRow []string) {
+	fmt.Printf("[DEBUG] Fallback scan on header row %d: %v\n", headerRowIdx, headerRow)
+	if p.TitleColIdx < 0 {
+		p.TitleColIdx = findUnique("title", "название", "заголовок")
+	}
+	if p.DescColIdx < 0 {
+		p.DescColIdx = findUnique("description", "описание", "текст")
+	}
+	if p.ImageNamesIdx < 0 {
+		p.ImageNamesIdx = findUnique("image", "фото", "изображение")
+	}
+	if p.ContactColIdx < 0 {
+		p.ContactColIdx = findUnique("контактное лицо", "контакт", "contact")
+	}
+	if p.PhoneColIdx < 0 {
+		p.PhoneColIdx = findUnique("номер телефона", "телефон", "phone")
+	}
+	if p.AddressColIdx < 0 {
+		p.AddressColIdx = findUnique("адрес", "address")
+	}
+	if p.CompanyColIdx < 0 {
+		p.CompanyColIdx = findUnique("название компании", "компания", "организация", "company")
+	}
+	if p.EmailColIdx < 0 {
+		p.EmailColIdx = findUnique("почта", "email", "e-mail", "электронная почта")
+	}
+	if p.IDColIdx < 0 {
+		p.IDColIdx = findUnique("уникальный идентификатор", "id")
+	}
+	if p.PlacementColIdx < 0 {
+		p.PlacementColIdx = findUnique("способ размещения", "размещения")
+	}
+	if p.ContactMethodColIdx < 0 {
+		p.ContactMethodColIdx = findUnique("способ связи", "связи")
+	}
+	if p.CategoryColIdx < 0 {
+		p.CategoryColIdx = findUnique("категория")
+	}
+	if p.ProductTypeColIdx < 0 {
+		p.ProductTypeColIdx = findUnique(ProductTypeHeader, "товара")
+	}
+	if p.SubProductTypeColIdx < 0 {
+		p.SubProductTypeColIdx = findUnique("подвид товара", "подвид")
+	}
+	if p.PriceUnitColIdx < 0 {
+		p.PriceUnitColIdx = findUnique("цена за", "единица")
+	}
+	if p.PriceValueColIdx < 0 {
+		p.PriceValueColIdx = findUnique("цена")
+	}
+	if p.ConditionColIdx < 0 {
+		p.ConditionColIdx = findUnique("состояние")
+	}
+	if p.AvailabilityColIdx < 0 {
+		p.AvailabilityColIdx = findUnique("доступность")
+	}
+	if p.AdTypeColIdx < 0 {
+		p.AdTypeColIdx = findUnique("вид объявления")
+	}
+	if p.SalesTypeColIdx < 0 {
+		p.SalesTypeColIdx = findUnique("вид продажи", "продажи")
+	}
+	if p.ConnectColIdx < 0 {
+		p.ConnectColIdx = findUnique("соединять")
+	}
+	if p.ProcessingColIdx < 0 {
+		p.ProcessingColIdx = findUnique("обработка")
+	}
+	if p.PurposeColIdx < 0 {
+		p.PurposeColIdx = findUnique("назначение")
+	}
+	fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d idIdx=%d placementIdx=%d methodIdx=%d categoryIdx=%d productIdx=%d subProductIdx=%d priceUnitIdx=%d priceValueIdx=%d conditionIdx=%d availabilityIdx=%d adTypeIdx=%d salesTypeIdx=%d connectIdx=%d processingIdx=%d purposeIdx=%d\n", p.TitleColIdx, p.DescColIdx, p.ImageNamesIdx, p.ContactColIdx, p.PhoneColIdx, p.AddressColIdx, p.CompanyColIdx, p.EmailColIdx, p.IDColIdx, p.PlacementColIdx, p.ContactMethodColIdx, p.CategoryColIdx, p.ProductTypeColIdx, p.SubProductTypeColIdx, p.PriceUnitColIdx, p.PriceValueColIdx, p.ConditionColIdx, p.AvailabilityColIdx, p.AdTypeColIdx, p.SalesTypeColIdx, p.ConnectColIdx, p.ProcessingColIdx, p.PurposeColIdx)
+}
+
+func setDefaultColumnIndices(p *SaveExcelParams, rows [][]string) {
+	if p.TitleColIdx < 0 {
+		p.TitleColIdx = 0
+	}
+	if p.DescColIdx < 0 {
+		p.DescColIdx = 1
+	}
+	if p.ImageNamesIdx < 0 {
+		if len(rows) > 0 && len(rows[0]) > 2 {
+			p.ImageNamesIdx = 2
+		} else {
+			p.ImageNamesIdx = -1
+		}
+	}
+	if p.IDColIdx < 0 {
+		p.IDColIdx = -1
+	}
+	if p.PlacementColIdx < 0 {
+		p.PlacementColIdx = -1
+	}
+	if p.ContactMethodColIdx < 0 {
+		p.ContactMethodColIdx = -1
+	}
+	if p.CategoryColIdx < 0 {
+		p.CategoryColIdx = -1
+	}
+	if p.ProductTypeColIdx < 0 {
+		p.ProductTypeColIdx = -1
+	}
+	if p.SubProductTypeColIdx < 0 {
+		p.SubProductTypeColIdx = -1
+	}
+	if p.PriceUnitColIdx < 0 {
+		p.PriceUnitColIdx = -1
+	}
+	if p.PriceValueColIdx < 0 {
+		p.PriceValueColIdx = -1
+	}
+	if p.ConditionColIdx < 0 {
+		p.ConditionColIdx = -1
+	}
+	if p.AvailabilityColIdx < 0 {
+		p.AvailabilityColIdx = -1
+	}
+	if p.AdTypeColIdx < 0 {
+		p.AdTypeColIdx = -1
+	}
+	if p.SalesTypeColIdx < 0 {
+		p.SalesTypeColIdx = -1
+	}
+	if p.ConnectColIdx < 0 {
+		p.ConnectColIdx = -1
+	}
+	if p.ProcessingColIdx < 0 {
+		p.ProcessingColIdx = -1
+	}
+	if p.PurposeColIdx < 0 {
+		p.PurposeColIdx = -1
+	}
+}
+
+func SaveExcelWithNewRows(p *SaveExcelParams) error {
+	f, err := excelize.OpenFile(p.TemplatePath)
 	if err != nil {
 		return fmt.Errorf("ошибка открытия шаблона: %w", err)
 	}
 
-	rows, err := f.GetRows(sheetName)
+	rows, err := f.GetRows(p.SheetName)
 	if err != nil {
 		return fmt.Errorf("ошибка чтения листа: %w", err)
 	}
@@ -335,165 +640,165 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		return -1
 	}
 
-	markUsed(titleColIdx)
-	markUsed(descColIdx)
-	markUsed(imageNamesIdx)
-	markUsed(contactColIdx)
-	markUsed(phoneColIdx)
-	markUsed(addressColIdx)
-	markUsed(companyColIdx)
-	markUsed(emailColIdx)
-	markUsed(idColIdx)
-	markUsed(placementColIdx)
-	markUsed(contactMethodColIdx)
-	markUsed(categoryColIdx)
-	markUsed(productTypeColIdx)
-	markUsed(subProductTypeColIdx)
-	markUsed(priceUnitColIdx)
-	markUsed(priceValueColIdx)
-	markUsed(conditionColIdx)
-	markUsed(availabilityColIdx)
-	markUsed(adTypeColIdx)
-	markUsed(salesTypeColIdx)
-	markUsed(connectColIdx)
-	markUsed(processingColIdx)
-	markUsed(purposeColIdx)
-	markUsed(gostColIdx)
-	markUsed(targetActionColIdx)
-	markUsed(targetActionManualColIdx)
-	markUsed(diameterColIdx)
+	markUsed(p.TitleColIdx)
+	markUsed(p.DescColIdx)
+	markUsed(p.ImageNamesIdx)
+	markUsed(p.ContactColIdx)
+	markUsed(p.PhoneColIdx)
+	markUsed(p.AddressColIdx)
+	markUsed(p.CompanyColIdx)
+	markUsed(p.EmailColIdx)
+	markUsed(p.IDColIdx)
+	markUsed(p.PlacementColIdx)
+	markUsed(p.ContactMethodColIdx)
+	markUsed(p.CategoryColIdx)
+	markUsed(p.ProductTypeColIdx)
+	markUsed(p.SubProductTypeColIdx)
+	markUsed(p.PriceUnitColIdx)
+	markUsed(p.PriceValueColIdx)
+	markUsed(p.ConditionColIdx)
+	markUsed(p.AvailabilityColIdx)
+	markUsed(p.AdTypeColIdx)
+	markUsed(p.SalesTypeColIdx)
+	markUsed(p.ConnectColIdx)
+	markUsed(p.ProcessingColIdx)
+	markUsed(p.PurposeColIdx)
+	markUsed(p.GOSTColIdx)
+	markUsed(p.TargetActionColIdx)
+	markUsed(p.TargetActionManualColIdx)
+	markUsed(p.DiameterColIdx)
 
-	if titleColIdx < 0 || descColIdx < 0 || imageNamesIdx < 0 || contactColIdx < 0 || phoneColIdx < 0 || addressColIdx < 0 || companyColIdx < 0 || emailColIdx < 0 || idColIdx < 0 || placementColIdx < 0 || contactMethodColIdx < 0 || categoryColIdx < 0 || productTypeColIdx < 0 || subProductTypeColIdx < 0 {
+	if p.TitleColIdx < 0 || p.DescColIdx < 0 || p.ImageNamesIdx < 0 || p.ContactColIdx < 0 || p.PhoneColIdx < 0 || p.AddressColIdx < 0 || p.CompanyColIdx < 0 || p.EmailColIdx < 0 || p.IDColIdx < 0 || p.PlacementColIdx < 0 || p.ContactMethodColIdx < 0 || p.CategoryColIdx < 0 || p.ProductTypeColIdx < 0 || p.SubProductTypeColIdx < 0 {
 		fmt.Printf("[DEBUG] Fallback scan on header row %d: %v\n", headerRowIdx, headerRow)
-		if titleColIdx < 0 {
-			titleColIdx = findUnique("title", "название", "заголовок")
+		if p.TitleColIdx < 0 {
+			p.TitleColIdx = findUnique("title", "название", "заголовок")
 		}
-		if descColIdx < 0 {
-			descColIdx = findUnique("description", "описание", "текст")
+		if p.DescColIdx < 0 {
+			p.DescColIdx = findUnique("description", "описание", "текст")
 		}
-		if imageNamesIdx < 0 {
-			imageNamesIdx = findUnique("image", "фото", "изображение")
+		if p.ImageNamesIdx < 0 {
+			p.ImageNamesIdx = findUnique("image", "фото", "изображение")
 		}
-		if contactColIdx < 0 {
-			contactColIdx = findUnique("контактное лицо", "контакт", "contact")
+		if p.ContactColIdx < 0 {
+			p.ContactColIdx = findUnique("контактное лицо", "контакт", "contact")
 		}
-		if phoneColIdx < 0 {
-			phoneColIdx = findUnique("номер телефона", "телефон", "phone")
+		if p.PhoneColIdx < 0 {
+			p.PhoneColIdx = findUnique("номер телефона", "телефон", "phone")
 		}
-		if addressColIdx < 0 {
-			addressColIdx = findUnique("адрес", "address")
+		if p.AddressColIdx < 0 {
+			p.AddressColIdx = findUnique("адрес", "address")
 		}
-		if companyColIdx < 0 {
-			companyColIdx = findUnique("название компании", "компания", "организация", "company")
+		if p.CompanyColIdx < 0 {
+			p.CompanyColIdx = findUnique("название компании", "компания", "организация", "company")
 		}
-		if emailColIdx < 0 {
-			emailColIdx = findUnique("почта", "email", "e-mail", "электронная почта")
+		if p.EmailColIdx < 0 {
+			p.EmailColIdx = findUnique("почта", "email", "e-mail", "электронная почта")
 		}
-		if idColIdx < 0 {
-			idColIdx = findUnique("уникальный идентификатор", "id")
+		if p.IDColIdx < 0 {
+			p.IDColIdx = findUnique("уникальный идентификатор", "id")
 		}
-		if placementColIdx < 0 {
-			placementColIdx = findUnique("способ размещения", "размещения")
+		if p.PlacementColIdx < 0 {
+			p.PlacementColIdx = findUnique("способ размещения", "размещения")
 		}
-		if contactMethodColIdx < 0 {
-			contactMethodColIdx = findUnique("способ связи", "связи")
+		if p.ContactMethodColIdx < 0 {
+			p.ContactMethodColIdx = findUnique("способ связи", "связи")
 		}
-		if categoryColIdx < 0 {
-			categoryColIdx = findUnique("категория")
+		if p.CategoryColIdx < 0 {
+			p.CategoryColIdx = findUnique("категория")
 		}
-		if productTypeColIdx < 0 {
-			productTypeColIdx = findUnique("вид товара", "товара")
+		if p.ProductTypeColIdx < 0 {
+			p.ProductTypeColIdx = findUnique(ProductTypeHeader, "товара")
 		}
-		if subProductTypeColIdx < 0 {
-			subProductTypeColIdx = findUnique("подвид товара", "подвид")
+		if p.SubProductTypeColIdx < 0 {
+			p.SubProductTypeColIdx = findUnique("подвид товара", "подвид")
 		}
-		if priceUnitColIdx < 0 {
-			priceUnitColIdx = findUnique("цена за", "единица")
+		if p.PriceUnitColIdx < 0 {
+			p.PriceUnitColIdx = findUnique("цена за", "единица")
 		}
-		if priceValueColIdx < 0 {
-			priceValueColIdx = findUnique("цена")
+		if p.PriceValueColIdx < 0 {
+			p.PriceValueColIdx = findUnique("цена")
 		}
-		if conditionColIdx < 0 {
-			conditionColIdx = findUnique("состояние")
+		if p.ConditionColIdx < 0 {
+			p.ConditionColIdx = findUnique("состояние")
 		}
-		if availabilityColIdx < 0 {
-			availabilityColIdx = findUnique("доступность")
+		if p.AvailabilityColIdx < 0 {
+			p.AvailabilityColIdx = findUnique("доступность")
 		}
-		if adTypeColIdx < 0 {
-			adTypeColIdx = findUnique("вид объявления")
+		if p.AdTypeColIdx < 0 {
+			p.AdTypeColIdx = findUnique("вид объявления")
 		}
-		if salesTypeColIdx < 0 {
-			salesTypeColIdx = findUnique("вид продажи", "продажи")
+		if p.SalesTypeColIdx < 0 {
+			p.SalesTypeColIdx = findUnique("вид продажи", "продажи")
 		}
-		if connectColIdx < 0 {
-			connectColIdx = findUnique("соединять")
+		if p.ConnectColIdx < 0 {
+			p.ConnectColIdx = findUnique("соединять")
 		}
-		if processingColIdx < 0 {
-			processingColIdx = findUnique("обработка")
+		if p.ProcessingColIdx < 0 {
+			p.ProcessingColIdx = findUnique("обработка")
 		}
-		if purposeColIdx < 0 {
-			purposeColIdx = findUnique("назначение")
+		if p.PurposeColIdx < 0 {
+			p.PurposeColIdx = findUnique("назначение")
 		}
-		fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d idIdx=%d placementIdx=%d methodIdx=%d categoryIdx=%d productIdx=%d subProductIdx=%d priceUnitIdx=%d priceValueIdx=%d conditionIdx=%d availabilityIdx=%d adTypeIdx=%d salesTypeIdx=%d connectIdx=%d processingIdx=%d purposeIdx=%d\n", titleColIdx, descColIdx, imageNamesIdx, contactColIdx, phoneColIdx, addressColIdx, companyColIdx, emailColIdx, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, priceValueColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx)
+		fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d idIdx=%d placementIdx=%d methodIdx=%d categoryIdx=%d productIdx=%d subProductIdx=%d priceUnitIdx=%d priceValueIdx=%d conditionIdx=%d availabilityIdx=%d adTypeIdx=%d salesTypeIdx=%d connectIdx=%d processingIdx=%d purposeIdx=%d\n", p.TitleColIdx, p.DescColIdx, p.ImageNamesIdx, p.ContactColIdx, p.PhoneColIdx, p.AddressColIdx, p.CompanyColIdx, p.EmailColIdx, p.IDColIdx, p.PlacementColIdx, p.ContactMethodColIdx, p.CategoryColIdx, p.ProductTypeColIdx, p.SubProductTypeColIdx, p.PriceUnitColIdx, p.PriceValueColIdx, p.ConditionColIdx, p.AvailabilityColIdx, p.AdTypeColIdx, p.SalesTypeColIdx, p.ConnectColIdx, p.ProcessingColIdx, p.PurposeColIdx)
 	}
 
-	if titleColIdx < 0 {
-		titleColIdx = 0
+	if p.TitleColIdx < 0 {
+		p.TitleColIdx = 0
 	}
-	if descColIdx < 0 {
-		descColIdx = 1
+	if p.DescColIdx < 0 {
+		p.DescColIdx = 1
 	}
-	if imageNamesIdx < 0 {
+	if p.ImageNamesIdx < 0 {
 		if len(rows) > 0 && len(rows[0]) > 2 {
-			imageNamesIdx = 2
+			p.ImageNamesIdx = 2
 		} else {
-			imageNamesIdx = -1
+			p.ImageNamesIdx = -1
 		}
 	}
-	if idColIdx < 0 {
-		idColIdx = -1
+	if p.IDColIdx < 0 {
+		p.IDColIdx = -1
 	}
-	if placementColIdx < 0 {
-		placementColIdx = -1
+	if p.PlacementColIdx < 0 {
+		p.PlacementColIdx = -1
 	}
-	if contactMethodColIdx < 0 {
-		contactMethodColIdx = -1
+	if p.ContactMethodColIdx < 0 {
+		p.ContactMethodColIdx = -1
 	}
-	if categoryColIdx < 0 {
-		categoryColIdx = -1
+	if p.CategoryColIdx < 0 {
+		p.CategoryColIdx = -1
 	}
-	if productTypeColIdx < 0 {
-		productTypeColIdx = -1
+	if p.ProductTypeColIdx < 0 {
+		p.ProductTypeColIdx = -1
 	}
-	if subProductTypeColIdx < 0 {
-		subProductTypeColIdx = -1
+	if p.SubProductTypeColIdx < 0 {
+		p.SubProductTypeColIdx = -1
 	}
-	if priceUnitColIdx < 0 {
-		priceUnitColIdx = -1
+	if p.PriceUnitColIdx < 0 {
+		p.PriceUnitColIdx = -1
 	}
-	if priceValueColIdx < 0 {
-		priceValueColIdx = -1
+	if p.PriceValueColIdx < 0 {
+		p.PriceValueColIdx = -1
 	}
-	if conditionColIdx < 0 {
-		conditionColIdx = -1
+	if p.ConditionColIdx < 0 {
+		p.ConditionColIdx = -1
 	}
-	if availabilityColIdx < 0 {
-		availabilityColIdx = -1
+	if p.AvailabilityColIdx < 0 {
+		p.AvailabilityColIdx = -1
 	}
-	if adTypeColIdx < 0 {
-		adTypeColIdx = -1
+	if p.AdTypeColIdx < 0 {
+		p.AdTypeColIdx = -1
 	}
-	if salesTypeColIdx < 0 {
-		salesTypeColIdx = -1
+	if p.SalesTypeColIdx < 0 {
+		p.SalesTypeColIdx = -1
 	}
-	if connectColIdx < 0 {
-		connectColIdx = -1
+	if p.ConnectColIdx < 0 {
+		p.ConnectColIdx = -1
 	}
-	if processingColIdx < 0 {
-		processingColIdx = -1
+	if p.ProcessingColIdx < 0 {
+		p.ProcessingColIdx = -1
 	}
-	if purposeColIdx < 0 {
-		purposeColIdx = -1
+	if p.PurposeColIdx < 0 {
+		p.PurposeColIdx = -1
 	}
 
 	lumberTypeColIdx := -1
@@ -554,42 +859,42 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 		if lengthDColIdx < 0 {
 			lengthDColIdx = findUnique("длина")
 		}
-		if targetActionColIdx < 0 {
-			targetActionColIdx = findUnique("настройка цены целевого действия")
+		if p.TargetActionColIdx < 0 {
+			p.TargetActionColIdx = findUnique("настройка цены целевого действия")
 		}
-		if targetActionManualColIdx < 0 {
-			targetActionManualColIdx = findUnique("настройка цены целевого действия: ручная")
+		if p.TargetActionManualColIdx < 0 {
+			p.TargetActionManualColIdx = findUnique("настройка цены целевого действия: ручная")
 		}
-		if diameterColIdx < 0 {
-			diameterColIdx = findUnique("диаметр")
+		if p.DiameterColIdx < 0 {
+			p.DiameterColIdx = findUnique("диаметр")
 		}
-		if priceValueColIdx < 0 {
-			priceValueColIdx = findUnique("цена")
+		if p.PriceValueColIdx < 0 {
+			p.PriceValueColIdx = findUnique("цена")
 		}
 	}
 
-	if targetActionColIdx < 0 {
-		targetActionColIdx = len(headerRow)
-		headerRow = append(headerRow, "Настройка цены целевого действия")
-		colName, err := excelize.ColumnNumberToName(targetActionColIdx + 1)
+	if p.TargetActionColIdx < 0 {
+		p.TargetActionColIdx = len(headerRow)
+		headerRow = append(headerRow, TargetActionHeader)
+		colName, err := excelize.ColumnNumberToName(p.TargetActionColIdx + 1)
 		if err != nil {
 			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
 		}
 		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
-		if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия"); err != nil {
+		if err := f.SetCellValue(p.SheetName, cell, TargetActionHeader); err != nil {
 			return fmt.Errorf("ошибка создания колонки целевого действия: %w", err)
 		}
 	}
 
-	if targetActionManualColIdx < 0 {
-		targetActionManualColIdx = len(headerRow)
-		headerRow = append(headerRow, "Настройка цены целевого действия: ручная")
-		colName, err := excelize.ColumnNumberToName(targetActionManualColIdx + 1)
+	if p.TargetActionManualColIdx < 0 {
+		p.TargetActionManualColIdx = len(headerRow)
+		headerRow = append(headerRow, TargetActionManualHeader)
+		colName, err := excelize.ColumnNumberToName(p.TargetActionManualColIdx + 1)
 		if err != nil {
 			return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
 		}
 		cell := fmt.Sprintf("%s%d", colName, headerRowIdx+1)
-		if err := f.SetCellValue(sheetName, cell, "Настройка цены целевого действия: ручная"); err != nil {
+		if err := f.SetCellValue(p.SheetName, cell, TargetActionManualHeader); err != nil {
 			return fmt.Errorf("ошибка создания колонки целевого действия: ручная: %w", err)
 		}
 	}
@@ -607,141 +912,141 @@ func SaveExcelWithNewRows(templatePath, outputPath string, sheetName string, tit
 			return
 		}
 		cell := fmt.Sprintf("%s%d", colName, startRow+wrote)
-		if err := f.SetCellValue(sheetName, cell, value); err != nil {
+		if err := f.SetCellValue(p.SheetName, cell, value); err != nil {
 			fmt.Printf("[DEBUG] SetCellValue error at %s: %v\n", cell, err)
 		}
 	}
 
-	for i := 0; i < len(newTitles); i++ {
-		writeCol(titleColIdx, newTitles[i])
-		writeCol(descColIdx, newDescriptions[i])
-		if imageNamesIdx >= 0 && i < len(newImageNames) {
-			writeCol(imageNamesIdx, newImageNames[i])
+	for i := 0; i < len(p.NewTitles); i++ {
+		writeCol(p.TitleColIdx, p.NewTitles[i])
+		writeCol(p.DescColIdx, p.NewDescriptions[i])
+		if p.ImageNamesIdx >= 0 && i < len(p.NewImageNames) {
+			writeCol(p.ImageNamesIdx, p.NewImageNames[i])
 		}
-		if contactColIdx >= 0 && i < len(newContacts) {
-			writeCol(contactColIdx, newContacts[i])
+		if p.ContactColIdx >= 0 && i < len(p.NewContacts) {
+			writeCol(p.ContactColIdx, p.NewContacts[i])
 		}
-		if phoneColIdx >= 0 && i < len(newPhones) {
-			writeCol(phoneColIdx, newPhones[i])
+		if p.PhoneColIdx >= 0 && i < len(p.NewPhones) {
+			writeCol(p.PhoneColIdx, p.NewPhones[i])
 		}
-		if addressColIdx >= 0 && i < len(newAddresses) {
-			writeCol(addressColIdx, newAddresses[i])
+		if p.AddressColIdx >= 0 && i < len(p.NewAddresses) {
+			writeCol(p.AddressColIdx, p.NewAddresses[i])
 		}
-		if companyColIdx >= 0 && i < len(newCompanies) {
-			writeCol(companyColIdx, newCompanies[i])
+		if p.CompanyColIdx >= 0 && i < len(p.NewCompanies) {
+			writeCol(p.CompanyColIdx, p.NewCompanies[i])
 		}
-		if emailColIdx >= 0 && i < len(newEmails) {
-			writeCol(emailColIdx, newEmails[i])
+		if p.EmailColIdx >= 0 && i < len(p.NewEmails) {
+			writeCol(p.EmailColIdx, p.NewEmails[i])
 		}
-		if idColIdx >= 0 && i < len(newIDs) {
-			writeCol(idColIdx, newIDs[i])
+		if p.IDColIdx >= 0 && i < len(p.NewIDs) {
+			writeCol(p.IDColIdx, p.NewIDs[i])
 		}
-		if placementColIdx >= 0 && i < len(newPlacements) {
-			writeCol(placementColIdx, newPlacements[i])
+		if p.PlacementColIdx >= 0 && i < len(p.NewPlacements) {
+			writeCol(p.PlacementColIdx, p.NewPlacements[i])
 		}
-		if contactMethodColIdx >= 0 && i < len(newContactMethods) {
-			writeCol(contactMethodColIdx, newContactMethods[i])
+		if p.ContactMethodColIdx >= 0 && i < len(p.NewContactMethods) {
+			writeCol(p.ContactMethodColIdx, p.NewContactMethods[i])
 		}
-		if categoryColIdx >= 0 && i < len(newCategories) {
-			writeCol(categoryColIdx, newCategories[i])
+		if p.CategoryColIdx >= 0 && i < len(p.NewCategories) {
+			writeCol(p.CategoryColIdx, p.NewCategories[i])
 		}
-		if productTypeColIdx >= 0 && i < len(newProductTypes) {
-			writeCol(productTypeColIdx, newProductTypes[i])
+		if p.ProductTypeColIdx >= 0 && i < len(p.NewProductTypes) {
+			writeCol(p.ProductTypeColIdx, p.NewProductTypes[i])
 		}
-		if subProductTypeColIdx >= 0 && i < len(newSubProductTypes) {
-			writeCol(subProductTypeColIdx, newSubProductTypes[i])
+		if p.SubProductTypeColIdx >= 0 && i < len(p.NewSubProductTypes) {
+			writeCol(p.SubProductTypeColIdx, p.NewSubProductTypes[i])
 		}
-		if priceUnitColIdx >= 0 && i < len(newPriceUnits) {
-			writeCol(priceUnitColIdx, newPriceUnits[i])
+		if p.PriceUnitColIdx >= 0 && i < len(p.NewPriceUnits) {
+			writeCol(p.PriceUnitColIdx, p.NewPriceUnits[i])
 		}
-		if conditionColIdx >= 0 && i < len(newConditions) {
-			writeCol(conditionColIdx, newConditions[i])
+		if p.ConditionColIdx >= 0 && i < len(p.NewConditions) {
+			writeCol(p.ConditionColIdx, p.NewConditions[i])
 		}
-		if availabilityColIdx >= 0 && i < len(newAvailabilities) {
-			writeCol(availabilityColIdx, newAvailabilities[i])
+		if p.AvailabilityColIdx >= 0 && i < len(p.NewAvailabilities) {
+			writeCol(p.AvailabilityColIdx, p.NewAvailabilities[i])
 		}
-		if adTypeColIdx >= 0 && i < len(newAdTypes) {
-			writeCol(adTypeColIdx, newAdTypes[i])
+		if p.AdTypeColIdx >= 0 && i < len(p.NewAdTypes) {
+			writeCol(p.AdTypeColIdx, p.NewAdTypes[i])
 		}
-		if salesTypeColIdx >= 0 && i < len(newSalesTypes) {
-			writeCol(salesTypeColIdx, newSalesTypes[i])
+		if p.SalesTypeColIdx >= 0 && i < len(p.NewSalesTypes) {
+			writeCol(p.SalesTypeColIdx, p.NewSalesTypes[i])
 		}
-		if connectColIdx >= 0 && i < len(newConnects) {
-			writeCol(connectColIdx, newConnects[i])
+		if p.ConnectColIdx >= 0 && i < len(p.NewConnects) {
+			writeCol(p.ConnectColIdx, p.NewConnects[i])
 		}
-		if processingColIdx >= 0 && i < len(newProcessing) {
-			writeCol(processingColIdx, newProcessing[i])
+		if p.ProcessingColIdx >= 0 && i < len(p.NewProcessing) {
+			writeCol(p.ProcessingColIdx, p.NewProcessing[i])
 		}
-		if purposeColIdx >= 0 && i < len(newPurpose) {
-			writeCol(purposeColIdx, newPurpose[i])
+		if p.PurposeColIdx >= 0 && i < len(p.NewPurpose) {
+			writeCol(p.PurposeColIdx, p.NewPurpose[i])
 		}
-		if lumberTypeColIdx >= 0 && i < len(newLumberTypes) {
-			writeCol(lumberTypeColIdx, newLumberTypes[i])
+		if lumberTypeColIdx >= 0 && i < len(p.NewLumberTypes) {
+			writeCol(lumberTypeColIdx, p.NewLumberTypes[i])
 		}
-		if woodTypeColIdx >= 0 && i < len(newWoodTypes) {
-			writeCol(woodTypeColIdx, newWoodTypes[i])
+		if woodTypeColIdx >= 0 && i < len(p.NewWoodTypes) {
+			writeCol(woodTypeColIdx, p.NewWoodTypes[i])
 		}
-		if edgeColIdx >= 0 && i < len(newEdges) {
-			writeCol(edgeColIdx, newEdges[i])
+		if edgeColIdx >= 0 && i < len(p.NewEdges) {
+			writeCol(edgeColIdx, p.NewEdges[i])
 		}
-		if gradeColIdx >= 0 && i < len(newGrades) {
-			writeCol(gradeColIdx, newGrades[i])
+		if gradeColIdx >= 0 && i < len(p.NewGrades) {
+			writeCol(gradeColIdx, p.NewGrades[i])
 		}
-		if moistureColIdx >= 0 && i < len(newMoistures) {
-			writeCol(moistureColIdx, newMoistures[i])
+		if moistureColIdx >= 0 && i < len(p.NewMoistures) {
+			writeCol(moistureColIdx, p.NewMoistures[i])
 		}
-		if profileColIdx >= 0 && i < len(newProfiles) {
-			writeCol(profileColIdx, newProfiles[i])
+		if profileColIdx >= 0 && i < len(p.NewProfiles) {
+			writeCol(profileColIdx, p.NewProfiles[i])
 		}
-		if structureColIdx >= 0 && i < len(newStructures) {
-			writeCol(structureColIdx, newStructures[i])
+		if structureColIdx >= 0 && i < len(p.NewStructures) {
+			writeCol(structureColIdx, p.NewStructures[i])
 		}
-		if lumberProfileColIdx >= 0 && i < len(newLumberProfiles) {
-			writeCol(lumberProfileColIdx, newLumberProfiles[i])
+		if lumberProfileColIdx >= 0 && i < len(p.NewLumberProfiles) {
+			writeCol(lumberProfileColIdx, p.NewLumberProfiles[i])
 		}
-		if thicknessColIdx >= 0 && i < len(newThicknesses) {
-			writeCol(thicknessColIdx, newThicknesses[i])
+		if thicknessColIdx >= 0 && i < len(p.NewThicknesses) {
+			writeCol(thicknessColIdx, p.NewThicknesses[i])
 		}
-		if widthColIdx >= 0 && i < len(newWidths) {
-			writeCol(widthColIdx, newWidths[i])
+		if widthColIdx >= 0 && i < len(p.NewWidths) {
+			writeCol(widthColIdx, p.NewWidths[i])
 		}
-		if lengthColIdx >= 0 && i < len(newLengths) {
-			writeCol(lengthColIdx, newLengths[i])
+		if lengthColIdx >= 0 && i < len(p.NewLengths) {
+			writeCol(lengthColIdx, p.NewLengths[i])
 		}
-		if heightColIdx >= 0 && i < len(newHeights) {
-			writeCol(heightColIdx, newHeights[i])
+		if heightColIdx >= 0 && i < len(p.NewHeights) {
+			writeCol(heightColIdx, p.NewHeights[i])
 		}
-		if widthDColIdx >= 0 && i < len(newWidthDs) {
-			writeCol(widthDColIdx, newWidthDs[i])
+		if widthDColIdx >= 0 && i < len(p.NewWidthDs) {
+			writeCol(widthDColIdx, p.NewWidthDs[i])
 		}
-		if lengthDColIdx >= 0 && i < len(newLengthDs) {
-			writeCol(lengthDColIdx, newLengthDs[i])
+		if lengthDColIdx >= 0 && i < len(p.NewLengthDs) {
+			writeCol(lengthDColIdx, p.NewLengthDs[i])
 		}
-		if gostColIdx >= 0 && i < len(newGOSTValues) {
-			writeCol(gostColIdx, newGOSTValues[i])
+		if p.GOSTColIdx >= 0 && i < len(p.NewGOSTValues) {
+			writeCol(p.GOSTColIdx, p.NewGOSTValues[i])
 		}
-		if targetActionColIdx >= 0 && i < len(newTargetActionManual) {
-			writeCol(targetActionColIdx, newTargetActionManual[i])
+		if p.TargetActionColIdx >= 0 && i < len(p.NewTargetActionManual) {
+			writeCol(p.TargetActionColIdx, p.NewTargetActionManual[i])
 		}
-		if targetActionManualColIdx >= 0 && i < len(newTargetActionManualSettings) {
-			writeCol(targetActionManualColIdx, newTargetActionManualSettings[i])
+		if p.TargetActionManualColIdx >= 0 && i < len(p.NewTargetActionManualSettings) {
+			writeCol(p.TargetActionManualColIdx, p.NewTargetActionManualSettings[i])
 		}
-		if diameterColIdx >= 0 && i < len(newDiameters) {
-			writeCol(diameterColIdx, newDiameters[i])
+		if p.DiameterColIdx >= 0 && i < len(p.NewDiameters) {
+			writeCol(p.DiameterColIdx, p.NewDiameters[i])
 		}
-		if priceValueColIdx >= 0 && i < len(newPriceValues) {
-			writeCol(priceValueColIdx, newPriceValues[i])
+		if p.PriceValueColIdx >= 0 && i < len(p.NewPriceValues) {
+			writeCol(p.PriceValueColIdx, p.NewPriceValues[i])
 		}
 		wrote++
 	}
 
 	fmt.Printf("[DEBUG] SaveExcelWithNewRows: wrote=%d starting_at_row=%d\n", wrote, startRow)
 
-	if err := f.SaveAs(outputPath); err != nil {
+	if err := f.SaveAs(p.OutputPath); err != nil {
 		return fmt.Errorf("ошибка сохранения файла: %w", err)
 	}
 
-	info, err := os.Stat(outputPath)
+	info, err := os.Stat(p.OutputPath)
 	if err != nil {
 		return fmt.Errorf("файл не создан: %w", err)
 	}
@@ -769,6 +1074,60 @@ func GetMimeType(filename string) string {
 	return mime
 }
 
+func buildRegionMap(addresses []string) (map[string][]string, []string) {
+	regionMap := make(map[string][]string)
+	for _, addr := range addresses {
+		region := extractRegion(addr)
+		regionMap[region] = append(regionMap[region], addr)
+	}
+	regionKeys := make([]string, 0, len(regionMap))
+	for k := range regionMap {
+		regionKeys = append(regionKeys, k)
+	}
+	return regionMap, regionKeys
+}
+
+func findAddressColumn(headerRow []string) int {
+	for i, h := range headerRow {
+		if strings.Contains(strings.ToLower(h), "адрес") {
+			return i
+		}
+	}
+	return -1
+}
+
+func pickAndWriteNewAddress(f *excelize.File, sheetName string, rows [][]string, rowIdx, addressColIdx int, regionMap map[string][]string, regionKeys []string, rnd *rand.Rand) {
+	if addressColIdx >= len(rows[rowIdx]) {
+		return
+	}
+	currentAddr := strings.TrimSpace(rows[rowIdx][addressColIdx])
+	currentRegion := extractRegion(currentAddr)
+
+	var candidates []string
+	for _, key := range regionKeys {
+		if key != "" && key != currentRegion {
+			candidates = append(candidates, regionMap[key]...)
+		}
+	}
+	if len(candidates) == 0 {
+		return
+	}
+
+	newAddr := candidates[rnd.Intn(len(candidates))]
+	cellName, err := excelize.CoordinatesToCellName(addressColIdx+1, rowIdx+1)
+	if err != nil {
+		return
+	}
+	_ = f.SetCellValue(sheetName, cellName, newAddr)
+}
+
+func shuffleSheetAddresses(f *excelize.File, sheetName string, rows [][]string, addressColIdx int, regionMap map[string][]string, regionKeys []string, rnd *rand.Rand) error {
+	for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
+		pickAndWriteNewAddress(f, sheetName, rows, rowIdx, addressColIdx, regionMap, regionKeys, rnd)
+	}
+	return nil
+}
+
 // ShuffleAddresses перемешивает адреса в столбце "Адрес" для всех строк данных (начиная с 5-й)
 func ShuffleAddresses(templatePath, outputPath string, addresses []string) error {
 	if len(addresses) == 0 {
@@ -787,16 +1146,7 @@ func ShuffleAddresses(templatePath, outputPath string, addresses []string) error
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	regionMap := make(map[string][]string)
-	for _, addr := range addresses {
-		region := extractRegion(addr)
-		regionMap[region] = append(regionMap[region], addr)
-	}
-
-	regionKeys := make([]string, 0, len(regionMap))
-	for k := range regionMap {
-		regionKeys = append(regionKeys, k)
-	}
+	regionMap, regionKeys := buildRegionMap(addresses)
 
 	for _, sheetName := range sheets {
 		if strings.EqualFold(sheetName, "Инструкция") {
@@ -807,53 +1157,14 @@ func ShuffleAddresses(templatePath, outputPath string, addresses []string) error
 			continue
 		}
 
-		headerRowIdx := -1
-		for i := 0; i < len(rows) && i < 20; i++ {
-			if isHeaderRow(rows[i]) {
-				headerRowIdx = i
-				break
-			}
-		}
-		if headerRowIdx < 0 {
-			headerRowIdx = 0
-		}
-
-		addressColIdx := -1
-		for i, h := range rows[headerRowIdx] {
-			if strings.Contains(strings.ToLower(h), "адрес") {
-				addressColIdx = i
-				break
-			}
-		}
+		headerRowIdx := findHeaderRow(rows)
+		addressColIdx := findAddressColumn(rows[headerRowIdx])
 		if addressColIdx < 0 {
 			continue
 		}
 
-		for rowIdx := 4; rowIdx < len(rows); rowIdx++ {
-			currentAddr := ""
-			if rowIdx < len(rows) && addressColIdx < len(rows[rowIdx]) {
-				currentAddr = strings.TrimSpace(rows[rowIdx][addressColIdx])
-			}
-			currentRegion := extractRegion(currentAddr)
-
-			var candidates []string
-			for _, key := range regionKeys {
-				if key != "" && key != currentRegion {
-					candidates = append(candidates, regionMap[key]...)
-				}
-			}
-			if len(candidates) == 0 {
-				candidates = addresses
-			}
-
-			newAddr := candidates[rnd.Intn(len(candidates))]
-			cellName, err := excelize.CoordinatesToCellName(addressColIdx+1, rowIdx+1)
-			if err != nil {
-				continue
-			}
-			if err := f.SetCellValue(sheetName, cellName, newAddr); err != nil {
-				continue
-			}
+		if err := shuffleSheetAddresses(f, sheetName, rows, addressColIdx, regionMap, regionKeys, rnd); err != nil {
+			return err
 		}
 	}
 

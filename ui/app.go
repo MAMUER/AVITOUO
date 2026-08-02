@@ -18,7 +18,13 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-const PhotosDir = "photos"
+const (
+	PhotosDir = "photos"
+	ContentTypeHeader = "Content-Type"
+	InvalidJSONError  = "Неверный JSON"
+	MethodNotAllowed  = "Method not allowed"
+	FilenameRequired  = "Файл не указан"
+)
 
 type App struct {
 	server         *http.Server
@@ -82,7 +88,7 @@ func (app *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "index.html not found: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set(ContentTypeHeader, "text/html; charset=utf-8")
 	_, _ = w.Write(data)
 }
 
@@ -120,7 +126,7 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 			Connect                string   `json:"connect"`
 		}
 		if err := app.decodeJSON(r, &req); err != nil {
-			app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
+			app.jsonError(w, http.StatusBadRequest, InvalidJSONError)
 			return
 		}
 		settings, _ := storage.LoadSettings()
@@ -154,7 +160,7 @@ func (app *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		app.jsonResponse(w, map[string]string{"status": "ok"})
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, MethodNotAllowed, http.StatusMethodNotAllowed)
 	}
 }
 
@@ -169,7 +175,7 @@ func normalizeSheetName(name string) string {
 
 func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, MethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -396,7 +402,7 @@ func (app *App) handleSheet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) jsonResponse(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ContentTypeHeader, "application/json")
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(data); err != nil {
@@ -412,7 +418,7 @@ func firstOrEmpty(vals []string) string {
 }
 
 func (app *App) jsonError(w http.ResponseWriter, status int, msg string) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ContentTypeHeader, "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
 		fmt.Printf("Ошибка сериализации JSON: %v\n", err)
@@ -430,7 +436,7 @@ func (app *App) decodeJSON(r *http.Request, v interface{}) error {
 
 func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, MethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -462,7 +468,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		Lengths           []string `json:"lengths"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
+		app.jsonError(w, http.StatusBadRequest, InvalidJSONError)
 		return
 	}
 
@@ -862,9 +868,9 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 				lumberProfile = ""
 			}
 
-			sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
+			sig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
 				lt, wood, edge, grade, moisture, profile, structure, lumberProfile,
-				thickness, width, length)
+				thickness, width, length, widthD, lengthD, newAddresses[i])
 			if !usedCombinations[sig] {
 				usedCombinations[sig] = true
 				newLumberTypes[i] = lt
@@ -1051,7 +1057,16 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	fmt.Printf("[DEBUG] Non-empty sample - lumber[0]=%q wood[0]=%q edge[0]=%q grade[0]=%q moisture[0]=%q profile[0]=%q structure[0]=%q lumberProfile[0]=%q thickness[0]=%q width[0]=%q length[0]=%q height[0]=%q widthD[0]=%q lengthD[0]=%q diameter[0]=%q\n", firstOrEmpty(newLumberTypes), firstOrEmpty(newWoodTypes), firstOrEmpty(newEdges), firstOrEmpty(newGrades), firstOrEmpty(newMoistures), firstOrEmpty(newProfiles), firstOrEmpty(newStructures), firstOrEmpty(newLumberProfiles), firstOrEmpty(newThicknesses), firstOrEmpty(newWidths), firstOrEmpty(newLengths), firstOrEmpty(newHeights), firstOrEmpty(newWidthDs), firstOrEmpty(newLengthDs), firstOrEmpty(newDiameters))
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
-	if err := storage.SaveExcelWithNewRows(path, outputXLSX, activeSheetOriginal, titleIdx, descIdx, imageNamesIdx, contactIdx, phoneIdx, addressIdx, companyIdx, emailIdx, newTitles, newDescriptions, imageNamesStrings, newContacts, newPhones, newAddresses, newCompanies, newEmails, idColIdx, placementColIdx, contactMethodColIdx, categoryColIdx, productTypeColIdx, subProductTypeColIdx, priceUnitColIdx, conditionColIdx, availabilityColIdx, adTypeColIdx, salesTypeColIdx, connectColIdx, processingColIdx, purposeColIdx, gostColIdx, newIDs, newPlacements, newContactMethods, newCategories, newProductTypes, newSubProductTypes, newPriceUnits, newConditions, newAvailabilities, newAdTypes, newSalesTypes, newConnects, newProcessing, newPurpose, newLumberTypes, newWoodTypes, newEdges, newGrades, newMoistures, newProfiles, newStructures, newLumberProfiles, newThicknesses, newWidths, newLengths, newHeights, newWidthDs, newLengthDs, newGOSTValues, targetActionColIdx, targetActionManualColIdx, newTargetActionManual, newTargetActionManualSettings, diameterColIdx, newDiameters, priceValueColIdx, newPriceValues); err != nil {
+	params := &storage.SaveExcelParams{
+		TemplatePath: path, OutputPath: outputXLSX, SheetName: activeSheetOriginal,
+		TitleColIdx: titleIdx, DescColIdx: descIdx, ImageNamesIdx: imageNamesIdx, ContactColIdx: contactIdx, PhoneColIdx: phoneIdx, AddressColIdx: addressIdx, CompanyColIdx: companyIdx, EmailColIdx: emailIdx,
+		NewTitles: newTitles, NewDescriptions: newDescriptions, NewImageNames: imageNamesStrings, NewContacts: newContacts, NewPhones: newPhones, NewAddresses: newAddresses, NewCompanies: newCompanies, NewEmails: newEmails,
+		IDColIdx: idColIdx, PlacementColIdx: placementColIdx, ContactMethodColIdx: contactMethodColIdx, CategoryColIdx: categoryColIdx, ProductTypeColIdx: productTypeColIdx, SubProductTypeColIdx: subProductTypeColIdx, PriceUnitColIdx: priceUnitColIdx, ConditionColIdx: conditionColIdx, AvailabilityColIdx: availabilityColIdx, AdTypeColIdx: adTypeColIdx, SalesTypeColIdx: salesTypeColIdx, ConnectColIdx: connectColIdx, ProcessingColIdx: processingColIdx, PurposeColIdx: purposeColIdx, GOSTColIdx: gostColIdx,
+		NewIDs: newIDs, NewPlacements: newPlacements, NewContactMethods: newContactMethods, NewCategories: newCategories, NewProductTypes: newProductTypes, NewSubProductTypes: newSubProductTypes, NewPriceUnits: newPriceUnits, NewConditions: newConditions, NewAvailabilities: newAvailabilities, NewAdTypes: newAdTypes, NewSalesTypes: newSalesTypes, NewConnects: newConnects, NewProcessing: newProcessing, NewPurpose: newPurpose, NewLumberTypes: newLumberTypes, NewWoodTypes: newWoodTypes, NewEdges: newEdges, NewGrades: newGrades, NewMoistures: newMoistures, NewProfiles: newProfiles, NewStructures: newStructures, NewLumberProfiles: newLumberProfiles, NewThicknesses: newThicknesses, NewWidths: newWidths, NewLengths: newLengths, NewHeights: newHeights, NewWidthDs: newWidthDs, NewLengthDs: newLengthDs, NewGOSTValues: newGOSTValues,
+		TargetActionColIdx: targetActionColIdx, TargetActionManualColIdx: targetActionManualColIdx, NewTargetActionManual: newTargetActionManual, NewTargetActionManualSettings: newTargetActionManualSettings,
+		DiameterColIdx: diameterColIdx, NewDiameters: newDiameters, PriceValueColIdx: priceValueColIdx, NewPriceValues: newPriceValues,
+	}
+	if err := storage.SaveExcelWithNewRows(params); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения Excel: "+err.Error())
 		return
 	}
@@ -1082,18 +1097,18 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 
 func (app *App) handleShuffleAddresses(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, MethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 	var req struct {
 		Filename string `json:"filename"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
+		app.jsonError(w, http.StatusBadRequest, InvalidJSONError)
 		return
 	}
 	if req.Filename == "" {
-		app.jsonError(w, http.StatusBadRequest, "Файл не указан")
+		app.jsonError(w, http.StatusBadRequest, FilenameRequired)
 		return
 	}
 	settings, _ := storage.LoadSettings()
@@ -1116,18 +1131,18 @@ func (app *App) handleShuffleAddresses(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) handleAddServices(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, MethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 	var req struct {
 		Filename string `json:"filename"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Неверный JSON")
+		app.jsonError(w, http.StatusBadRequest, InvalidJSONError)
 		return
 	}
 	if req.Filename == "" {
-		app.jsonError(w, http.StatusBadRequest, "Файл не указан")
+		app.jsonError(w, http.StatusBadRequest, FilenameRequired)
 		return
 	}
 
@@ -1146,12 +1161,12 @@ func (app *App) handleAddServices(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, MethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 	filename := r.URL.Query().Get("file")
 	if filename == "" {
-		app.jsonError(w, http.StatusBadRequest, "Файл не указан")
+		app.jsonError(w, http.StatusBadRequest, FilenameRequired)
 		return
 	}
 	file, err := os.Open(filename)
@@ -1161,14 +1176,14 @@ func (app *App) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = file.Close() }()
 
-	w.Header().Set("Content-Type", storage.GetMimeType(filename))
+	w.Header().Set(ContentTypeHeader, storage.GetMimeType(filename))
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	_, _ = io.Copy(w, file)
 }
 
 func (app *App) handleUploadFolder(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, MethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 

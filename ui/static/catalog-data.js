@@ -1,10 +1,10 @@
-var AVITO_CATALOG = (function() {
-  var LT = {
+const AVITO_CATALOG = (function() {
+  const LT = {
     "Брус": ["Берёза","Бук","Дуб","Ель","Карагач","Кедр","Клён","Красное дерево","Липа","Лиственница","Магнолия","Орех","Осина","Падук","Пихта","Розовое дерево","Сосна","Тик","Ясень"],
     "Брусок": ["Амарант","Бальса","Берёза","Бук","Венге","Граб","Гренадил","Другой","Дуб","Ель","Карагач","Кедр","Красное дерево","Липа","Лиственница","Магнолия","Мербау","Ольха","Орех","Осина","Падук","Палисандр","Розовое дерево","Сосна","Тик","Ясень"],
     "Вагонка": ["Абаш","Берёза","Бук","Другой","Дуб","Ель","Кедр","Липа","Лиственница","Магнолия","Ольха","Орех","Осина","Падук","Пихта","Сосна","Тик","Ясень"],
     "Горбыль": ["Берёза","Другой","Дуб","Ель","Кедр","Клён","Липа","Лиственница","Магнолия","Ольха","Орех","Осина","Падук","Пихта","Сосна","Тик","Ясень"],
-    "Доска": ["Акация","Амарант","Бамбук","Берёза","Бук","Венге","Вишня","Граб","Грецкий орех","Груша","ДПК","Другой","Дуб","Ель","Зебрано","Карагач","Каштан","Кедр","Клён","Красное дерево","Липа","Лиственница","Магнолия","Мербау","Ольха","Орех","Осина","Падук","Палисандр","Пихта","Самшит","Сосна","Тик","Тополь","Цирикоте","Ясень"],
+    "Доска": ["Другой","Ель","Липа","Сосна"],
     "Дрова": ["Акация","Берёза","Бук","Груша","Другой","Дуб","Ель","Карагач","Кедр","Клён","Липа","Лиственница","Ольха","Орех","Осина","Падук","Пихта","Сосна","Тик","Ясень"],
     "Другой": ["Акация","Амарант","Бамбук","Берёза","Бук","Венге","Вишня","Граб","Грецкий орех","Груша","ДПК","Другой","Дуб","Ель","Зебрано","Карагач","Каштан","Кедр","Клён","Красное дерево","Липа","Лиственница","Магнолия","Мербау","Ольха","Орех","Осина","Падук","Палисандр","Пихта","Самшит","Сосна","Тик","Тополь","Цирикоте","Ясень"],
     "Имитация бревна, блок-хаус": ["Другой","Дуб","Ель","Кедр","Липа","Лиственница","Ольха","Сосна","Ясень"],
@@ -29,29 +29,29 @@ var AVITO_CATALOG = (function() {
     "Штапик": ["Абаш","Акация","Амарант","Бакаут","Бальса","Бамбук","Берёза","Бук","Венге","Вишня","Граб","Гренадил","Грецкий орех","Груша","ДПК","Другой","Дуб","Ель","Зебрано","Ироко","Карагач","Каштан","Кедр","Клён","Красное дерево","Липа","Лиственница","Магнолия","Меранти","Мербау","Ольха","Орех","Осина","Падук","Палисандр","Пихта","Розовое дерево","Самшит","Сосна","Тик","Тополь","Цирикоте","Чёрное дерево","Ясень"]
   };
 
-  var PANEL_PROFILE = {
+  const PANEL_PROFILE = {
     "Вагонка": ["Евровагонка","Софтлайн","Штиль"],
     "Планкен": ["Прямой","Скошенный"]
   };
 
-  var EDGE_LT = "Доска";
-  var EDGE_OPTIONS = ["Обрезанная","Необрезанная","Шпунтованная","Завальцованная"];
+  const EDGE_LT = "Доска";
+  const EDGE_OPTIONS = ["Обрезанная","Необрезанная","Шпунтованная","Завальцованная"];
 
-  var GRADE_LTS = ["Брус","Брусок","Вагонка","Горбыль","Доска","Другой","Имитация бревна, блок-хаус","Имитация бруса, рау-хаус","Мебельный щит","Наличник","Нащельник","Плинтус","Полок","Потолочный плинтус, галтель","Раскладка","Рейка","Уголок","Штапик"];
-  var GRADE_WOODS = ["Абаш","Акация","Амарант","Бакаут","Бальса","Бамбук","Берёза","Бук","Венге","Вишня","Граб","Гренадил","Грецкий орех","Груша","ДПК","Другой","Дуб","Зебрано","Ель","Ироко","Карагач","Каштан","Кедр","Клён","Красное дерево","Липа","Лиственница","Магнолия","Меранти","Мербау","Ольха","Орех","Осина","Падук","Палисандр","Пихта","Розовое дерево","Самшит","Сосна","Тик","Тополь","Цирикоте","Чёрное дерево","Ясень"];
-  var GRADE_OPTIONS = ["Отборный, экстра","1 (A)","1–2 (AB)","1–3 (ABC)","2 (B)","2–3 (BC)","3 (C)","3–4 (CD)","4 (D)"];
+  const GRADE_LTS = ["Брус","Брусок","Вагонка","Горбыль","Доска","Другой","Имитация бревна, блок-хаус","Имитация бруса, рау-хаус","Мебельный щит","Наличник","Нащельник","Плинтус","Полок","Потолочный плинтус, галтель","Раскладка","Рейка","Уголок","Штапик"];
+  const GRADE_WOODS = ["Абаш","Акация","Амарант","Бакаут","Бальса","Бамбук","Берёза","Бук","Венге","Вишня","Граб","Гренадил","Грецкий орех","Груша","ДПК","Другой","Дуб","Зебрано","Ель","Ироко","Карагач","Каштан","Кедр","Клён","Красное дерево","Липа","Лиственница","Магнолия","Меранти","Мербау","Ольха","Орех","Осина","Падук","Палисандр","Пихта","Розовое дерево","Самшит","Сосна","Тик","Тополь","Цирикоте","Чёрное дерево","Ясень"];
+  const GRADE_OPTIONS = ["Отборный, экстра","1 (A)","1–2 (AB)","1–3 (ABC)","2 (B)","2–3 (BC)","3 (C)","3–4 (CD)","4 (D)"];
 
-  var MOISTURE_LTS = ["Доска","Брус","Имитация бруса, рау-хаус","Брусок","Планкен","Дрова","Рейка","Слэб"];
-  var MOISTURE_WOODS = ["Абаш","Акация","Амарант","Бакаут","Бальса","Бамбук","Берёза","Бук","Венге","Вишня","Граб","Гренадил","Грецкий орех","Груша","ДПК","Другой","Дуб","Ель","Зебрано","Ироко","Карагач","Каштан","Кедр","Клён","Красное дерево","Липа","Лиственница","Магнолия","Меранти","Мербау","Ольха","Орех","Осина","Падук","Палисандр","Розовое дерево","Самшит","Сосна","Тик","Тополь","Цирикоте","Чёрное дерево","Ясень"];
-  var MOISTURE_OPTIONS = ["Сухая","Естественная"];
+  const MOISTURE_LTS = ["Доска","Брус","Имитация бруса, рау-хаус","Брусок","Планкен","Дрова","Рейка","Слэб"];
+  const MOISTURE_WOODS = ["Абаш","Акация","Амарант","Бакаут","Бальса","Бамбук","Берёза","Бук","Венге","Вишня","Граб","Гренадил","Грецкий орех","Груша","ДПК","Другой","Дуб","Ель","Зебрано","Ироко","Карагач","Каштан","Кедр","Клён","Красное дерево","Липа","Лиственница","Магнолия","Меранти","Мербау","Ольха","Орех","Осина","Падук","Палисандр","Розовое дерево","Самшит","Сосна","Тик","Тополь","Цирикоте","Чёрное дерево","Ясень"];
+  const MOISTURE_OPTIONS = ["Сухая","Естественная"];
 
-  var PROFILE_ONLY_LT = "Брус";
-  var PROFILE_OPTIONS = ["Да","Нет"];
+  const PROFILE_ONLY_LT = "Брус";
+  const PROFILE_OPTIONS = ["Да","Нет"];
 
-  var STRUCTURE_LTS = ["Брус","Вагонка","Имитация бруса, рау-хаус","Брусок","Наличник","Нащельник","Плинтус","Раскладка","Рейка","Уголок"];
-  var STRUCTURE_OPTIONS = ["Цельная","Клеёная"];
+  const STRUCTURE_LTS = ["Брус","Вагонка","Имитация бруса, рау-хаус","Брусок","Наличник","Нащельник","Плинтус","Раскладка","Рейка","Уголок"];
+  const STRUCTURE_OPTIONS = ["Цельная","Клеёная"];
 
-  var PRICE_UNITS_BY_LT = {
+  const PRICE_UNITS_BY_LT = {
     "Брус": ["Штуку","м³"],
     "Брусок": ["Штуку","м³"],
     "Доска": ["Штуку","м³"],
@@ -59,9 +59,9 @@ var AVITO_CATALOG = (function() {
     "Вагонка": ["Штуку","м²"],
     "Дрова": ["Штуку","м³"]
   };
-  var PRICE_UNIT_OPTIONS = ["Штуку","м³","м²"];
+  const PRICE_UNIT_OPTIONS = ["Штуку","м³","м²"];
 
-  var DIMENSIONS = {
+  const DIMENSIONS = {
     thickness: ["20 мм","30 мм","40 мм","50 мм"],
     width: ["100 мм","150 мм","200 мм"],
     length: ["2 м","3 м","4 м","6 м"],
@@ -70,37 +70,7 @@ var AVITO_CATALOG = (function() {
     lengthD: ["2 м","3 м","4 м"]
   };
 
-  var DEPENDENT_DIMENSIONS = {
-    thickness: {
-      "В наличии": {
-        "Доска": ["16 мм","18 мм","19 мм","20 мм","22 мм","23 мм","24 мм","25 мм","26 мм","27 мм","28 мм","30 мм","32 мм","34 мм","35 мм","36 мм","38 мм","40 мм","42 мм","44 мм","45 мм","50 мм","60 мм","75 мм","250 мм"],
-        "Брус": ["16 мм","18 мм","19 мм","20 мм","22 мм","23 мм","24 мм","25 мм","26 мм","27 мм","28 мм","30 мм","32 мм","34 мм","35 мм","36 мм","38 мм","40 мм","42 мм","44 мм","45 мм","50 мм","60 мм","75 мм","250 мм"],
-        "Брусок": ["10 мм","16 мм","18 мм","19 мм","20 мм","22 мм","25 мм","30 мм","32 мм","35 мм","40 мм","44 мм","45 мм","50 мм","60 мм","64 мм","70 мм","75 мм","80 мм","88 мм","90 мм","95 мм","96 мм","100 мм"],
-        "Имитация бруса, рау-хаус": ["15 мм","16 мм","17 мм","18 мм","19 мм","20 мм","21 мм","22 мм","23 мм","25 мм","27 мм","28 мм","34 мм","35 мм","36 мм","37 мм"],
-        "Вагонка": ["12,5 мм","13 мм","13,5 мм","14 мм","15 мм","16 мм","18,5 мм","19 мм","21 мм","22,5 мм","25 мм","26 мм","28 мм"]
-      }
-    },
-    width: {
-      "В наличии": {
-        "Доска": ["10 мм","15 мм","20 мм","25 мм","30 мм","35 мм","40 мм","45 мм","50 мм","65 мм","70 мм","75 мм","80 мм","85 мм","90 мм","95 мм","100 мм","120 мм","125 мм","127 мм","130 мм","135 мм","140 мм","141 мм","142 мм","143 мм","145 мм","146 мм","150 мм","160 мм","170 мм","180 мм","190 мм","195 мм","200 мм","250 мм","300 мм"],
-        "Брус": ["40 мм","50 мм","60 мм","75 мм","90 мм","96 мм","100 мм","110 мм","120 мм","125 мм","127 мм","130 мм","135 мм","140 мм","142 мм","143 мм","145 мм","146 мм","150 мм","160 мм","170 мм","180 мм","190 мм","195 мм","196 мм","200 мм","220 мм","250 мм","300 мм"],
-        "Брусок": ["10 мм","16 мм","18 мм","19 мм","20 мм","22 мм","25 мм","30 мм","32 мм","35 мм","40 мм","44 мм","45 мм","50 мм","60 мм","64 мм","70 мм","75 мм","80 мм","88 мм","90 мм","95 мм","96 мм","100 мм","110 мм","120 мм","128 мм","130 мм","140 мм","146 мм","150 мм","160 мм","170 мм","180 мм","190 мм","196 мм","200 мм"],
-        "Имитация бруса, рау-хаус": ["120 мм","121 мм","127 мм","135 мм","138 мм","140 мм","143 мм","145 мм","146 мм","150 мм","158 мм","160 мм","170 мм","173 мм","175 мм","176 мм","185 мм","190 мм","192 мм","193 мм","195 мм","196 мм"],
-        "Вагонка": ["70 мм","75 мм","80 мм","85 мм","90 мм","93 мм","95 мм","96 мм","100 мм","105 мм","110 мм","115 мм","120 мм","121 мм","125 мм","130 мм","138 мм","140 мм","146 мм","150 мм","160 мм","165 мм","170 мм","180 мм","195 мм"]
-      }
-    },
-    length: {
-      "В наличии": {
-        "Доска": ["300 мм","600 мм","800 мм","900 мм","1000 мм","1100 мм","1200 мм","1400 мм","1500 мм","2000 мм","2500 мм","2700 мм","2900 мм","3000 мм","3500 мм","4000 мм","4500 мм","5000 мм","5500 мм","6000 мм","9000 мм","12000 мм","15000 мм"],
-        "Брус": ["1000 мм","1500 мм","2000 мм","2100 мм","2400 мм","2500 мм","3000 мм","3500 мм","4000 мм","4500 мм","5000 мм","5500 мм","6000 мм","9000 мм","12000 мм","15000 мм"],
-        "Брусок": ["1000 мм","2100 мм","2200 мм","2400 мм","3000 мм","4000 мм","5000 мм","6000 мм"],
-        "Имитация бруса, рау-хаус": ["1000 мм","1500 мм","2000 мм","2100 мм","2400 мм","2500 мм","2700 мм","3000 мм","3300 мм","3600 мм","3900 мм","4000 мм","4200 мм","4500 мм","4800 мм","5000 мм","5100 мм","5400 мм","5700 мм","6000 мм"],
-        "Вагонка": ["500 мм","700 мм","800 мм","900 мм","1000 мм","1500 мм","2000 мм","2200 мм","2300 мм","2400 мм","2500 мм","2700 мм","2900 мм","3000 мм","3500 мм","4000 мм","6000 мм"]
-      }
-    }
-  };
-
-  var DEPENDENT_DIMENSIONS = {
+  const DEPENDENT_DIMENSIONS = {
     thickness: {
       "В наличии": {
         "Доска": ["16 мм","18 мм","19 мм","20 мм","22 мм","23 мм","24 мм","25 мм","26 мм","27 мм","28 мм","30 мм","32 мм","34 мм","35 мм","36 мм","38 мм","40 мм","42 мм","44 мм","45 мм","50 мм","60 мм","75 мм","250 мм"],
@@ -129,7 +99,7 @@ var AVITO_CATALOG = (function() {
       }
     },
     height: {
-      "": {
+      "": { // NOSONAR false positive: empty key means unconditional height mapping
         "Имитация бревна, блок-хаус": ["16 мм","18 мм","19 мм","20 мм","22 мм","23 мм","24 мм","25 мм","26 мм","27 мм","28 мм","30 мм","32 мм","34 мм","35 мм","36 мм","38 мм","40 мм","42 мм","44 мм","45 мм","50 мм","60 мм","75 мм","250 мм"],
         "Планкен": ["12,5 мм","13 мм","13,5 мм","14 мм","15 мм","16 мм","18,5 мм","19 мм","21 мм","22,5 мм","25 мм","26 мм","28 мм"],
         "Мебельный щит": ["16 мм","18 мм","19 мм","20 мм","22 мм","25 мм","30 мм","32 мм","35 мм","40 мм","44 мм","45 мм","50 мм","60 мм","64 мм","70 мм","75 мм","80 мм","88 мм","90 мм","95 мм","96 мм","100 мм"],
@@ -150,20 +120,20 @@ var AVITO_CATALOG = (function() {
   };
 
   function inArray(v, arr) {
-    return arr.indexOf(v) >= 0;
+    return arr.includes(v);
   }
 
   function setOptions(selectEl, values, placeholder) {
-    var current = selectEl.value;
+    const current = selectEl.value;
     selectEl.innerHTML = '';
     if (placeholder) {
-      var ph = document.createElement('option');
+      const ph = document.createElement('option');
       ph.value = '';
       ph.textContent = placeholder || '— Не выбрано —';
       selectEl.appendChild(ph);
     }
     values.forEach(function(v) {
-      var opt = document.createElement('option');
+      const opt = document.createElement('option');
       opt.value = v;
       opt.textContent = v;
       selectEl.appendChild(opt);
@@ -176,15 +146,80 @@ var AVITO_CATALOG = (function() {
   }
 
   function disableSelect(id) {
-    var el = document.getElementById(id);
+    const el = document.getElementById(id);
     if (!el) return;
     el.disabled = true;
     el.value = '';
   }
 
   function enableSelect(id) {
-    var el = document.getElementById(id);
+    const el = document.getElementById(id);
     if (el) el.disabled = false;
+  }
+
+  function updateWoodType(lt) {
+    if (lt && AVITO_CATALOG.LT[lt]) {
+      setOptions(document.getElementById('wood-type'), AVITO_CATALOG.LT[lt]);
+      enableSelect('wood-type');
+    } else {
+      setOptions(document.getElementById('wood-type'), AVITO_CATALOG.woods);
+    }
+  }
+
+  function updateEdgeSelect(lt) {
+    if (lt === EDGE_LT) {
+      enableSelect('edge');
+      setOptions(document.getElementById('edge'), AVITO_CATALOG.rules.edge.options);
+    } else {
+      disableSelect('edge');
+    }
+  }
+
+  function updateGradeSelect(lt, wood) {
+    if (lt && inArray(lt, AVITO_CATALOG.rules.grade.lumberTypes) &&
+        wood && inArray(wood, AVITO_CATALOG.rules.grade.woodTypes)) {
+      enableSelect('grade');
+      setOptions(document.getElementById('grade'), AVITO_CATALOG.rules.grade.options);
+    } else {
+      disableSelect('grade');
+    }
+  }
+
+  function updateMoistureSelect(lt, wood) {
+    if (lt && inArray(lt, AVITO_CATALOG.rules.moisture.lumberTypes) &&
+        wood && inArray(wood, AVITO_CATALOG.rules.moisture.woodTypes)) {
+      enableSelect('moisture');
+      setOptions(document.getElementById('moisture'), AVITO_CATALOG.rules.moisture.options);
+    } else {
+      disableSelect('moisture');
+    }
+  }
+
+  function updateProfileSelect(lt) {
+    if (lt === PROFILE_ONLY_LT) {
+      enableSelect('profile');
+      setOptions(document.getElementById('profile'), AVITO_CATALOG.rules.profile.options);
+    } else {
+      disableSelect('profile');
+    }
+  }
+
+  function updateStructureSelect(lt) {
+    if (lt && inArray(lt, AVITO_CATALOG.rules.structure.lumberTypes)) {
+      enableSelect('structure');
+      setOptions(document.getElementById('structure'), AVITO_CATALOG.rules.structure.options);
+    } else {
+      disableSelect('structure');
+    }
+  }
+
+  function updateLumberProfileSelect(lt) {
+    if (lt && AVITO_CATALOG.panelProfile[lt]) {
+      enableSelect('lumber-profile');
+      setOptions(document.getElementById('lumber-profile'), AVITO_CATALOG.panelProfile[lt]);
+    } else {
+      disableSelect('lumber-profile');
+    }
   }
 
   return {
@@ -192,11 +227,13 @@ var AVITO_CATALOG = (function() {
     LT: LT,
     panelProfile: PANEL_PROFILE,
     woods: (function() {
-      var set = {};
+      const set = {};
       Object.keys(LT).forEach(function(k) {
         LT[k].forEach(function(w) { set[w] = true; });
       });
-      return Object.keys(set).sort();
+      return Object.keys(set).sort(function(a, b) {
+        return a.localeCompare(b, 'ru');
+      });
     })(),
     rules: {
       edge: { onlyLumberType: EDGE_LT, options: EDGE_OPTIONS },
@@ -225,74 +262,21 @@ var AVITO_CATALOG = (function() {
       });
 
       document.getElementById('product-type-settings').addEventListener('change', function() {
-        var lt = this.value;
-        if (lt && AVITO_CATALOG.LT[lt]) {
-          setOptions(document.getElementById('wood-type'), AVITO_CATALOG.LT[lt]);
-          enableSelect('wood-type');
-        } else {
-          setOptions(document.getElementById('wood-type'), AVITO_CATALOG.woods);
-        }
-
-        if (lt === EDGE_LT) {
-          enableSelect('edge');
-          setOptions(document.getElementById('edge'), AVITO_CATALOG.rules.edge.options);
-        } else {
-          disableSelect('edge');
-        }
-
-        if (lt && inArray(lt, AVITO_CATALOG.rules.grade.lumberTypes)) {
-          enableSelect('grade');
-        } else {
-          disableSelect('grade');
-        }
-
-        if (lt && inArray(lt, AVITO_CATALOG.rules.moisture.lumberTypes)) {
-          enableSelect('moisture');
-        } else {
-          disableSelect('moisture');
-        }
-
-        if (lt === PROFILE_ONLY_LT) {
-          enableSelect('profile');
-          setOptions(document.getElementById('profile'), AVITO_CATALOG.rules.profile.options);
-        } else {
-          disableSelect('profile');
-        }
-
-        if (lt && inArray(lt, AVITO_CATALOG.rules.structure.lumberTypes)) {
-          enableSelect('structure');
-          setOptions(document.getElementById('structure'), AVITO_CATALOG.rules.structure.options);
-        } else {
-          disableSelect('structure');
-        }
-
-        if (lt && AVITO_CATALOG.panelProfile[lt]) {
-          enableSelect('lumber-profile');
-          setOptions(document.getElementById('lumber-profile'), AVITO_CATALOG.panelProfile[lt]);
-        } else {
-          disableSelect('lumber-profile');
-        }
+        const lt = this.value;
+        updateWoodType(lt);
+        updateEdgeSelect(lt);
+        updateGradeSelect(lt, document.getElementById('wood-type').value);
+        updateMoistureSelect(lt, document.getElementById('wood-type').value);
+        updateProfileSelect(lt);
+        updateStructureSelect(lt);
+        updateLumberProfileSelect(lt);
       });
 
       document.getElementById('wood-type').addEventListener('change', function() {
-        var lt = document.getElementById('product-type-settings').value;
-        var wood = this.value;
-
-        if (lt && inArray(lt, AVITO_CATALOG.rules.grade.lumberTypes) &&
-            wood && inArray(wood, AVITO_CATALOG.rules.grade.woodTypes)) {
-          enableSelect('grade');
-          setOptions(document.getElementById('grade'), AVITO_CATALOG.rules.grade.options);
-        } else {
-          disableSelect('grade');
-        }
-
-        if (lt && inArray(lt, AVITO_CATALOG.rules.moisture.lumberTypes) &&
-            wood && inArray(wood, AVITO_CATALOG.rules.moisture.woodTypes)) {
-          enableSelect('moisture');
-          setOptions(document.getElementById('moisture'), AVITO_CATALOG.rules.moisture.options);
-        } else {
-          disableSelect('moisture');
-        }
+        const lt = document.getElementById('product-type-settings').value;
+        const wood = this.value;
+        updateGradeSelect(lt, wood);
+        updateMoistureSelect(lt, wood);
       });
 
       Object.keys(DIMENSIONS).forEach(function(k) {

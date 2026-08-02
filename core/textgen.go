@@ -8,6 +8,8 @@ import (
 	"unicode"
 )
 
+const pClose = "</p>\n"
+
 // TextGenerator генерирует уникальные вариации текста
 type TextGenerator struct {
 	used map[string]bool
@@ -160,86 +162,29 @@ func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index
 		r := tg.rnd
 		var result strings.Builder
 
-		result.WriteString("<p>")
-		result.WriteString(catalogIntros[r.Intn(len(catalogIntros))])
-		result.WriteString("</p>\n")
+		writeRandomParagraph(&result, r, catalogIntros)
 
-		para := cleanParagraphs[r.Intn(len(cleanParagraphs))]
+		para := pickRandom(r, cleanParagraphs)
 		result.WriteString("<p>")
-		result.WriteString(productLeads[r.Intn(len(productLeads))])
+		result.WriteString(pickRandom(r, productLeads))
 		result.WriteString("<strong>")
 		result.WriteString(para)
 		result.WriteString("</strong>")
 		if r.Intn(2) == 0 {
 			result.WriteString(" — ")
-			result.WriteString(descriptionLeads[r.Intn(len(descriptionLeads))])
+			result.WriteString(pickRandom(r, descriptionLeads))
 		}
-		result.WriteString("</p>\n")
+		result.WriteString(pClose)
 
 		if r.Intn(2) == 0 {
-			result.WriteString("<p><strong>✅ ПОЧЕМУ ЭТО ЛУЧШИЙ ВЫБОР:</strong></p>\n")
-			benefits := []string{
-				"✨ Стабильная геометрия — точные размеры по всем сторонам, готов к монтажу.",
-				"✨ Камерная сушка 8–12% — минимальная усадка, устойчивость к перепадам влажности.",
-				"✨ Чистовая строжка с 4-х сторон — гладкая поверхность, готова к покраске.",
-				"✨ Сорт АВ/Экстра — без выпадающих сучков, однородная текстура.",
-				"✨ Прямые поставки с производства — цены ниже рынка без посредников.",
-			}
-			for i := 0; i < 3; i++ {
-				result.WriteString("<p>")
-				result.WriteString(benefits[r.Intn(len(benefits))])
-				result.WriteString("</p>\n")
-			}
+			writeBenefits(&result, r)
 		}
+		writeCharacteristics(&result, r)
 
-		result.WriteString("<p><strong>✅ ХАРАКТЕРИСТИКИ:</strong></p>\n")
-		chars := []string{
-			"• Размер: по запросу в наличии (ширина × толщина × длина)",
-			"• Материал: хвоя (сосна/ель), лиственница — под запас",
-			"• Обработка: камерная сушка 8-12%, чистовая строжка с 4-х сторон",
-			"• Сорт: АВ, Экстра, Прима — без выпадающих сучков и черноты",
-			"• Поверхность: гладкая, ровная — готова к покраске и монтажу",
-		}
-		for _, c := range chars {
-			if r.Intn(4) != 0 {
-				result.WriteString("<p>")
-				result.WriteString(c)
-				result.WriteString("</p>\n")
-			}
-		}
-
-		result.WriteString("<p><strong>📍 Самовывоз в г. Мытищи (2 точки):</strong></p>\n")
-		result.WriteString("<p>1️⃣ Осташковское ш., 1Б, стр. 7, ангар №15 (под аркой «Стройдвор Яуза»)</p>\n")
-		result.WriteString("<p>2️⃣ Волковское ш., стр. 21А</p>\n")
-		result.WriteString("<p>🕒 Ежедневно 9:00–18:00 (без выходных)</p>\n")
-
-		deliveryOptions := []string{
-			"🚚 Доставка по Москве и МО. Отправка в регионы через ТК",
-			"🚛 Доставка по Москве и области. Регионы — транспортными компаниями",
-		}
-		result.WriteString("<p>")
-		result.WriteString(deliveryOptions[r.Intn(len(deliveryOptions))])
-		result.WriteString("</p>\n")
-
-		paymentOptions := []string{
-			"💳 Оплата: наличные, карта, перевод, QR, безнал с НДС / без НДС",
-			"💳 Принимаем: наличные, банковская карта, перевод, безналичный расчёт (с НДС/без НДС)",
-		}
-		result.WriteString("<p>")
-		result.WriteString(paymentOptions[r.Intn(len(paymentOptions))])
-		result.WriteString("</p>\n")
-
-		if r.Intn(2) == 0 {
-			result.WriteString("<p>")
-			result.WriteString(suffixPool[r.Intn(len(suffixPool))])
-			result.WriteString("</p>\n")
-		}
-
-		result.WriteString("<p>")
-		result.WriteString(ctaPool[r.Intn(len(ctaPool))])
-		result.WriteString("</p>\n")
-
-		result.WriteString("<p>🔹 Добавьте объявление в избранное — всегда в курсе свежих поступлений и спецпредложений!</p>\n")
+		writeAddress(&result)
+		writeDelivery(&result, r)
+		writePayment(&result, r)
+		writeFooter(&result, r, suffixPool, ctaPool)
 
 		return strings.TrimSpace(result.String())
 	}
@@ -258,6 +203,78 @@ func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index
 		tg.used["desc_"+desc] = true
 	}
 	return desc
+}
+
+
+
+func writeBenefits(result *strings.Builder, r *rand.Rand) {
+	result.WriteString("<p><strong>✅ ПОЧЕМУ ЭТО ЛУЧШИЙ ВЫБОР:</strong>")
+	result.WriteString(pClose)
+	benefits := []string{
+		"✨ Стабильная геометрия — точные размеры по всем сторонам, готов к монтажу.",
+		"✨ Камерная сушка 8–12% — минимальная усадка, устойчивость к перепадам влажности.",
+		"✨ Чистовая строжка с 4-х сторон — гладкая поверхность, готова к покраске.",
+		"✨ Сорт АВ/Экстра — без выпадающих сучков, однородная текстура.",
+		"✨ Прямые поставки с производства — цены ниже рынка без посредников.",
+	}
+	for i := 0; i < 3; i++ {
+		writeParagraph(result, benefits[r.Intn(len(benefits))])
+	}
+}
+
+func writeCharacteristics(result *strings.Builder, r *rand.Rand) {
+	result.WriteString("<p><strong>✅ ХАРАКТЕРИСТИКИ:</strong>")
+	result.WriteString(pClose)
+	chars := []string{
+		"• Размер: по запросу в наличии (ширина × толщина × длина)",
+		"• Материал: хвоя (сосна/ель), лиственница — под запас",
+		"• Обработка: камерная сушка 8-12%, чистовая строжка с 4-х сторон",
+		"• Сорт: АВ, Экстра, Прима — без выпадающих сучков и черноты",
+		"• Поверхность: гладкая, ровная — готова к покраске и монтажу",
+	}
+	for _, c := range chars {
+		if r.Intn(4) != 0 {
+			writeParagraph(result, c)
+		}
+	}
+}
+
+func writeAddress(result *strings.Builder) {
+	result.WriteString("<p><strong>📍 Самовывоз в г. Мытищи (2 точки):</strong>")
+	result.WriteString(pClose)
+	result.WriteString("<p>1️⃣ Осташковское ш., 1Б, стр. 7, ангар №15 (под аркой «Стройдвор Яуза»)")
+	result.WriteString(pClose)
+	result.WriteString("<p>2️⃣ Волковское ш., стр. 21А")
+	result.WriteString(pClose)
+	result.WriteString("<p>🕒 Ежедневно 9:00–18:00 (без выходных)")
+	result.WriteString(pClose)
+}
+
+func writeDelivery(result *strings.Builder, r *rand.Rand) {
+	deliveryOptions := []string{
+		"🚚 Доставка по Москве и МО. Отправка в регионы через ТК",
+		"🚛 Доставка по Москве и области. Регионы — транспортными компаниями",
+	}
+	writeParagraph(result, deliveryOptions[r.Intn(len(deliveryOptions))])
+}
+
+func writePayment(result *strings.Builder, r *rand.Rand) {
+	paymentOptions := []string{
+		"💳 Оплата: наличные, карта, перевод, QR, безнал с НДС / без НДС",
+		"💳 Принимаем: наличные, банковская карта, перевод, безналичный расчёт (с НДС/без НДС)",
+	}
+	writeParagraph(result, paymentOptions[r.Intn(len(paymentOptions))])
+}
+
+func writeFooter(result *strings.Builder, r *rand.Rand, suffixPool, ctaPool []string) {
+	if r.Intn(2) == 0 {
+		writeRandomParagraph(result, r, suffixPool)
+	}
+
+	writeRandomParagraph(result, r, ctaPool)
+
+	result.WriteString("<p>🔹 Добавьте объявление в избранное — всегда в курсе свежих поступлений и спецпредложений!")
+	result.WriteString(pClose)
 }
 
 // GenerateVariations генерирует N уникальных вариаций из шаблона
@@ -369,14 +386,32 @@ func calculateCombinations(groups []optionGroup) int {
 	return total
 }
 
+
+func pickRandom(r *rand.Rand, options []string) string {
+	if len(options) == 0 {
+		return ""
+	}
+	return options[r.Intn(len(options))]
+}
+
+func writeParagraph(result *strings.Builder, content string) {
+	result.WriteString("<p>")
+	result.WriteString(content)
+	result.WriteString(pClose)
+}
+
+func writeRandomParagraph(result *strings.Builder, r *rand.Rand, options []string) {
+	if len(options) == 0 {
+		return
+	}
+	writeParagraph(result, options[r.Intn(len(options))])
+}
+
 // ResolvePriceUnit возвращает единицу измерения для типа товара
 func ResolvePriceUnit(productType, defaultUnit string, index int) string {
 	pt := strings.ToLower(strings.TrimSpace(productType))
 	switch pt {
-	case "брусок", "брус":
-		units := []string{"Штуку", "м³"}
-		return units[index%len(units)]
-	case "доска":
+	case "брусок", "брус", "доска":
 		units := []string{"Штуку", "м³"}
 		return units[index%len(units)]
 	case "планкен", "вагонка":
