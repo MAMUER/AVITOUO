@@ -73,6 +73,9 @@ func isHeaderRow(row []string) bool {
 
 // GetSheetData возвращает данные из листа
 func GetSheetData(f *excelize.File, sheetName string) ([]string, [][]string, error) {
+	if strings.EqualFold(sheetName, "Инструкция") {
+		return nil, nil, fmt.Errorf("лист '%s' пропущен", sheetName)
+	}
 	rows, err := f.GetRows(sheetName)
 	if err != nil {
 		return nil, nil, err

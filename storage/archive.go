@@ -114,6 +114,9 @@ func AddServices(templatePath, outputPath string, value string) error {
 	}
 
 	for _, sheetName := range sheets {
+		if strings.EqualFold(sheetName, "Инструкция") {
+			continue
+		}
 		rows, err := f.GetRows(sheetName)
 		if err != nil || len(rows) == 0 {
 			continue
@@ -796,6 +799,9 @@ func ShuffleAddresses(templatePath, outputPath string, addresses []string) error
 	}
 
 	for _, sheetName := range sheets {
+		if strings.EqualFold(sheetName, "Инструкция") {
+			continue
+		}
 		rows, err := f.GetRows(sheetName)
 		if err != nil || len(rows) == 0 {
 			continue
