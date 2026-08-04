@@ -170,7 +170,7 @@ func resolveServiceRowValue(productType, value string) string {
 	if strings.Contains(productLower, "окна") || strings.Contains(productLower, "балкон") ||
 		strings.Contains(productLower, "двери") || strings.Contains(productLower, "дверь") ||
 		strings.Contains(productLower, "баня") || strings.Contains(productLower, "сауна") || strings.Contains(productLower, "бассейн") {
-		return "Москва|8\nМосковская область|8\nКалужская область|8\nТверская область|8\nТульская область|8\nЯрославская область|8\nВладимирская область|8"
+		return "Москва|5.9\nМосковская область|5.9"
 	}
 	return value
 }
