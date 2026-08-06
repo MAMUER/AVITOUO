@@ -19,7 +19,7 @@ import (
 const (
 	PhotosDir                = "photos"
 	TargetActionHeader       = "Promo"
-	TargetActionManualHeader = "PromoManualOptions"
+	TargetActionManualHeader = "PromoManualOption"
 	ProductTypeHeader        = "вид товара"
 )
 
@@ -127,7 +127,7 @@ func findServiceColumns(headerRow []string) (int, int, int) {
 		if strings.Contains(strings.ToLower(h), "Promo") && !strings.Contains(strings.ToLower(h), "ручная") {
 			targetActionColIdx = i
 		}
-		if strings.Contains(strings.ToLower(h), "PromoManualOptions") {
+		if strings.Contains(strings.ToLower(h), "PromoManualOption") {
 			targetActionManualColIdx = i
 		}
 		if strings.Contains(strings.ToLower(h), ProductTypeHeader) {
@@ -863,7 +863,7 @@ func SaveExcelWithNewRows(p *SaveExcelParams) error {
 			p.TargetActionColIdx = findUnique("Promo")
 		}
 		if p.TargetActionManualColIdx < 0 {
-			p.TargetActionManualColIdx = findUnique("PromoManualOptions")
+			p.TargetActionManualColIdx = findUnique("PromoManualOption")
 		}
 		if p.DiameterColIdx < 0 {
 			p.DiameterColIdx = findUnique("диаметр")

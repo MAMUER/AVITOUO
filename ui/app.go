@@ -15,11 +15,12 @@ import (
 
 	"AVITOUO/core"
 	"AVITOUO/storage"
+
 	"github.com/xuri/excelize/v2"
 )
 
 const (
-	PhotosDir = "photos"
+	PhotosDir         = "photos"
 	ContentTypeHeader = "Content-Type"
 	InvalidJSONError  = "Неверный JSON"
 	MethodNotAllowed  = "Method not allowed"
@@ -1049,7 +1050,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		purposeColIdx = storage.FindColumnIndex(headersCopy, "Назначение")
 		gostColIdx = storage.FindColumnIndex(headersCopy, "Соответствует ГОСТ")
 		targetActionColIdx = storage.FindColumnIndex(headersCopy, "Promo")
-		targetActionManualColIdx = storage.FindColumnIndex(headersCopy, "PromoManualOptions")
+		targetActionManualColIdx = storage.FindColumnIndex(headersCopy, "PromoManualOption")
 		diameterColIdx = storage.FindColumnIndex(headersCopy, "Диаметр")
 	}
 
