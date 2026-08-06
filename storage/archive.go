@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	PhotosDir = "photos"
-	TargetActionHeader       = "Настройка цены целевого действия"
-	TargetActionManualHeader = "Настройка цены целевого действия: ручная"
+	PhotosDir                = "photos"
+	TargetActionHeader       = "Promo"
+	TargetActionManualHeader = "PromoManualOptions"
 	ProductTypeHeader        = "вид товара"
 )
 
@@ -62,18 +62,18 @@ func (pg *PhotoGenerator) GenerateUniquePhotos(sourceDir string, count int) ([]s
 		if maxPhotos > 10 {
 			maxPhotos = 10
 		}
-	for photoIdx := 0; photoIdx < maxPhotos; photoIdx++ {
-		srcPath := sourceImages[photoIdx]
-		ext := strings.ToLower(filepath.Ext(srcPath))
-		baseName := fmt.Sprintf("a%d%s", globalPhotoIdx+1, ext)
-		savePath := filepath.Join(fullDir, baseName)
+		for photoIdx := 0; photoIdx < maxPhotos; photoIdx++ {
+			srcPath := sourceImages[photoIdx]
+			ext := strings.ToLower(filepath.Ext(srcPath))
+			baseName := fmt.Sprintf("a%d%s", globalPhotoIdx+1, ext)
+			savePath := filepath.Join(fullDir, baseName)
 
-		if err := processOnePhoto(srcPath, savePath, globalPhotoIdx); err != nil {
-			return nil, err
+			if err := processOnePhoto(srcPath, savePath, globalPhotoIdx); err != nil {
+				return nil, err
+			}
+			names = append(names, baseName)
+			globalPhotoIdx++
 		}
-		names = append(names, baseName)
-		globalPhotoIdx++
-	}
 		result = append(result, strings.Join(names, " | "))
 	}
 
@@ -124,10 +124,10 @@ func findServiceColumns(headerRow []string) (int, int, int) {
 	targetActionManualColIdx := -1
 	productTypeColIdx := -1
 	for i, h := range headerRow {
-		if strings.Contains(strings.ToLower(h), "настройка цены целевого действия") && !strings.Contains(strings.ToLower(h), "ручная") {
+		if strings.Contains(strings.ToLower(h), "Promo") && !strings.Contains(strings.ToLower(h), "ручная") {
 			targetActionColIdx = i
 		}
-		if strings.Contains(strings.ToLower(h), "настройка цены целевого действия: ручная") {
+		if strings.Contains(strings.ToLower(h), "PromoManualOptions") {
 			targetActionManualColIdx = i
 		}
 		if strings.Contains(strings.ToLower(h), ProductTypeHeader) {
@@ -336,74 +336,74 @@ type SaveExcelParams struct {
 	OutputPath   string
 	SheetName    string
 
-	TitleColIdx         int
-	DescColIdx          int
-	ImageNamesIdx       int
-	ContactColIdx       int
-	PhoneColIdx         int
-	AddressColIdx       int
-	CompanyColIdx       int
-	EmailColIdx         int
-	NewTitles           []string
-	NewDescriptions     []string
-	NewImageNames       []string
-	NewContacts         []string
-	NewPhones           []string
-	NewAddresses        []string
-	NewCompanies        []string
-	NewEmails           []string
-	IDColIdx            int
-	PlacementColIdx     int
-	ContactMethodColIdx int
-	CategoryColIdx      int
-	ProductTypeColIdx   int
-	SubProductTypeColIdx int
-	PriceUnitColIdx     int
-	ConditionColIdx     int
-	AvailabilityColIdx  int
-	AdTypeColIdx        int
-	SalesTypeColIdx     int
-	ConnectColIdx       int
-	ProcessingColIdx    int
-	PurposeColIdx       int
-	GOSTColIdx          int
-	NewIDs              []string
-	NewPlacements       []string
-	NewContactMethods   []string
-	NewCategories       []string
-	NewProductTypes     []string
-	NewSubProductTypes  []string
-	NewPriceUnits       []string
-	NewConditions       []string
-	NewAvailabilities   []string
-	NewAdTypes          []string
-	NewSalesTypes       []string
-	NewConnects         []string
-	NewProcessing       []string
-	NewPurpose          []string
-	NewLumberTypes      []string
-	NewWoodTypes        []string
-	NewEdges            []string
-	NewGrades           []string
-	NewMoistures        []string
-	NewProfiles         []string
-	NewStructures       []string
-	NewLumberProfiles   []string
-	NewThicknesses      []string
-	NewWidths           []string
-	NewLengths          []string
-	NewHeights          []string
-	NewWidthDs          []string
-	NewLengthDs         []string
-	NewGOSTValues       []string
-	TargetActionColIdx  int
-	TargetActionManualColIdx int
-	NewTargetActionManual      []string
+	TitleColIdx                   int
+	DescColIdx                    int
+	ImageNamesIdx                 int
+	ContactColIdx                 int
+	PhoneColIdx                   int
+	AddressColIdx                 int
+	CompanyColIdx                 int
+	EmailColIdx                   int
+	NewTitles                     []string
+	NewDescriptions               []string
+	NewImageNames                 []string
+	NewContacts                   []string
+	NewPhones                     []string
+	NewAddresses                  []string
+	NewCompanies                  []string
+	NewEmails                     []string
+	IDColIdx                      int
+	PlacementColIdx               int
+	ContactMethodColIdx           int
+	CategoryColIdx                int
+	ProductTypeColIdx             int
+	SubProductTypeColIdx          int
+	PriceUnitColIdx               int
+	ConditionColIdx               int
+	AvailabilityColIdx            int
+	AdTypeColIdx                  int
+	SalesTypeColIdx               int
+	ConnectColIdx                 int
+	ProcessingColIdx              int
+	PurposeColIdx                 int
+	GOSTColIdx                    int
+	NewIDs                        []string
+	NewPlacements                 []string
+	NewContactMethods             []string
+	NewCategories                 []string
+	NewProductTypes               []string
+	NewSubProductTypes            []string
+	NewPriceUnits                 []string
+	NewConditions                 []string
+	NewAvailabilities             []string
+	NewAdTypes                    []string
+	NewSalesTypes                 []string
+	NewConnects                   []string
+	NewProcessing                 []string
+	NewPurpose                    []string
+	NewLumberTypes                []string
+	NewWoodTypes                  []string
+	NewEdges                      []string
+	NewGrades                     []string
+	NewMoistures                  []string
+	NewProfiles                   []string
+	NewStructures                 []string
+	NewLumberProfiles             []string
+	NewThicknesses                []string
+	NewWidths                     []string
+	NewLengths                    []string
+	NewHeights                    []string
+	NewWidthDs                    []string
+	NewLengthDs                   []string
+	NewGOSTValues                 []string
+	TargetActionColIdx            int
+	TargetActionManualColIdx      int
+	NewTargetActionManual         []string
 	NewTargetActionManualSettings []string
-	DiameterColIdx     int
-	NewDiameters       []string
-	PriceValueColIdx   int
-	NewPriceValues     []string
+	DiameterColIdx                int
+	NewDiameters                  []string
+	PriceValueColIdx              int
+	NewPriceValues                []string
 }
 
 // SaveExcelWithNewRows добавляет новые строки в Excel файл и сохраняет
@@ -860,10 +860,10 @@ func SaveExcelWithNewRows(p *SaveExcelParams) error {
 			lengthDColIdx = findUnique("длина")
 		}
 		if p.TargetActionColIdx < 0 {
-			p.TargetActionColIdx = findUnique("настройка цены целевого действия")
+			p.TargetActionColIdx = findUnique("Promo")
 		}
 		if p.TargetActionManualColIdx < 0 {
-			p.TargetActionManualColIdx = findUnique("настройка цены целевого действия: ручная")
+			p.TargetActionManualColIdx = findUnique("PromoManualOptions")
 		}
 		if p.DiameterColIdx < 0 {
 			p.DiameterColIdx = findUnique("диаметр")

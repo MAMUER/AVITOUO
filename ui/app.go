@@ -1048,8 +1048,8 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		processingColIdx = storage.FindColumnIndex(headersCopy, "Обработка")
 		purposeColIdx = storage.FindColumnIndex(headersCopy, "Назначение")
 		gostColIdx = storage.FindColumnIndex(headersCopy, "Соответствует ГОСТ")
-		targetActionColIdx = storage.FindColumnIndex(headersCopy, "Настройка цены целевого действия")
-		targetActionManualColIdx = storage.FindColumnIndex(headersCopy, "Настройка цены целевого действия: ручная")
+		targetActionColIdx = storage.FindColumnIndex(headersCopy, "Promo")
+		targetActionManualColIdx = storage.FindColumnIndex(headersCopy, "PromoManualOptions")
 		diameterColIdx = storage.FindColumnIndex(headersCopy, "Диаметр")
 	}
 
