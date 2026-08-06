@@ -948,7 +948,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	for i := range newTargetActionManualSettings {
-		newTargetActionManualSettings[i] = "Москва|5\nМосковская область|5\nКалужская область|3.7\nТверская область|3.7\nТульская область|3.7\nЯрославская область|3.7\nВладимирская область|3.7"
+		newTargetActionManualSettings[i] = "Москва|5\nМосковская область|5\nКалужская область|4\nТверская область|4\nТульская область|4\nЯрославская область|4\nВладимирская область|4"
 	}
 	if len(settings.Companies) > 0 {
 		for i := range newCompanies {
@@ -1147,7 +1147,7 @@ func (app *App) handleAddServices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
-	value := "Москва|5\nМосковская область|5\nКалужская область|3.7\nТверская область|3.7\nТульская область|3.7\nЯрославская область|3.7\nВладимирская область|3.7"
+	value := "Москва|5\nМосковская область|5\nКалужская область|4\nТверская область|4\nТульская область|4\nЯрославская область|4\nВладимирская область|4"
 	if err := storage.AddServices(req.Filename, outputXLSX, value); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка добавления услуг: "+err.Error())
 		return
