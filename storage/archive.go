@@ -124,10 +124,10 @@ func findServiceColumns(headerRow []string) (int, int, int) {
 	targetActionManualColIdx := -1
 	productTypeColIdx := -1
 	for i, h := range headerRow {
-		if strings.Contains(strings.ToLower(h), "Настройка цены целевого действия") && !strings.Contains(strings.ToLower(h), "ручная") {
+		if strings.Contains(strings.ToLower(h), strings.ToLower(TargetActionHeader)) && !strings.Contains(strings.ToLower(h), "ручная") {
 			targetActionColIdx = i
 		}
-		if strings.Contains(strings.ToLower(h), "Настройка цены целевого действия: ручная") {
+		if strings.Contains(strings.ToLower(h), strings.ToLower(TargetActionManualHeader)) {
 			targetActionManualColIdx = i
 		}
 		if strings.Contains(strings.ToLower(h), ProductTypeHeader) {
@@ -170,7 +170,7 @@ func resolveServiceRowValue(productType, value string) string {
 	if strings.Contains(productLower, "окна") || strings.Contains(productLower, "балкон") ||
 		strings.Contains(productLower, "двери") || strings.Contains(productLower, "дверь") ||
 		strings.Contains(productLower, "баня") || strings.Contains(productLower, "сауна") || strings.Contains(productLower, "бассейн") {
-		return "Москва|3|1000\nМосковская область|3|1000"
+		return "Москва|8|1000\nМосковская область|8|1000"
 	}
 	return value
 }
@@ -859,11 +859,11 @@ func SaveExcelWithNewRows(p *SaveExcelParams) error {
 		if lengthDColIdx < 0 {
 			lengthDColIdx = findUnique("длина")
 		}
-		if p.TargetActionColIdx < 0 {
-			p.TargetActionColIdx = findUnique("Настройка цены целевого действия")
-		}
 		if p.TargetActionManualColIdx < 0 {
-			p.TargetActionManualColIdx = findUnique("Настройка цены целевого действия: ручная")
+			p.TargetActionManualColIdx = findUnique(TargetActionManualHeader)
+		}
+		if p.TargetActionColIdx < 0 {
+			p.TargetActionColIdx = findUnique(TargetActionHeader)
 		}
 		if p.DiameterColIdx < 0 {
 			p.DiameterColIdx = findUnique("диаметр")

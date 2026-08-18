@@ -18,13 +18,13 @@
         <div class="card">
             <h2>📁 1. Загрузка шаблона XLSX</h2>
             <div class="upload-area" id="upload-area">
-                <p class="upload-hint">Нажмите для выбора XLSX файла или перетащите сюда</p>
+                <label for="file-input" class="upload-hint">Нажмите для выбора XLSX файла или перетащите сюда</label>
                 <input type="file" id="file-input" accept=".xlsx,.xls" onchange="uploadFile(event)">
             </div>
             <div id="upload-msg"></div>
             <div id="upload-debug" class="debug-log hidden"></div>
             <div id="sheet-selector" class="hidden" style="margin-top: 15px;">
-                <label>Выберите лист:</label>
+                <label for="sheet-select">Выберите лист:</label>
                 <select id="sheet-select" onchange="loadSheet(this.value)" style="margin-top: 5px;"></select>
             </div>
         </div>
@@ -57,7 +57,9 @@
             <h2>📋 3. Данные листа</h2>
             <div style="max-height: 300px; overflow-y: auto;">
                 <table>
-                    <thead id="table-header"></thead>
+                    <thead id="table-header">
+                        <tr><th scope="col"></th></tr>
+                    </thead>
                     <tbody id="table-body"></tbody>
                 </table>
             </div>
@@ -68,51 +70,51 @@
             <h2>⚙️ 4. Настройки по умолчанию</h2>
             <div class="section">
                 <div class="form-group">
-                    <label>Контактные лица (каждый с новой строки):</label>
+                    <label for="contacts">Контактные лица (каждый с новой строки):</label>
                     <textarea id="contacts" rows="3" placeholder="Мариелена"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Телефоны (каждый с новой строки):</label>
+                    <label for="phones">Телефоны (каждый с новой строки):</label>
                     <textarea id="phones" rows="2" placeholder="79268509135"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Адреса (каждый с новой строки):</label>
+                    <label for="addresses">Адреса (каждый с новой строки):</label>
                     <textarea id="addresses" rows="2" placeholder="Мытищи, Волковское ш., 21А"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Название компании:</label>
+                    <label for="companies">Название компании:</label>
                     <input type="text" id="companies" placeholder="СтройДерево">
                 </div>
                 <div class="form-group">
-                    <label>Почта:</label>
+                    <label for="emails">Почта:</label>
                     <input type="text" id="emails" placeholder="info@example.com">
                 </div>
             </div>
             <div class="section">
                 <h3>Параметры объявления</h3>
                 <div class="form-group">
-                    <label>Вид объявления:</label>
+                    <label for="adType">Вид объявления:</label>
                     <select id="adType">
                         <option value="Товар от производителя">Товар от производителя</option>
                         <option value="Товар приобретён на продажу">Товар приобретён на продажу</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Состояние:</label>
+                    <label for="condition">Состояние:</label>
                     <select id="condition">
                         <option value="Новое">Новое</option>
                         <option value="Б/у">Б/у</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Доступность:</label>
+                    <label for="availability">Доступность:</label>
                     <select id="availability">
                         <option value="В наличии">В наличии</option>
                         <option value="Под заказ">Под заказ</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Соединять объявления:</label>
+                    <label for="connect">Соединять объявления:</label>
                     <select id="connect">
                         <option value="Нет">Нет</option>
                         <option value="Да">Да</option>
@@ -130,12 +132,12 @@
             <div class="section">
                 <h3>Тексты для генерации</h3>
                 <div class="form-group">
-                    <label>Базовое Название (до 100 символов):</label>
+                    <label for="base-title">Базовое Название (до 100 символов):</label>
                     <input type="text" id="base-title" maxlength="100">
                     <div style="font-size:12px;color:#666;margin-top:5px">Осталось символов: <span id="title-count">100</span></div>
                 </div>
                 <div class="form-group">
-                    <label>Базовое Описание (до 7500 символов):</label>
+                    <label for="base-description">Базовое Описание (до 7500 символов):</label>
                     <textarea id="base-description" rows="4" maxlength="7500"></textarea>
                     <div style="font-size:12px;color:#666;margin-top:5px">Осталось символов: <span id="desc-count">7500</span></div>
                 </div>
@@ -144,80 +146,80 @@
             <div class="section">
                 <h3>Параметры генерации</h3>
                 <div class="form-group">
-                    <label>Тип пиломатериала:</label>
+                    <label for="lumber-types">Тип пиломатериала:</label>
                     <select id="lumber-types">
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Цена за:</label>
+                    <label for="price-units">Цена за:</label>
                     <select id="price-units">
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Цена (руб.):</label>
+                    <label for="price-value">Цена (руб.):</label>
                     <input type="number" id="price-value" min="0" step="1" value="0" style="width:160px;">
                 </div>
                 <div class="form-group">
-                    <label>Вид древесины:</label>
-                    <div class="checkbox-group" id="wood-types" data-field="wood_types" data-options-from-catalog="woods"></div>
+                    <div class="field-label">Вид древесины:</div>
+                    <span class="checkbox-group" id="wood-types" data-field="wood_types" data-options-from-catalog="woods" aria-label="Вид древесины"></span>
                     <div class="checkbox-field-hint" id="wood-types-hint"></div>
                 </div>
                 <div class="form-group">
-                    <label>Кромка:</label>
-                    <div class="checkbox-group" id="edges" data-field="edges" data-options-from-catalog="edges"></div>
+                    <div class="field-label">Кромка:</div>
+                    <span class="checkbox-group" id="edges" data-field="edges" data-options-from-catalog="edges" aria-label="Кромка"></span>
                     <div class="checkbox-field-hint" id="edges-hint"></div>
                 </div>
                 <div class="form-group">
-                    <label>Сорт древесины:</label>
-                    <div class="checkbox-group" id="grades" data-field="grades" data-options-from-catalog="grades"></div>
+                    <div class="field-label">Сорт древесины:</div>
+                    <span class="checkbox-group" id="grades" data-field="grades" data-options-from-catalog="grades" aria-label="Сорт древесины"></span>
                     <div class="checkbox-field-hint" id="grades-hint"></div>
                 </div>
                 <div class="form-group">
-                    <label>Степень влажности:</label>
-                    <div class="checkbox-group" id="moistures" data-field="moistures" data-options-from-catalog="moistures"></div>
+                    <div class="field-label">Степень влажности:</div>
+                    <span class="checkbox-group" id="moistures" data-field="moistures" data-options-from-catalog="moistures" aria-label="Степень влажности"></span>
                     <div class="checkbox-field-hint" id="moistures-hint"></div>
                 </div>
                 <div class="form-group">
-                    <label>Профилированный:</label>
-                    <div class="checkbox-group" id="profiles" data-field="profiles" data-options-from-catalog="profiles"></div>
+                    <div class="field-label">Профилированный:</div>
+                    <span class="checkbox-group" id="profiles" data-field="profiles" data-options-from-catalog="profiles" aria-label="Профилированный"></span>
                     <div class="checkbox-field-hint" id="profiles-hint"></div>
                 </div>
                 <div class="form-group">
-                    <label>Структура:</label>
-                    <div class="checkbox-group" id="structures" data-field="structures" data-options-from-catalog="structures"></div>
+                    <div class="field-label">Структура:</div>
+                    <span class="checkbox-group" id="structures" data-field="structures" data-options-from-catalog="structures" aria-label="Структура"></span>
                     <div class="checkbox-field-hint" id="structures-hint"></div>
                 </div>
                 <div class="form-group">
-                    <label>Профиль:</label>
-                    <div class="checkbox-group" id="lumber-profiles" data-field="lumber_profiles" data-options-from-catalog="lumberProfiles"></div>
+                    <div class="field-label">Профиль:</div>
+                    <span class="checkbox-group" id="lumber-profiles" data-field="lumber_profiles" data-options-from-catalog="lumberProfiles" aria-label="Профиль"></span>
                     <div class="checkbox-field-hint" id="lumber-profiles-hint"></div>
                 </div>
                 <div class="form-group">
-                    <label>Толщина пиломатериала:</label>
-                    <div class="checkbox-group" id="thickness" data-field="thicknesses" data-options-from-catalog="thickness"></div>
+                    <div class="field-label">Толщина пиломатериала:</div>
+                    <span class="checkbox-group" id="thickness" data-field="thicknesses" data-options-from-catalog="thickness" aria-label="Толщина пиломатериала"></span>
                 </div>
                 <div class="form-group">
-                    <label>Ширина пиломатериала:</label>
-                    <div class="checkbox-group" id="width" data-field="widths" data-options-from-catalog="width"></div>
+                    <div class="field-label">Ширина пиломатериала:</div>
+                    <span class="checkbox-group" id="width" data-field="widths" data-options-from-catalog="width" aria-label="Ширина пиломатериала"></span>
                 </div>
                 <div class="form-group">
-                    <label>Длина пиломатериала:</label>
-                    <div class="checkbox-group" id="length" data-field="lengths" data-options-from-catalog="length"></div>
+                    <div class="field-label">Длина пиломатериала:</div>
+                    <span class="checkbox-group" id="length" data-field="lengths" data-options-from-catalog="length" aria-label="Длина пиломатериала"></span>
                 </div>
                 <div class="form-group">
-                    <label>Высота (мм):</label>
+                    <label for="height">Высота (мм):</label>
                     <input type="number" id="height" min="1" max="10000" placeholder="не указано" style="width:120px;">
                 </div>
                 <div class="form-group">
-                    <label>Ширина (мм):</label>
+                    <label for="width-d">Ширина (мм):</label>
                     <input type="number" id="width-d" min="1" max="10000" placeholder="не указано" style="width:120px;">
                 </div>
                 <div class="form-group">
-                    <label>Длина (мм):</label>
+                    <label for="length-d">Длина (мм):</label>
                     <input type="number" id="length-d" min="10" max="20000" placeholder="не указано" style="width:120px;">
                 </div>
                 <div class="form-group">
-                    <label>Диаметр (мм):</label>
+                    <label for="diameter">Диаметр (мм):</label>
                     <input type="number" id="diameter" min="1" max="10000" placeholder="не указано" style="width:120px;">
                 </div>
             </div>
@@ -225,7 +227,7 @@
             <div class="section">
                 <h3>Фотографии</h3>
                 <div class="form-group">
-                    <label>Папка с фото-шаблонами:</label>
+                    <label for="photo-folder-input">Папка с фото-шаблонами:</label>
                     <input type="file" id="photo-folder-input" webkitdirectory directory multiple style="display:none" onchange="handleFolderSelect(event)">
                     <button type="button" onclick="document.getElementById('photo-folder-input').click()" style="padding:10px 20px;background:#f5f5f5;color:#333;border:2px dashed #1976d2;border-radius:8px;cursor:pointer;font-size:14px">
                         📁 Выбрать папку с фото
@@ -235,16 +237,16 @@
                     <div style="font-size:12px;color:#666;margin-top:5px">Можно выбрать любую папку с фото (до 10+ файлов). Все фото будут уникализированы для каждого объявления.</div>
                 </div>
                 <div class="form-group">
-                    <label>Количество вариантов (N):</label>
+                    <label for="variant-count">Количество вариантов (N):</label>
                     <input type="number" id="variant-count" value="10" min="1" max="50000" style="width:120px">
                     <div style="font-size:12px;color:#666;margin-top:5px">Максимум 50000 за раз</div>
                 </div>
                 <div class="form-group">
-                    <label>Контактное лицо для генерации:</label>
+                    <label for="generation-contact">Контактное лицо для генерации:</label>
                     <select id="generation-contact"><option value="">— Авто из настроек —</option></select>
                 </div>
                 <div class="form-group">
-                    <label>Телефон для генерации:</label>
+                    <label for="generation-phone">Телефон для генерации:</label>
                     <select id="generation-phone"><option value="">— Авто из настроек —</option></select>
                 </div>
             </div>
@@ -262,7 +264,7 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=20260725"></script>
+    <script type="module" src="/static/app.js?v=20260725"></script>
     <script src="/static/catalog-data.js"></script>
     <script src="/static/catalog.js?v=20260725"></script>
 </body>

@@ -919,6 +919,21 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	allowedLumberTypesForDimensions := map[string]bool{
+		"Доска":                    true,
+		"Брус":                    true,
+		"Брусок":                   true,
+		"Имитация бруса, рау-хаус": true,
+		"Вагонка":                  true,
+	}
+	for i := range newThicknesses {
+		if newAvailabilities[i] != "В наличии" || !allowedLumberTypesForDimensions[newLumberTypes[i]] {
+			newThicknesses[i] = ""
+			newWidths[i] = ""
+			newLengths[i] = ""
+		}
+	}
+
 	if selectedContact != "" {
 		for i := range newContacts {
 			newContacts[i] = selectedContact
@@ -949,7 +964,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	for i := range newTargetActionManualSettings {
-		newTargetActionManualSettings[i] = "Москва|5|1000\nМосковская область|5|1000\nКалужская область|3|1000\nТверская область|3|1000\nТульская область|3|1000\nЯрославская область|3|1000\nВладимирская область|3|1000"
+		newTargetActionManualSettings[i] = "Москва|5|1000\nМосковская область|5|1000"
 	}
 	if len(settings.Companies) > 0 {
 		for i := range newCompanies {
@@ -1148,7 +1163,7 @@ func (app *App) handleAddServices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
-	value := "Москва|5|1000\nМосковская область|5|1000\nКалужская область|3|1000\nТверская область|3|1000\nТульская область|3|1000\nЯрославская область|3|1000\nВладимирская область|3|1000"
+	value := "Москва|5|1000\nМосковская область|5|1000"
 	if err := storage.AddServices(req.Filename, outputXLSX, value); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка добавления услуг: "+err.Error())
 		return

@@ -75,7 +75,7 @@ const updateStats = () => {
     const sheetEl = document.getElementById('stat-sheet-name');
     if (!totalEl || !adsEl || !catsEl || !sheetEl) return;
     const total = (currentData || []).length;
-    const ads = (currentData || []).filter(r => r && r.some(v => v)).length;
+    const ads = (currentData || []).filter(r => r?.some(Boolean)).length;
     const cats = (currentSheets || []).length;
     totalEl.textContent = total;
     adsEl.textContent = totalAds ?? ads;
@@ -296,8 +296,8 @@ const handleFolderSelect = (event) => {
     document.getElementById('selected-folder-name').textContent = `Выбрано: ${folderName} (${files.length} файлов)`;
 
     const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-        formData.append('files', files[i]);
+    for (const file of files) {
+        formData.append('files', file);
     }
     formData.append('folder_name', folderName);
 
@@ -320,7 +320,7 @@ const generateAndExport = async () => {
     const baseTitle = document.getElementById('base-title').value;
     const baseDescription = document.getElementById('base-description').value;
     const photoFolder = document.getElementById('photo-folder').value;
-    const variantCount = parseInt(document.getElementById('variant-count').value) || 10;
+    const variantCount = Number.parseInt(document.getElementById('variant-count').value) || 10;
 
     const lumberType = document.getElementById('lumber-types')?.value || 'Доска';
     const collectChecked = (id) => {
@@ -340,7 +340,7 @@ const generateAndExport = async () => {
     const structures = collectChecked('structures');
     const lumberProfiles = collectChecked('lumber-profiles');
     const priceUnit = document.getElementById('price-units')?.value || '';
-    const priceValue = parseInt(document.getElementById('price-value').value || '0', 10) || 0;
+    const priceValue = Number.parseInt(document.getElementById('price-value').value || '0', 10) || 0;
     const diameters = (document.getElementById('diameter').value || '').toString();
     const thicknesses = collectChecked('thickness');
     const widths = collectChecked('width');
@@ -449,17 +449,16 @@ const addServices = async () => {
     }
 };
 
-const init = async () => {
-    try {
-        await loadSettings();
-        updateConnectAvailability();
-        setStatus('Сервер OK', true);
-    } catch (e) {
-        setStatus('Нет связи', false);
-        debugLog('Ошибка подключения к серверу: ' + e.message, true);
-    }
+try {
+    await loadSettings();
+    updateConnectAvailability();
+    setStatus('Сервер OK', true);
+} catch (e) {
+    setStatus('Нет связи', false);
+    debugLog('Ошибка подключения к серверу: ' + e.message, true);
+}
 
-    const uploadArea = document.getElementById('upload-area');
+const uploadArea = document.getElementById('upload-area');
     if (uploadArea) {
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -476,7 +475,7 @@ const init = async () => {
             const files = e.dataTransfer.files;
             if (!files || files.length === 0) return;
             const file = files[0];
-            if (!file.name.match(/\.(xlsx|xls)$/i)) {
+            if (!/\.(xlsx|xls)$/i.exec(file.name)) {
                 alert('Пожалуйста, загрузите XLSX файл');
                 return;
             }
@@ -490,6 +489,9 @@ const init = async () => {
     document.getElementById('add-services-btn')?.addEventListener('click', addServices);
     updateCharCount();
     updateDescCount();
-};
 
-init();
+window.saveSettings = saveSettings;
+window.handleFolderSelect = handleFolderSelect;
+window.generateAndExport = generateAndExport;
+window.uploadFile = uploadFile;
+window.loadSheet = loadSheet;
