@@ -1214,7 +1214,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка открытия файла: "+err.Error())
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	rows, err := f.GetRows(activeSheet)
 	if err != nil {
@@ -1274,6 +1274,38 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	if imageNamesIdx < 0 {
 		imageNamesIdx = storage.FindColumnIndex(headers, "Названия фото")
 	}
+	placementColIdx := storage.FindColumnIndex(headers, "Способ размещения")
+	contactMethodColIdx := storage.FindColumnIndex(headers, "Способ связи")
+	categoryColIdx := storage.FindColumnIndex(headers, "Категория")
+	productTypeColIdx := storage.FindColumnIndex(headers, "Тип товара")
+	subProductTypeColIdx := storage.FindColumnIndex(headers, "Подвид товара")
+	priceUnitColIdx := storage.FindColumnIndex(headers, "Цена за")
+	priceValueColIdx := storage.FindColumnIndex(headers, "Цена")
+	conditionColIdx := storage.FindColumnIndex(headers, "Состояние")
+	availabilityColIdx := storage.FindColumnIndex(headers, "Доступность")
+	adTypeColIdx := storage.FindColumnIndex(headers, "Вид объявления")
+	salesTypeColIdx := storage.FindColumnIndex(headers, "Вид продажи")
+	connectColIdx := storage.FindColumnIndex(headers, "Соединять")
+	processingColIdx := storage.FindColumnIndex(headers, "Обработка")
+	purposeColIdx := storage.FindColumnIndex(headers, "Назначение")
+	lumberTypeColIdx := storage.FindColumnIndex(headers, "Тип пиломатериала")
+	woodTypeColIdx := storage.FindColumnIndex(headers, "Вид древесины")
+	edgeColIdx := storage.FindColumnIndex(headers, "Кромка")
+	gradeColIdx := storage.FindColumnIndex(headers, "Сорт древесины")
+	moistureColIdx := storage.FindColumnIndex(headers, "Влажность")
+	profileColIdx := storage.FindColumnIndex(headers, "Профилированный")
+	structureColIdx := storage.FindColumnIndex(headers, "Структура")
+	lumberProfileColIdx := storage.FindColumnIndex(headers, "Профиль")
+	thicknessColIdx := storage.FindColumnIndex(headers, "Толщина")
+	widthColIdx := storage.FindColumnIndex(headers, "Ширина")
+	lengthColIdx := storage.FindColumnIndex(headers, "Длина")
+	heightColIdx := storage.FindColumnIndex(headers, "Высота")
+	widthDColIdx := storage.FindColumnIndex(headers, "Ширина бруса")
+	lengthDColIdx := storage.FindColumnIndex(headers, "Длина бруса")
+	gostColIdx := storage.FindColumnIndex(headers, "ГОСТ")
+	diameterColIdx := storage.FindColumnIndex(headers, "Диаметр")
+	targetActionColIdx := storage.FindColumnIndex(headers, "Настройка цены целевого действия")
+	targetActionManualColIdx := storage.FindColumnIndex(headers, "Настройка цены целевого действия: ручная")
 
 	settings, _ := storage.LoadSettings()
 	gen := core.NewTextGenerator()
@@ -1283,7 +1315,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания временной папки: "+err.Error())
 		return
 	}
-	defer os.RemoveAll(photoDir)
+	defer func() { _ = os.RemoveAll(photoDir) }()
 
 	newTitles := make([]string, req.Count)
 	newDescriptions := make([]string, req.Count)
@@ -1343,15 +1375,108 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 			}
 			newImageNames[i] = processed
 		}
+		if placementColIdx >= 0 && placementColIdx < len(srcRow) {
+			newPlacements[i] = srcRow[placementColIdx]
+		}
 		newPlacements[i] = "Москва"
+		if conditionColIdx >= 0 && conditionColIdx < len(srcRow) {
+			newConditions[i] = srcRow[conditionColIdx]
+		}
 		newConditions[i] = settings.Condition
+		if availabilityColIdx >= 0 && availabilityColIdx < len(srcRow) {
+			newAvailabilities[i] = srcRow[availabilityColIdx]
+		}
 		newAvailabilities[i] = settings.Availability
+		if adTypeColIdx >= 0 && adTypeColIdx < len(srcRow) {
+			newAdTypes[i] = srcRow[adTypeColIdx]
+		}
 		newAdTypes[i] = settings.AdType
+		if salesTypeColIdx >= 0 && salesTypeColIdx < len(srcRow) {
+			newSalesTypes[i] = srcRow[salesTypeColIdx]
+		}
 		newSalesTypes[i] = settings.SalesType
+		if processingColIdx >= 0 && processingColIdx < len(srcRow) {
+			newProcessing[i] = srcRow[processingColIdx]
+		}
 		newProcessing[i] = "Строгание | Шлифование | Камерная сушка"
+		if purposeColIdx >= 0 && purposeColIdx < len(srcRow) {
+			newPurpose[i] = srcRow[purposeColIdx]
+		}
 		newPurpose[i] = "Баня | Дверь | Дом | Забор | Кровля | Лестница | Мебель | Окна | Опалубка | Поддоны | Пол | Полка | Потолок | Стена | Стропила | Терраса | Фасад"
+		if targetActionManualColIdx >= 0 && targetActionManualColIdx < len(srcRow) {
+			newTargetActionManual[i] = srcRow[targetActionManualColIdx]
+		}
 		newTargetActionManual[i] = "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5\nВладимирская область|5"
+		if targetActionColIdx >= 0 && targetActionColIdx < len(srcRow) {
+			newTargetActionManualSettings[i] = srcRow[targetActionColIdx]
+		}
 		newTargetActionManualSettings[i] = "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5\nВладимирская область|5"
+		if contactMethodColIdx >= 0 && contactMethodColIdx < len(srcRow) {
+			newContactMethods[i] = srcRow[contactMethodColIdx]
+		}
+		if categoryColIdx >= 0 && categoryColIdx < len(srcRow) {
+			newCategories[i] = srcRow[categoryColIdx]
+		}
+		if productTypeColIdx >= 0 && productTypeColIdx < len(srcRow) {
+			newProductTypes[i] = srcRow[productTypeColIdx]
+		}
+		if subProductTypeColIdx >= 0 && subProductTypeColIdx < len(srcRow) {
+			newSubProductTypes[i] = srcRow[subProductTypeColIdx]
+		}
+		if priceUnitColIdx >= 0 && priceUnitColIdx < len(srcRow) {
+			newPriceUnits[i] = srcRow[priceUnitColIdx]
+		}
+		if priceValueColIdx >= 0 && priceValueColIdx < len(srcRow) {
+			newPriceValues[i] = srcRow[priceValueColIdx]
+		}
+		if lumberTypeColIdx >= 0 && lumberTypeColIdx < len(srcRow) {
+			newLumberTypes[i] = srcRow[lumberTypeColIdx]
+		}
+		if woodTypeColIdx >= 0 && woodTypeColIdx < len(srcRow) {
+			newWoodTypes[i] = srcRow[woodTypeColIdx]
+		}
+		if edgeColIdx >= 0 && edgeColIdx < len(srcRow) {
+			newEdges[i] = srcRow[edgeColIdx]
+		}
+		if gradeColIdx >= 0 && gradeColIdx < len(srcRow) {
+			newGrades[i] = srcRow[gradeColIdx]
+		}
+		if moistureColIdx >= 0 && moistureColIdx < len(srcRow) {
+			newMoistures[i] = srcRow[moistureColIdx]
+		}
+		if profileColIdx >= 0 && profileColIdx < len(srcRow) {
+			newProfiles[i] = srcRow[profileColIdx]
+		}
+		if structureColIdx >= 0 && structureColIdx < len(srcRow) {
+			newStructures[i] = srcRow[structureColIdx]
+		}
+		if lumberProfileColIdx >= 0 && lumberProfileColIdx < len(srcRow) {
+			newLumberProfiles[i] = srcRow[lumberProfileColIdx]
+		}
+		if thicknessColIdx >= 0 && thicknessColIdx < len(srcRow) {
+			newThicknesses[i] = srcRow[thicknessColIdx]
+		}
+		if widthColIdx >= 0 && widthColIdx < len(srcRow) {
+			newWidths[i] = srcRow[widthColIdx]
+		}
+		if lengthColIdx >= 0 && lengthColIdx < len(srcRow) {
+			newLengths[i] = srcRow[lengthColIdx]
+		}
+		if heightColIdx >= 0 && heightColIdx < len(srcRow) {
+			newHeights[i] = srcRow[heightColIdx]
+		}
+		if widthDColIdx >= 0 && widthDColIdx < len(srcRow) {
+			newWidthDs[i] = srcRow[widthDColIdx]
+		}
+		if lengthDColIdx >= 0 && lengthDColIdx < len(srcRow) {
+			newLengthDs[i] = srcRow[lengthDColIdx]
+		}
+		if gostColIdx >= 0 && gostColIdx < len(srcRow) {
+			newGOSTValues[i] = srcRow[gostColIdx]
+		}
+		if diameterColIdx >= 0 && diameterColIdx < len(srcRow) {
+			newDiameters[i] = srcRow[diameterColIdx]
+		}
 		if len(settings.Contacts) > 0 {
 			newContacts[i] = settings.Contacts[i%len(settings.Contacts)]
 		}
@@ -1372,72 +1497,6 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		if len(settings.Emails) > 0 {
 			newEmails[i] = settings.Emails[i%len(settings.Emails)]
 		}
-		if len(srcRow) > 0 {
-			newCategories[i] = srcRow[0]
-		}
-		if len(srcRow) > 1 {
-			newProductTypes[i] = srcRow[1]
-		}
-		if len(srcRow) > 2 {
-			newSubProductTypes[i] = srcRow[2]
-		}
-		if len(srcRow) > 3 {
-			newPriceUnits[i] = srcRow[3]
-		}
-		if len(srcRow) > 4 {
-			newPriceValues[i] = srcRow[4]
-		}
-		if len(srcRow) > 8 {
-			newContactMethods[i] = srcRow[8]
-		}
-		if len(srcRow) > 11 {
-			newLumberTypes[i] = srcRow[11]
-		}
-		if len(srcRow) > 12 {
-			newWoodTypes[i] = srcRow[12]
-		}
-		if len(srcRow) > 13 {
-			newEdges[i] = srcRow[13]
-		}
-		if len(srcRow) > 14 {
-			newGrades[i] = srcRow[14]
-		}
-		if len(srcRow) > 15 {
-			newMoistures[i] = srcRow[15]
-		}
-		if len(srcRow) > 16 {
-			newProfiles[i] = srcRow[16]
-		}
-		if len(srcRow) > 17 {
-			newStructures[i] = srcRow[17]
-		}
-		if len(srcRow) > 18 {
-			newLumberProfiles[i] = srcRow[18]
-		}
-		if len(srcRow) > 19 {
-			newThicknesses[i] = srcRow[19]
-		}
-		if len(srcRow) > 20 {
-			newWidths[i] = srcRow[20]
-		}
-		if len(srcRow) > 21 {
-			newLengths[i] = srcRow[21]
-		}
-		if len(srcRow) > 22 {
-			newHeights[i] = srcRow[22]
-		}
-		if len(srcRow) > 23 {
-			newWidthDs[i] = srcRow[23]
-		}
-		if len(srcRow) > 24 {
-			newLengthDs[i] = srcRow[24]
-		}
-		if len(srcRow) > 25 {
-			newGOSTValues[i] = srcRow[25]
-		}
-		if len(srcRow) > 26 {
-			newDiameters[i] = srcRow[26]
-		}
 	}
 
 	zipPath := "photos_" + core.GenerateUniqueID() + ".zip"
@@ -1446,9 +1505,9 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания ZIP: "+err.Error())
 		return
 	}
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
+	defer func() { _ = zipWriter.Close() }()
 
 	files, err := os.ReadDir(photoDir)
 	if err == nil {
@@ -1462,7 +1521,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 				continue
 			}
 			info, err := f.Stat()
-			f.Close()
+			_ = f.Close()
 			if err != nil {
 				continue
 			}
@@ -1497,6 +1556,24 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		AddressColIdx:                 -1,
 		CompanyColIdx:                 -1,
 		EmailColIdx:                   -1,
+		PlacementColIdx:               placementColIdx,
+		ContactMethodColIdx:           contactMethodColIdx,
+		CategoryColIdx:                categoryColIdx,
+		ProductTypeColIdx:             productTypeColIdx,
+		SubProductTypeColIdx:          subProductTypeColIdx,
+		PriceUnitColIdx:               priceUnitColIdx,
+		PriceValueColIdx:              priceValueColIdx,
+		ConditionColIdx:               conditionColIdx,
+		AvailabilityColIdx:            availabilityColIdx,
+		AdTypeColIdx:                  adTypeColIdx,
+		SalesTypeColIdx:               salesTypeColIdx,
+		ConnectColIdx:                 connectColIdx,
+		ProcessingColIdx:              processingColIdx,
+		PurposeColIdx:                 purposeColIdx,
+		GOSTColIdx:                    gostColIdx,
+		TargetActionColIdx:            targetActionColIdx,
+		TargetActionManualColIdx:      targetActionManualColIdx,
+		DiameterColIdx:                diameterColIdx,
 		NewIDs:                        newIDs,
 		NewTitles:                     newTitles,
 		NewDescriptions:               newDescriptions,

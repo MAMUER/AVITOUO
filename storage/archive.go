@@ -111,7 +111,12 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (strin
 	urls := strings.Split(urlsString, "|")
 	var result []string
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return nil
+		},
+	}
 
 	for i, rawURL := range urls {
 		url := strings.TrimSpace(rawURL)
@@ -119,12 +124,18 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (strin
 			continue
 		}
 
-		resp, err := client.Get(url)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+		resp, err := client.Do(req)
 		if err != nil {
 			continue
 		}
 		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			continue
 		}
@@ -148,11 +159,11 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (strin
 
 		savePath := filepath.Join(outputDir, fmt.Sprintf("a%d_%d%s", baseIndex, i, ext))
 		if err := processOnePhoto(srcPath, savePath, baseIndex+i); err != nil {
-			os.Remove(srcPath)
+			_ = os.Remove(srcPath)
 			continue
 		}
 
-		os.Remove(srcPath)
+		_ = os.Remove(srcPath)
 		result = append(result, filepath.Base(savePath))
 	}
 
@@ -467,190 +478,6 @@ type SaveExcelParams struct {
 }
 
 // SaveExcelWithNewRows добавляет новые строки в Excel файл и сохраняет
-
-func buildColumnFinder(headerRow []string, usedIdxs map[int]bool) func(names ...string) int {
-	return func(names ...string) int {
-		for i, h := range headerRow {
-			if usedIdxs[i] {
-				continue
-			}
-			lower := strings.ToLower(h)
-			for _, name := range names {
-				if strings.Contains(lower, strings.ToLower(name)) {
-					usedIdxs[i] = true
-					return i
-				}
-			}
-		}
-		return -1
-	}
-}
-
-func markUsedColumns(p *SaveExcelParams, markUsed func(int)) {
-	markUsed(p.TitleColIdx)
-	markUsed(p.DescColIdx)
-	markUsed(p.ImageNamesIdx)
-	markUsed(p.ContactColIdx)
-	markUsed(p.PhoneColIdx)
-	markUsed(p.AddressColIdx)
-	markUsed(p.CompanyColIdx)
-	markUsed(p.EmailColIdx)
-	markUsed(p.IDColIdx)
-	markUsed(p.PlacementColIdx)
-	markUsed(p.ContactMethodColIdx)
-	markUsed(p.CategoryColIdx)
-	markUsed(p.ProductTypeColIdx)
-	markUsed(p.SubProductTypeColIdx)
-	markUsed(p.PriceUnitColIdx)
-	markUsed(p.PriceValueColIdx)
-	markUsed(p.ConditionColIdx)
-	markUsed(p.AvailabilityColIdx)
-	markUsed(p.AdTypeColIdx)
-	markUsed(p.SalesTypeColIdx)
-	markUsed(p.ConnectColIdx)
-	markUsed(p.ProcessingColIdx)
-	markUsed(p.PurposeColIdx)
-	markUsed(p.GOSTColIdx)
-	markUsed(p.TargetActionColIdx)
-	markUsed(p.TargetActionManualColIdx)
-	markUsed(p.DiameterColIdx)
-}
-
-func fallbackScanColumns(p *SaveExcelParams, findUnique func(names ...string) int, headerRowIdx int, headerRow []string) {
-	fmt.Printf("[DEBUG] Fallback scan on header row %d: %v\n", headerRowIdx, headerRow)
-	if p.TitleColIdx < 0 {
-		p.TitleColIdx = findUnique("title", "название", "заголовок")
-	}
-	if p.DescColIdx < 0 {
-		p.DescColIdx = findUnique("description", "описание", "текст")
-	}
-	if p.ImageNamesIdx < 0 {
-		p.ImageNamesIdx = findUnique("image", "фото", "изображение")
-	}
-	if p.ContactColIdx < 0 {
-		p.ContactColIdx = findUnique("контактное лицо", "контакт", "contact")
-	}
-	if p.PhoneColIdx < 0 {
-		p.PhoneColIdx = findUnique("номер телефона", "телефон", "phone")
-	}
-	if p.AddressColIdx < 0 {
-		p.AddressColIdx = findUnique("адрес", "address")
-	}
-	if p.CompanyColIdx < 0 {
-		p.CompanyColIdx = findUnique("название компании", "компания", "организация", "company")
-	}
-	if p.EmailColIdx < 0 {
-		p.EmailColIdx = findUnique("почта", "email", "e-mail", "электронная почта")
-	}
-	if p.IDColIdx < 0 {
-		p.IDColIdx = findUnique("уникальный идентификатор", "id")
-	}
-	if p.PlacementColIdx < 0 {
-		p.PlacementColIdx = findUnique("способ размещения", "размещения")
-	}
-	if p.ContactMethodColIdx < 0 {
-		p.ContactMethodColIdx = findUnique("способ связи", "связи")
-	}
-	if p.CategoryColIdx < 0 {
-		p.CategoryColIdx = findUnique("категория")
-	}
-	if p.ProductTypeColIdx < 0 {
-		p.ProductTypeColIdx = findUnique(ProductTypeHeader, "товара")
-	}
-	if p.SubProductTypeColIdx < 0 {
-		p.SubProductTypeColIdx = findUnique("подвид товара", "подвид")
-	}
-	if p.PriceUnitColIdx < 0 {
-		p.PriceUnitColIdx = findUnique("цена за", "единица")
-	}
-	if p.PriceValueColIdx < 0 {
-		p.PriceValueColIdx = findUnique("цена")
-	}
-	if p.ConditionColIdx < 0 {
-		p.ConditionColIdx = findUnique("состояние")
-	}
-	if p.AvailabilityColIdx < 0 {
-		p.AvailabilityColIdx = findUnique("доступность")
-	}
-	if p.AdTypeColIdx < 0 {
-		p.AdTypeColIdx = findUnique("вид объявления")
-	}
-	if p.SalesTypeColIdx < 0 {
-		p.SalesTypeColIdx = findUnique("вид продажи", "продажи")
-	}
-	if p.ConnectColIdx < 0 {
-		p.ConnectColIdx = findUnique("соединять")
-	}
-	if p.ProcessingColIdx < 0 {
-		p.ProcessingColIdx = findUnique("обработка")
-	}
-	if p.PurposeColIdx < 0 {
-		p.PurposeColIdx = findUnique("назначение")
-	}
-	fmt.Printf("[DEBUG] Fallback result: titleIdx=%d descIdx=%d imageIdx=%d contactIdx=%d phoneIdx=%d addressIdx=%d companyIdx=%d emailIdx=%d idIdx=%d placementIdx=%d methodIdx=%d categoryIdx=%d productIdx=%d subProductIdx=%d priceUnitIdx=%d priceValueIdx=%d conditionIdx=%d availabilityIdx=%d adTypeIdx=%d salesTypeIdx=%d connectIdx=%d processingIdx=%d purposeIdx=%d\n", p.TitleColIdx, p.DescColIdx, p.ImageNamesIdx, p.ContactColIdx, p.PhoneColIdx, p.AddressColIdx, p.CompanyColIdx, p.EmailColIdx, p.IDColIdx, p.PlacementColIdx, p.ContactMethodColIdx, p.CategoryColIdx, p.ProductTypeColIdx, p.SubProductTypeColIdx, p.PriceUnitColIdx, p.PriceValueColIdx, p.ConditionColIdx, p.AvailabilityColIdx, p.AdTypeColIdx, p.SalesTypeColIdx, p.ConnectColIdx, p.ProcessingColIdx, p.PurposeColIdx)
-}
-
-func setDefaultColumnIndices(p *SaveExcelParams, rows [][]string) {
-	if p.TitleColIdx < 0 {
-		p.TitleColIdx = 0
-	}
-	if p.DescColIdx < 0 {
-		p.DescColIdx = 1
-	}
-	if p.ImageNamesIdx < 0 {
-		if len(rows) > 0 && len(rows[0]) > 2 {
-			p.ImageNamesIdx = 2
-		} else {
-			p.ImageNamesIdx = -1
-		}
-	}
-	if p.IDColIdx < 0 {
-		p.IDColIdx = -1
-	}
-	if p.PlacementColIdx < 0 {
-		p.PlacementColIdx = -1
-	}
-	if p.ContactMethodColIdx < 0 {
-		p.ContactMethodColIdx = -1
-	}
-	if p.CategoryColIdx < 0 {
-		p.CategoryColIdx = -1
-	}
-	if p.ProductTypeColIdx < 0 {
-		p.ProductTypeColIdx = -1
-	}
-	if p.SubProductTypeColIdx < 0 {
-		p.SubProductTypeColIdx = -1
-	}
-	if p.PriceUnitColIdx < 0 {
-		p.PriceUnitColIdx = -1
-	}
-	if p.PriceValueColIdx < 0 {
-		p.PriceValueColIdx = -1
-	}
-	if p.ConditionColIdx < 0 {
-		p.ConditionColIdx = -1
-	}
-	if p.AvailabilityColIdx < 0 {
-		p.AvailabilityColIdx = -1
-	}
-	if p.AdTypeColIdx < 0 {
-		p.AdTypeColIdx = -1
-	}
-	if p.SalesTypeColIdx < 0 {
-		p.SalesTypeColIdx = -1
-	}
-	if p.ConnectColIdx < 0 {
-		p.ConnectColIdx = -1
-	}
-	if p.ProcessingColIdx < 0 {
-		p.ProcessingColIdx = -1
-	}
-	if p.PurposeColIdx < 0 {
-		p.PurposeColIdx = -1
-	}
-}
-
 func SaveExcelWithNewRows(p *SaveExcelParams) error {
 	f, err := excelize.OpenFile(p.TemplatePath)
 	if err != nil {
