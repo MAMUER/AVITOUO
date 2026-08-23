@@ -2,6 +2,7 @@ package storage
 
 import (
 	"archive/zip"
+	"bytes"
 	"fmt"
 	"image"
 	"io"
@@ -87,7 +88,7 @@ func processOnePhoto(srcPath, savePath string, index int) error {
 		return fmt.Errorf("ошибка чтения фото: %w", err)
 	}
 
-	img, err := imaging.Decode(strings.NewReader(string(srcData)))
+	img, err := imaging.Decode(bytes.NewReader(srcData))
 	if err != nil {
 		return fmt.Errorf("ошибка декодирования изображения: %w", err)
 	}

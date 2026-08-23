@@ -205,8 +205,6 @@ func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index
 	return desc
 }
 
-
-
 func writeBenefits(result *strings.Builder, r *rand.Rand) {
 	result.WriteString("<p><strong>✅ ПОЧЕМУ ЭТО ЛУЧШИЙ ВЫБОР:</strong>")
 	result.WriteString(pClose)
@@ -385,7 +383,6 @@ func calculateCombinations(groups []optionGroup) int {
 	}
 	return total
 }
-
 
 func pickRandom(r *rand.Rand, options []string) string {
 	if len(options) == 0 {

@@ -923,11 +923,11 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	}
 
 	allowedLumberTypesForDimensions := map[string]bool{
-		"Доска":                    true,
-		"Брус":                    true,
-		"Брусок":                   true,
+		"Доска":  true,
+		"Брус":   true,
+		"Брусок": true,
 		"Имитация бруса, рау-хаус": true,
-		"Вагонка":                  true,
+		"Вагонка": true,
 	}
 	for i := range newThicknesses {
 		if newAvailabilities[i] != "В наличии" || !allowedLumberTypesForDimensions[newLumberTypes[i]] {
@@ -1372,6 +1372,72 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		if len(settings.Emails) > 0 {
 			newEmails[i] = settings.Emails[i%len(settings.Emails)]
 		}
+		if len(srcRow) > 0 {
+			newCategories[i] = srcRow[0]
+		}
+		if len(srcRow) > 1 {
+			newProductTypes[i] = srcRow[1]
+		}
+		if len(srcRow) > 2 {
+			newSubProductTypes[i] = srcRow[2]
+		}
+		if len(srcRow) > 3 {
+			newPriceUnits[i] = srcRow[3]
+		}
+		if len(srcRow) > 4 {
+			newPriceValues[i] = srcRow[4]
+		}
+		if len(srcRow) > 8 {
+			newContactMethods[i] = srcRow[8]
+		}
+		if len(srcRow) > 11 {
+			newLumberTypes[i] = srcRow[11]
+		}
+		if len(srcRow) > 12 {
+			newWoodTypes[i] = srcRow[12]
+		}
+		if len(srcRow) > 13 {
+			newEdges[i] = srcRow[13]
+		}
+		if len(srcRow) > 14 {
+			newGrades[i] = srcRow[14]
+		}
+		if len(srcRow) > 15 {
+			newMoistures[i] = srcRow[15]
+		}
+		if len(srcRow) > 16 {
+			newProfiles[i] = srcRow[16]
+		}
+		if len(srcRow) > 17 {
+			newStructures[i] = srcRow[17]
+		}
+		if len(srcRow) > 18 {
+			newLumberProfiles[i] = srcRow[18]
+		}
+		if len(srcRow) > 19 {
+			newThicknesses[i] = srcRow[19]
+		}
+		if len(srcRow) > 20 {
+			newWidths[i] = srcRow[20]
+		}
+		if len(srcRow) > 21 {
+			newLengths[i] = srcRow[21]
+		}
+		if len(srcRow) > 22 {
+			newHeights[i] = srcRow[22]
+		}
+		if len(srcRow) > 23 {
+			newWidthDs[i] = srcRow[23]
+		}
+		if len(srcRow) > 24 {
+			newLengthDs[i] = srcRow[24]
+		}
+		if len(srcRow) > 25 {
+			newGOSTValues[i] = srcRow[25]
+		}
+		if len(srcRow) > 26 {
+			newDiameters[i] = srcRow[26]
+		}
 	}
 
 	zipPath := "photos_" + core.GenerateUniqueID() + ".zip"
@@ -1419,59 +1485,59 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
 	saveParams := &storage.SaveExcelParams{
-		TemplatePath: path,
-		OutputPath:   outputXLSX,
-		SheetName:    activeSheet,
-		TitleColIdx:  titleColIdx,
-		DescColIdx:   descColIdx,
-		IDColIdx:     idColIdx,
-		ImageNamesIdx: imageNamesIdx,
-		ContactColIdx: -1,
-		PhoneColIdx:   -1,
-		AddressColIdx: -1,
-		CompanyColIdx: -1,
-		EmailColIdx:   -1,
-		NewIDs:         newIDs,
-		NewTitles:      newTitles,
-		NewDescriptions: newDescriptions,
-		NewImageNames:   newImageNames,
-		NewContacts:     newContacts,
-		NewPhones:       newPhones,
-		NewAddresses:    newAddresses,
-		NewCompanies:    newCompanies,
-		NewEmails:       newEmails,
-		NewPlacements:   newPlacements,
-		NewCategories:   newCategories,
-		NewProductTypes: newProductTypes,
-		NewSubProductTypes: newSubProductTypes,
-		NewPriceUnits:   newPriceUnits,
-		NewConditions:   newConditions,
-		NewAvailabilities: newAvailabilities,
-		NewAdTypes:      newAdTypes,
-		NewSalesTypes:   newSalesTypes,
-		NewConnects:     newConnects,
-		NewProcessing:   newProcessing,
-		NewPurpose:      newPurpose,
-		NewLumberTypes:  newLumberTypes,
-		NewWoodTypes:    newWoodTypes,
-		NewEdges:        newEdges,
-		NewGrades:       newGrades,
-		NewMoistures:    newMoistures,
-		NewProfiles:     newProfiles,
-		NewStructures:   newStructures,
-		NewLumberProfiles: newLumberProfiles,
-		NewThicknesses: newThicknesses,
-		NewWidths: newWidths,
-		NewLengths: newLengths,
-		NewHeights: newHeights,
-		NewWidthDs: newWidthDs,
-		NewLengthDs: newLengthDs,
-		NewGOSTValues: newGOSTValues,
-		NewDiameters: newDiameters,
-		NewContactMethods: newContactMethods,
-		NewTargetActionManual: newTargetActionManual,
+		TemplatePath:                  path,
+		OutputPath:                    outputXLSX,
+		SheetName:                     activeSheet,
+		TitleColIdx:                   titleColIdx,
+		DescColIdx:                    descColIdx,
+		IDColIdx:                      idColIdx,
+		ImageNamesIdx:                 imageNamesIdx,
+		ContactColIdx:                 -1,
+		PhoneColIdx:                   -1,
+		AddressColIdx:                 -1,
+		CompanyColIdx:                 -1,
+		EmailColIdx:                   -1,
+		NewIDs:                        newIDs,
+		NewTitles:                     newTitles,
+		NewDescriptions:               newDescriptions,
+		NewImageNames:                 newImageNames,
+		NewContacts:                   newContacts,
+		NewPhones:                     newPhones,
+		NewAddresses:                  newAddresses,
+		NewCompanies:                  newCompanies,
+		NewEmails:                     newEmails,
+		NewPlacements:                 newPlacements,
+		NewCategories:                 newCategories,
+		NewProductTypes:               newProductTypes,
+		NewSubProductTypes:            newSubProductTypes,
+		NewPriceUnits:                 newPriceUnits,
+		NewConditions:                 newConditions,
+		NewAvailabilities:             newAvailabilities,
+		NewAdTypes:                    newAdTypes,
+		NewSalesTypes:                 newSalesTypes,
+		NewConnects:                   newConnects,
+		NewProcessing:                 newProcessing,
+		NewPurpose:                    newPurpose,
+		NewLumberTypes:                newLumberTypes,
+		NewWoodTypes:                  newWoodTypes,
+		NewEdges:                      newEdges,
+		NewGrades:                     newGrades,
+		NewMoistures:                  newMoistures,
+		NewProfiles:                   newProfiles,
+		NewStructures:                 newStructures,
+		NewLumberProfiles:             newLumberProfiles,
+		NewThicknesses:                newThicknesses,
+		NewWidths:                     newWidths,
+		NewLengths:                    newLengths,
+		NewHeights:                    newHeights,
+		NewWidthDs:                    newWidthDs,
+		NewLengthDs:                   newLengthDs,
+		NewGOSTValues:                 newGOSTValues,
+		NewDiameters:                  newDiameters,
+		NewContactMethods:             newContactMethods,
+		NewTargetActionManual:         newTargetActionManual,
 		NewTargetActionManualSettings: newTargetActionManualSettings,
-		NewPriceValues: newPriceValues,
+		NewPriceValues:                newPriceValues,
 	}
 	if err := storage.SaveExcelWithNewRows(saveParams); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения Excel: "+err.Error())
@@ -1483,11 +1549,11 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	app.mu.Unlock()
 
 	app.jsonResponse(w, map[string]interface{}{
-		"status": "ok",
-		"added":  len(selected),
-		"sheet":  activeSheet,
+		"status":    "ok",
+		"added":     len(selected),
+		"sheet":     activeSheet,
 		"xlsx_file": outputXLSX,
-		"zip_file": zipPath,
+		"zip_file":  zipPath,
 	})
 }
 
