@@ -25,6 +25,7 @@ const (
 	InvalidJSONError  = "Неверный JSON"
 	MethodNotAllowed  = "Method not allowed"
 	FilenameRequired  = "Файл не указан"
+	SheetReadError    = "Ошибка чтения листа: "
 )
 
 type App struct {
@@ -66,6 +67,7 @@ func NewApp() *App {
 	mux.HandleFunc("/api/generate-and-export", app.handleGenerateAndExport)
 	mux.HandleFunc("/api/download", app.handleDownloadFile)
 	mux.HandleFunc("/api/shuffle-addresses", app.handleShuffleAddresses)
+	mux.HandleFunc("/api/duplicate-from-category", app.handleDuplicateFromCategory)
 	mux.HandleFunc("/api/add-services", app.handleAddServices)
 
 	return app
@@ -311,7 +313,7 @@ func (app *App) handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	headers, data, err := storage.GetSheetData(f, activeSheet)
 	if err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Ошибка чтения листа: "+err.Error())
+		app.jsonError(w, http.StatusBadRequest, SheetReadError+err.Error())
 		return
 	}
 
@@ -384,7 +386,7 @@ func (app *App) handleSheet(w http.ResponseWriter, r *http.Request) {
 
 	headers, data, err := storage.GetSheetData(f, originalName)
 	if err != nil {
-		app.jsonError(w, http.StatusBadRequest, "Ошибка чтения листа: "+err.Error())
+		app.jsonError(w, http.StatusBadRequest, SheetReadError+err.Error())
 		return
 	}
 
@@ -1172,6 +1174,150 @@ func (app *App) handleAddServices(w http.ResponseWriter, r *http.Request) {
 	app.jsonResponse(w, map[string]interface{}{
 		"status":    "ok",
 		"xlsx_file": outputXLSX,
+	})
+}
+
+func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, MethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Count int `json:"count"`
+	}
+	if err := app.decodeJSON(r, &req); err != nil {
+		app.jsonError(w, http.StatusBadRequest, InvalidJSONError)
+		return
+	}
+	if req.Count <= 0 {
+		req.Count = 10
+	}
+
+	app.mu.RLock()
+	path := app.uploadPath
+	activeSheet := app.activeSheet
+	sheetNameMap := app.sheetNameMap
+	app.mu.RUnlock()
+
+	if path == "" {
+		app.jsonError(w, http.StatusBadRequest, "Файл не загружен")
+		return
+	}
+	if activeSheet == "" {
+		app.jsonError(w, http.StatusBadRequest, "Категория не выбрана")
+		return
+	}
+
+	originalSheet := sheetNameMap[activeSheet]
+	if originalSheet == "" {
+		originalSheet = activeSheet
+	}
+
+	f, err := excelize.OpenFile(path)
+	if err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка открытия файла: "+err.Error())
+		return
+	}
+	defer f.Close()
+
+	rows, err := f.GetRows(originalSheet)
+	if err != nil {
+		app.jsonError(w, http.StatusInternalServerError, SheetReadError+err.Error())
+		return
+	}
+	if len(rows) == 0 {
+		app.jsonError(w, http.StatusBadRequest, "Лист пустой")
+		return
+	}
+
+	headerRowIdx := 0
+	for i := 0; i < len(rows) && i < 20; i++ {
+		if storage.IsHeaderRow(rows[i]) {
+			headerRowIdx = i
+			break
+		}
+	}
+	headers := rows[headerRowIdx]
+
+	data := make([][]string, 0, len(rows)-headerRowIdx-1)
+	for i := headerRowIdx + 1; i < len(rows); i++ {
+		row := rows[i]
+		hasData := false
+		for _, cell := range row {
+			if strings.TrimSpace(cell) != "" {
+				hasData = true
+				break
+			}
+		}
+		if !hasData {
+			continue
+		}
+		data = append(data, row)
+	}
+
+	if len(data) < req.Count {
+		app.jsonError(w, http.StatusBadRequest, fmt.Sprintf("Недостаточно объявлений в категории: есть %d, нужно %d", len(data), req.Count))
+		return
+	}
+
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	selected := make([][]string, 0, req.Count)
+	selectedIndices := make(map[int]bool)
+	for len(selected) < req.Count {
+		idx := rnd.Intn(len(data))
+		if !selectedIndices[idx] {
+			selectedIndices[idx] = true
+			selected = append(selected, data[idx])
+		}
+	}
+
+	titleColIdx := storage.FindColumnIndex(headers, "Название")
+	descColIdx := storage.FindColumnIndex(headers, "Описание")
+	idColIdx := storage.FindColumnIndex(headers, "Уникальный идентификатор объявления")
+
+	gen := core.NewTextGenerator()
+	startRow := len(rows) + 1
+
+	for i, srcRow := range selected {
+		newRow := make([]string, len(headers))
+		copy(newRow, srcRow)
+
+		if idColIdx >= 0 && idColIdx < len(newRow) {
+			newRow[idColIdx] = core.GenerateUniqueID()
+		}
+		if titleColIdx >= 0 && titleColIdx < len(newRow) {
+			newRow[titleColIdx] = gen.GenerateUniqueTitle(srcRow[titleColIdx], i, data, titleColIdx)
+		}
+		if descColIdx >= 0 && descColIdx < len(newRow) {
+			newRow[descColIdx] = gen.GenerateUniqueDescription(srcRow[descColIdx], i)
+		}
+
+		for colIdx, cellValue := range newRow {
+			colName, err := excelize.ColumnNumberToName(colIdx + 1)
+			if err != nil {
+				continue
+			}
+			cell := fmt.Sprintf("%s%d", colName, startRow+i)
+			if err := f.SetCellValue(originalSheet, cell, cellValue); err != nil {
+				fmt.Printf("[DEBUG] SetCellValue error at %s: %v\n", cell, err)
+			}
+		}
+	}
+
+	if err := f.SaveAs(path); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения файла: "+err.Error())
+		return
+	}
+
+	app.mu.Lock()
+	app.currentData = append(app.currentData, selected...)
+	app.mu.Unlock()
+
+	app.jsonResponse(w, map[string]interface{}{
+		"status": "ok",
+		"added":  len(selected),
+		"sheet":  originalSheet,
 	})
 }
 

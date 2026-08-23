@@ -449,6 +449,18 @@ const addServices = async () => {
     }
 };
 
+const duplicateRandom = async () => {
+    try {
+        const response = await api('/api/duplicate-from-category', {
+            method: 'POST',
+            body: JSON.stringify({ count: 10 })
+        });
+        showMessage('generation-msg', `<div class="success">✅ Добавлено ${response.added} уникальных объявлений в лист "${response.sheet}"</div>`);
+    } catch (e) {
+        showMessage('generation-msg', `<div class="error">❌ ${escapeHtml(e.message)}</div>`);
+    }
+};
+
 try {
     await loadSettings();
     updateConnectAvailability();
@@ -487,6 +499,7 @@ const uploadArea = document.getElementById('upload-area');
     document.getElementById('base-description')?.addEventListener('input', updateDescCount);
     document.getElementById('shuffle-addresses-btn')?.addEventListener('click', shuffleAddresses);
     document.getElementById('add-services-btn')?.addEventListener('click', addServices);
+    document.getElementById('duplicate-random-btn')?.addEventListener('click', duplicateRandom);
     updateCharCount();
     updateDescCount();
 
@@ -495,3 +508,4 @@ window.handleFolderSelect = handleFolderSelect;
 window.generateAndExport = generateAndExport;
 window.uploadFile = uploadFile;
 window.loadSheet = loadSheet;
+window.duplicateRandom = duplicateRandom;

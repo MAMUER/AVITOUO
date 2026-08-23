@@ -112,7 +112,7 @@ func applyUniqueTransformations(img image.Image, index int) image.Image {
 
 func findHeaderRow(rows [][]string) int {
 	for i := 0; i < len(rows) && i < 20; i++ {
-		if isHeaderRow(rows[i]) {
+		if IsHeaderRow(rows[i]) {
 			return i
 		}
 	}
@@ -608,7 +608,7 @@ func SaveExcelWithNewRows(p *SaveExcelParams) error {
 
 	headerRowIdx := -1
 	for i := 0; i < len(rows) && i < 20; i++ {
-		if isHeaderRow(rows[i]) {
+		if IsHeaderRow(rows[i]) {
 			headerRowIdx = i
 			break
 		}

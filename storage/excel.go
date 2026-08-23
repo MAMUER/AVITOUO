@@ -40,7 +40,7 @@ func SaveTemplate(f *excelize.File, path string) error {
 }
 
 // isHeaderRow проверяет, похожа ли строка на заголовок таблицы
-func isHeaderRow(row []string) bool {
+func IsHeaderRow(row []string) bool {
 	if len(row) < 3 {
 		return false
 	}
@@ -89,7 +89,7 @@ func GetSheetData(f *excelize.File, sheetName string) ([]string, [][]string, err
 
 	headerRowIdx := 0
 	for i := 0; i < len(rows) && i < 10; i++ {
-		if isHeaderRow(rows[i]) {
+		if IsHeaderRow(rows[i]) {
 			headerRowIdx = i
 			break
 		}
