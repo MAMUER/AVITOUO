@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1197,7 +1198,6 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	app.mu.RLock()
 	path := app.uploadPath
 	activeSheet := app.activeSheet
-	sheetNameMap := app.sheetNameMap
 	app.mu.RUnlock()
 
 	if path == "" {
@@ -1209,11 +1209,6 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	originalSheet := sheetNameMap[activeSheet]
-	if originalSheet == "" {
-		originalSheet = activeSheet
-	}
-
 	f, err := excelize.OpenFile(path)
 	if err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка открытия файла: "+err.Error())
@@ -1221,7 +1216,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	}
 	defer f.Close()
 
-	rows, err := f.GetRows(originalSheet)
+	rows, err := f.GetRows(activeSheet)
 	if err != nil {
 		app.jsonError(w, http.StatusInternalServerError, SheetReadError+err.Error())
 		return
@@ -1275,38 +1270,211 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	titleColIdx := storage.FindColumnIndex(headers, "Название")
 	descColIdx := storage.FindColumnIndex(headers, "Описание")
 	idColIdx := storage.FindColumnIndex(headers, "Уникальный идентификатор объявления")
+	imageNamesIdx := storage.FindColumnIndex(headers, "ImageNames")
+	if imageNamesIdx < 0 {
+		imageNamesIdx = storage.FindColumnIndex(headers, "Названия фото")
+	}
 
+	settings, _ := storage.LoadSettings()
 	gen := core.NewTextGenerator()
-	startRow := len(rows) + 1
+
+	photoDir, err := os.MkdirTemp("", "avito-photo-*")
+	if err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания временной папки: "+err.Error())
+		return
+	}
+	defer os.RemoveAll(photoDir)
+
+	newTitles := make([]string, req.Count)
+	newDescriptions := make([]string, req.Count)
+	newIDs := make([]string, req.Count)
+	newPlacements := make([]string, req.Count)
+	newCategories := make([]string, req.Count)
+	newProductTypes := make([]string, req.Count)
+	newSubProductTypes := make([]string, req.Count)
+	newPriceUnits := make([]string, req.Count)
+	newConditions := make([]string, req.Count)
+	newAvailabilities := make([]string, req.Count)
+	newAdTypes := make([]string, req.Count)
+	newSalesTypes := make([]string, req.Count)
+	newConnects := make([]string, req.Count)
+	newProcessing := make([]string, req.Count)
+	newPurpose := make([]string, req.Count)
+	newLumberTypes := make([]string, req.Count)
+	newWoodTypes := make([]string, req.Count)
+	newEdges := make([]string, req.Count)
+	newGrades := make([]string, req.Count)
+	newMoistures := make([]string, req.Count)
+	newProfiles := make([]string, req.Count)
+	newStructures := make([]string, req.Count)
+	newLumberProfiles := make([]string, req.Count)
+	newThicknesses := make([]string, req.Count)
+	newWidths := make([]string, req.Count)
+	newLengths := make([]string, req.Count)
+	newHeights := make([]string, req.Count)
+	newWidthDs := make([]string, req.Count)
+	newLengthDs := make([]string, req.Count)
+	newGOSTValues := make([]string, req.Count)
+	newDiameters := make([]string, req.Count)
+	newContacts := make([]string, req.Count)
+	newPhones := make([]string, req.Count)
+	newAddresses := make([]string, req.Count)
+	newCompanies := make([]string, req.Count)
+	newEmails := make([]string, req.Count)
+	newImageNames := make([]string, req.Count)
+	newContactMethods := make([]string, req.Count)
+	newTargetActionManual := make([]string, req.Count)
+	newTargetActionManualSettings := make([]string, req.Count)
+	newPriceValues := make([]string, req.Count)
 
 	for i, srcRow := range selected {
-		newRow := make([]string, len(headers))
-		copy(newRow, srcRow)
-
-		if idColIdx >= 0 && idColIdx < len(newRow) {
-			newRow[idColIdx] = core.GenerateUniqueID()
+		newIDs[i] = core.GenerateUniqueID()
+		if titleColIdx >= 0 && titleColIdx < len(srcRow) {
+			newTitles[i] = gen.GenerateUniqueTitle(srcRow[titleColIdx], i, data, titleColIdx)
 		}
-		if titleColIdx >= 0 && titleColIdx < len(newRow) {
-			newRow[titleColIdx] = gen.GenerateUniqueTitle(srcRow[titleColIdx], i, data, titleColIdx)
+		if descColIdx >= 0 && descColIdx < len(srcRow) {
+			newDescriptions[i] = gen.GenerateUniqueDescription(srcRow[descColIdx], i)
 		}
-		if descColIdx >= 0 && descColIdx < len(newRow) {
-			newRow[descColIdx] = gen.GenerateUniqueDescription(srcRow[descColIdx], i)
-		}
-
-		for colIdx, cellValue := range newRow {
-			colName, err := excelize.ColumnNumberToName(colIdx + 1)
+		if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
+			srcImageNames := srcRow[imageNamesIdx]
+			processed, err := storage.ProcessPhotoURLs(srcImageNames, photoDir, i*100)
 			if err != nil {
-				continue
+				processed = srcImageNames
 			}
-			cell := fmt.Sprintf("%s%d", colName, startRow+i)
-			if err := f.SetCellValue(originalSheet, cell, cellValue); err != nil {
-				fmt.Printf("[DEBUG] SetCellValue error at %s: %v\n", cell, err)
+			newImageNames[i] = processed
+		}
+		newPlacements[i] = "Москва"
+		newConditions[i] = settings.Condition
+		newAvailabilities[i] = settings.Availability
+		newAdTypes[i] = settings.AdType
+		newSalesTypes[i] = settings.SalesType
+		newProcessing[i] = "Строгание | Шлифование | Камерная сушка"
+		newPurpose[i] = "Баня | Дверь | Дом | Забор | Кровля | Лестница | Мебель | Окна | Опалубка | Поддоны | Пол | Полка | Потолок | Стена | Стропила | Терраса | Фасад"
+		newTargetActionManual[i] = "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5\nВладимирская область|5"
+		newTargetActionManualSettings[i] = "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5\nВладимирская область|5"
+		if len(settings.Contacts) > 0 {
+			newContacts[i] = settings.Contacts[i%len(settings.Contacts)]
+		}
+		if len(settings.Phones) > 0 {
+			newPhones[i] = settings.Phones[i%len(settings.Phones)]
+		}
+		if len(settings.Addresses) > 0 && !settings.DisableAddressAutoFill {
+			addr := settings.Addresses[i%len(settings.Addresses)]
+			if strings.Contains(addr, "\n") {
+				parts := strings.Split(addr, "\n")
+				addr = parts[rnd.Intn(len(parts))]
 			}
+			newAddresses[i] = strings.TrimSpace(addr)
+		}
+		if len(settings.Companies) > 0 {
+			newCompanies[i] = settings.Companies[i%len(settings.Companies)]
+		}
+		if len(settings.Emails) > 0 {
+			newEmails[i] = settings.Emails[i%len(settings.Emails)]
 		}
 	}
 
-	if err := f.SaveAs(path); err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения файла: "+err.Error())
+	zipPath := "photos_" + core.GenerateUniqueID() + ".zip"
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания ZIP: "+err.Error())
+		return
+	}
+	defer zipFile.Close()
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	files, err := os.ReadDir(photoDir)
+	if err == nil {
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			filePath := filepath.Join(photoDir, file.Name())
+			f, err := os.Open(filePath)
+			if err != nil {
+				continue
+			}
+			info, err := f.Stat()
+			f.Close()
+			if err != nil {
+				continue
+			}
+			header, err := zip.FileInfoHeader(info)
+			if err != nil {
+				continue
+			}
+			header.Method = zip.Deflate
+			writer, err := zipWriter.CreateHeader(header)
+			if err != nil {
+				continue
+			}
+			fileContent, err := os.ReadFile(filePath)
+			if err != nil {
+				continue
+			}
+			_, _ = writer.Write(fileContent)
+		}
+	}
+
+	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
+	saveParams := &storage.SaveExcelParams{
+		TemplatePath: path,
+		OutputPath:   outputXLSX,
+		SheetName:    activeSheet,
+		TitleColIdx:  titleColIdx,
+		DescColIdx:   descColIdx,
+		IDColIdx:     idColIdx,
+		ImageNamesIdx: imageNamesIdx,
+		ContactColIdx: -1,
+		PhoneColIdx:   -1,
+		AddressColIdx: -1,
+		CompanyColIdx: -1,
+		EmailColIdx:   -1,
+		NewIDs:         newIDs,
+		NewTitles:      newTitles,
+		NewDescriptions: newDescriptions,
+		NewImageNames:   newImageNames,
+		NewContacts:     newContacts,
+		NewPhones:       newPhones,
+		NewAddresses:    newAddresses,
+		NewCompanies:    newCompanies,
+		NewEmails:       newEmails,
+		NewPlacements:   newPlacements,
+		NewCategories:   newCategories,
+		NewProductTypes: newProductTypes,
+		NewSubProductTypes: newSubProductTypes,
+		NewPriceUnits:   newPriceUnits,
+		NewConditions:   newConditions,
+		NewAvailabilities: newAvailabilities,
+		NewAdTypes:      newAdTypes,
+		NewSalesTypes:   newSalesTypes,
+		NewConnects:     newConnects,
+		NewProcessing:   newProcessing,
+		NewPurpose:      newPurpose,
+		NewLumberTypes:  newLumberTypes,
+		NewWoodTypes:    newWoodTypes,
+		NewEdges:        newEdges,
+		NewGrades:       newGrades,
+		NewMoistures:    newMoistures,
+		NewProfiles:     newProfiles,
+		NewStructures:   newStructures,
+		NewLumberProfiles: newLumberProfiles,
+		NewThicknesses: newThicknesses,
+		NewWidths: newWidths,
+		NewLengths: newLengths,
+		NewHeights: newHeights,
+		NewWidthDs: newWidthDs,
+		NewLengthDs: newLengthDs,
+		NewGOSTValues: newGOSTValues,
+		NewDiameters: newDiameters,
+		NewContactMethods: newContactMethods,
+		NewTargetActionManual: newTargetActionManual,
+		NewTargetActionManualSettings: newTargetActionManualSettings,
+		NewPriceValues: newPriceValues,
+	}
+	if err := storage.SaveExcelWithNewRows(saveParams); err != nil {
+		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения Excel: "+err.Error())
 		return
 	}
 
@@ -1317,7 +1485,9 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	app.jsonResponse(w, map[string]interface{}{
 		"status": "ok",
 		"added":  len(selected),
-		"sheet":  originalSheet,
+		"sheet":  activeSheet,
+		"xlsx_file": outputXLSX,
+		"zip_file": zipPath,
 	})
 }
 

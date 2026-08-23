@@ -453,9 +453,14 @@ const duplicateRandom = async () => {
     try {
         const response = await api('/api/duplicate-from-category', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ count: 10 })
         });
-        showMessage('generation-msg', `<div class="success">✅ Добавлено ${response.added} уникальных объявлений в лист "${response.sheet}"</div>`);
+        let msg = `<div class="success">✅ Добавлено ${response.added} уникальных объявлений в лист "${response.sheet}"</div>`;
+        if (response.xlsx_file) {
+            msg += ` <a href="/api/download?file=${encodeURIComponent(response.xlsx_file)}" class="button-link">📄 Скачать Excel</a>`;
+        }
+        showMessage('generation-msg', msg);
     } catch (e) {
         showMessage('generation-msg', `<div class="error">❌ ${escapeHtml(e.message)}</div>`);
     }

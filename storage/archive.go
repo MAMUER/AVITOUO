@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"mime"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,6 +98,64 @@ func processOnePhoto(srcPath, savePath string, index int) error {
 	}
 
 	return nil
+}
+
+// ProcessPhotoURLs скачивает фото по URL, уникализирует и сохраняет в outputDir.
+// Возвращает строку с новыми именами файлов через " | ".
+func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (string, error) {
+	if strings.TrimSpace(urlsString) == "" {
+		return "", nil
+	}
+
+	urls := strings.Split(urlsString, "|")
+	var result []string
+
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	for i, rawURL := range urls {
+		url := strings.TrimSpace(rawURL)
+		if url == "" {
+			continue
+		}
+
+		resp, err := client.Get(url)
+		if err != nil {
+			continue
+		}
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			continue
+		}
+
+		ext := ".jpg"
+		ct := resp.Header.Get("Content-Type")
+		if ct != "" {
+			exts, _ := mime.ExtensionsByType(ct)
+			if len(exts) > 0 {
+				ext = exts[0]
+			}
+		}
+		if ext == ".jpe" {
+			ext = ".jpg"
+		}
+
+		srcPath := filepath.Join(outputDir, fmt.Sprintf("src_%d_%d%s", baseIndex, i, ext))
+		if err := os.WriteFile(srcPath, body, 0644); err != nil {
+			continue
+		}
+
+		savePath := filepath.Join(outputDir, fmt.Sprintf("a%d_%d%s", baseIndex, i, ext))
+		if err := processOnePhoto(srcPath, savePath, baseIndex+i); err != nil {
+			os.Remove(srcPath)
+			continue
+		}
+
+		os.Remove(srcPath)
+		result = append(result, filepath.Base(savePath))
+	}
+
+	return strings.Join(result, " | "), nil
 }
 
 // applyUniqueTransformations применяет уникальные трансформации к изображению
