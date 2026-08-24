@@ -60,9 +60,6 @@ func LoadSettings() (*core.Settings, error) {
 	if s.Availability == "" {
 		s.Availability = "В наличии"
 	}
-	if s.SalesType == "" {
-		s.SalesType = "Товар произведён мной"
-	}
 	if s.PriceUnit == "" {
 		s.PriceUnit = "Штуку"
 	}

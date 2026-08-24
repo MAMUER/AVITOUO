@@ -2,7 +2,9 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -425,4 +427,63 @@ func ResolvePriceUnit(productType, defaultUnit string, index int) string {
 		units := []string{"Штуку", "Биг-бэг", "Мешок", "м²", "м³"}
 		return units[index%len(units)]
 	}
+}
+
+// VaryDimension возвращает вариацию размера, близкую к оригиналу.
+// Примеры: "50 мм" -> "55 мм", "0.5 м" -> "0.45 м", "100" -> "90".
+// Если разобрать значение не удалось — возвращает оригинал.
+func VaryDimension(value string, r *rand.Rand) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return value
+	}
+	lower := strings.ToLower(value)
+	if strings.Contains(lower, "по запросу") || strings.Contains(lower, "нет") || strings.Contains(lower, "не указан") {
+		return value
+	}
+
+	numEnd := 0
+	hasDecimal := false
+	for i := 0; i < len(value); i++ {
+		ch := value[i]
+		if ch >= '0' && ch <= '9' {
+			numEnd = i + 1
+			continue
+		}
+		if ch == '.' || ch == ',' {
+			hasDecimal = true
+			continue
+		}
+		break
+	}
+	if numEnd == 0 {
+		return value
+	}
+
+	num, err := strconv.ParseFloat(strings.ReplaceAll(value[:numEnd], ",", "."), 64)
+	if err != nil || num <= 0 {
+		return value
+	}
+
+	unit := strings.TrimSpace(value[numEnd:])
+	delta := num * 0.1
+	if delta < 1 {
+		delta = 1
+	}
+	change := r.Float64()*2*delta - delta
+	newNum := num + change
+	if newNum < 1 {
+		newNum = 1
+	}
+	if hasDecimal {
+		newNum = math.Round(newNum*10) / 10
+	} else {
+		newNum = math.Round(newNum)
+	}
+	newNumStr := strconv.FormatFloat(newNum, 'f', -1, 64)
+	if hasDecimal {
+		newNumStr = strings.TrimRight(newNumStr, "0")
+		newNumStr = strings.TrimRight(newNumStr, ".")
+	}
+	return newNumStr + " " + unit
 }

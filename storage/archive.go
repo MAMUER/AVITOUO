@@ -23,6 +23,40 @@ const (
 	TargetActionHeader       = "Настройка цены целевого действия"
 	TargetActionManualHeader = "Настройка цены целевого действия: ручная"
 	ProductTypeHeader        = "вид товара"
+	PlacementHeader          = "Способ размещения"
+	ContactHeader            = "Контактное лицо"
+	PhoneHeader              = "Номер телефона"
+	CategoryHeader           = "Категория"
+	PriceUnitHeader          = "Цена за"
+	PriceValueHeader         = "Цена"
+	AdTypeHeader             = "Вид объявления"
+	ConditionHeader          = "Состояние"
+	AvailabilityHeader       = "Доступность"
+	SubProductTypeHeader     = "Подвид товара"
+	LumberTypeHeader         = "Тип пиломатериала"
+	EdgeHeader               = "Кромка"
+	MoistureHeader           = "Степень влажности"
+	ProcessingHeader         = "Обработка"
+	PurposeHeader            = "Назначение"
+	ProfileHeader            = "Профилированный"
+	StructureHeader          = "Структура"
+	LumberProfileHeader      = "Профиль"
+	GOSTHeader               = "Соответствует ГОСТ"
+	CompanyHeader            = "Название компании"
+	EmailHeader              = "Почта"
+	ImageNamesHeader         = "Названия фото"
+	PhotoLinksHeader         = "Ссылки на фото"
+	SalesTypeHeader          = "Вид продажи"
+	ConnectHeader            = "Соединять"
+	WoodTypeHeader           = "Вид древесины"
+	GradeHeader              = "Сорт древесины"
+	ThicknessHeader          = "Толщина пиломатериала"
+	WidthHeader              = "Ширина пиломатериала"
+	LengthHeader             = "Длина пиломатериала"
+	HeightHeader             = "Высота"
+	WidthDHeader             = "Ширина бруса"
+	LengthDHeader            = "Длина бруса"
+	DiameterHeader           = "Диаметр"
 )
 
 func isImage(name string) bool {
@@ -475,6 +509,8 @@ type SaveExcelParams struct {
 	NewDiameters                  []string
 	PriceValueColIdx              int
 	NewPriceValues                []string
+	CombinationColIdx             int
+	NewCombinations               []string
 }
 
 // SaveExcelWithNewRows добавляет новые строки в Excel файл и сохраняет
@@ -554,6 +590,7 @@ func SaveExcelWithNewRows(p *SaveExcelParams) error {
 	markUsed(p.TargetActionColIdx)
 	markUsed(p.TargetActionManualColIdx)
 	markUsed(p.DiameterColIdx)
+	markUsed(p.CombinationColIdx)
 
 	if p.TitleColIdx < 0 || p.DescColIdx < 0 || p.ImageNamesIdx < 0 || p.ContactColIdx < 0 || p.PhoneColIdx < 0 || p.AddressColIdx < 0 || p.CompanyColIdx < 0 || p.EmailColIdx < 0 || p.IDColIdx < 0 || p.PlacementColIdx < 0 || p.ContactMethodColIdx < 0 || p.CategoryColIdx < 0 || p.ProductTypeColIdx < 0 || p.SubProductTypeColIdx < 0 {
 		fmt.Printf("[DEBUG] Fallback scan on header row %d: %v\n", headerRowIdx, headerRow)
@@ -758,6 +795,9 @@ func SaveExcelWithNewRows(p *SaveExcelParams) error {
 		if p.PriceValueColIdx < 0 {
 			p.PriceValueColIdx = findUnique("цена")
 		}
+		if p.CombinationColIdx < 0 {
+			p.CombinationColIdx = findUnique("комбинация")
+		}
 	}
 
 	if p.TargetActionColIdx < 0 {
@@ -923,6 +963,9 @@ func SaveExcelWithNewRows(p *SaveExcelParams) error {
 		}
 		if p.PriceValueColIdx >= 0 && i < len(p.NewPriceValues) {
 			writeCol(p.PriceValueColIdx, p.NewPriceValues[i])
+		}
+		if p.CombinationColIdx >= 0 && i < len(p.NewCombinations) {
+			writeCol(p.CombinationColIdx, p.NewCombinations[i])
 		}
 		wrote++
 	}

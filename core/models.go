@@ -40,7 +40,7 @@ type AdRow struct {
 	Availability  string // В наличии, Под заказ
 	ContactMethod string // По телефону, В сообщениях
 	AdType        string // Товар от производителя, Товар приобретен на продажу
-	SalesType     string // Товар куплен на продажу, Товар произведён мной
+	SalesType     string // Товар куплен на продажу
 	Placement     string // Всегда "Package"
 	// Поля для освещения
 	CeilingType   string // Светильник, Люстра

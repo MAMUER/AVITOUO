@@ -21,12 +21,13 @@ import (
 )
 
 const (
-	PhotosDir         = "photos"
-	ContentTypeHeader = "Content-Type"
-	InvalidJSONError  = "Неверный JSON"
-	MethodNotAllowed  = "Method not allowed"
-	FilenameRequired  = "Файл не указан"
-	SheetReadError    = "Ошибка чтения листа: "
+	PhotosDir           = "photos"
+	ContentTypeHeader   = "Content-Type"
+	InvalidJSONError    = "Неверный JSON"
+	MethodNotAllowed    = "Method not allowed"
+	FilenameRequired    = "Файл не указан"
+	SheetReadError      = "Ошибка чтения листа: "
+	ContactMethodHeader = "Способ связи"
 )
 
 type App struct {
@@ -691,7 +692,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 
 	contactMethodColIdx2 := -1
 	if len(headersCopy) > 0 {
-		contactMethodColIdx2 = storage.FindColumnIndex(headersCopy, "Способ связи")
+		contactMethodColIdx2 = storage.FindColumnIndex(headersCopy, ContactMethodHeader)
 	}
 	contactDefault := settings.ContactMethod
 	if len(dataCopy) > 0 && len(dataCopy[0]) > contactMethodColIdx2 && contactMethodColIdx2 >= 0 {
@@ -1041,7 +1042,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	if len(headersCopy) > 0 {
 		idColIdx = storage.FindColumnIndex(headersCopy, "Уникальный идентификатор объявления")
 		placementColIdx = storage.FindColumnIndex(headersCopy, "Способ размещения")
-		contactMethodColIdx = storage.FindColumnIndex(headersCopy, "Способ связи")
+		contactMethodColIdx = storage.FindColumnIndex(headersCopy, ContactMethodHeader)
 		categoryColIdx = storage.FindColumnIndex(headersCopy, "Категория")
 		productTypeColIdx = storage.FindColumnIndex(headersCopy, "Вид товара")
 		subProductTypeColIdx = storage.FindColumnIndex(headersCopy, "Подвид товара")
@@ -1274,8 +1275,12 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	if imageNamesIdx < 0 {
 		imageNamesIdx = storage.FindColumnIndex(headers, "Названия фото")
 	}
+	photoLinksIdx := storage.FindColumnIndex(headers, "Ссылки на фото")
 	placementColIdx := storage.FindColumnIndex(headers, "Способ размещения")
-	contactMethodColIdx := storage.FindColumnIndex(headers, "Способ связи")
+	contactColIdx := storage.FindColumnIndex(headers, "Контактное лицо")
+	phoneColIdx := storage.FindColumnIndex(headers, "Номер телефона")
+	contactMethodColIdx := storage.FindColumnIndex(headers, ContactMethodHeader)
+	addressColIdx := storage.FindColumnIndex(headers, "Адрес")
 	categoryColIdx := storage.FindColumnIndex(headers, "Категория")
 	productTypeColIdx := storage.FindColumnIndex(headers, "Тип товара")
 	subProductTypeColIdx := storage.FindColumnIndex(headers, "Подвид товара")
@@ -1292,20 +1297,23 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	woodTypeColIdx := storage.FindColumnIndex(headers, "Вид древесины")
 	edgeColIdx := storage.FindColumnIndex(headers, "Кромка")
 	gradeColIdx := storage.FindColumnIndex(headers, "Сорт древесины")
-	moistureColIdx := storage.FindColumnIndex(headers, "Влажность")
+	moistureColIdx := storage.FindColumnIndex(headers, "Степень влажности")
 	profileColIdx := storage.FindColumnIndex(headers, "Профилированный")
 	structureColIdx := storage.FindColumnIndex(headers, "Структура")
 	lumberProfileColIdx := storage.FindColumnIndex(headers, "Профиль")
-	thicknessColIdx := storage.FindColumnIndex(headers, "Толщина")
-	widthColIdx := storage.FindColumnIndex(headers, "Ширина")
-	lengthColIdx := storage.FindColumnIndex(headers, "Длина")
+	thicknessColIdx := storage.FindColumnIndex(headers, "Толщина пиломатериала")
+	widthColIdx := storage.FindColumnIndex(headers, "Ширина пиломатериала")
+	lengthColIdx := storage.FindColumnIndex(headers, "Длина пиломатериала")
 	heightColIdx := storage.FindColumnIndex(headers, "Высота")
 	widthDColIdx := storage.FindColumnIndex(headers, "Ширина бруса")
 	lengthDColIdx := storage.FindColumnIndex(headers, "Длина бруса")
-	gostColIdx := storage.FindColumnIndex(headers, "ГОСТ")
+	gostColIdx := storage.FindColumnIndex(headers, "Соответствует ГОСТ")
+	companyColIdx := storage.FindColumnIndex(headers, "Название компании")
+	emailColIdx := storage.FindColumnIndex(headers, "Почта")
 	diameterColIdx := storage.FindColumnIndex(headers, "Диаметр")
 	targetActionColIdx := storage.FindColumnIndex(headers, "Настройка цены целевого действия")
 	targetActionManualColIdx := storage.FindColumnIndex(headers, "Настройка цены целевого действия: ручная")
+	combinationColIdx := storage.FindColumnIndex(headers, "Комбинация")
 
 	settings, _ := storage.LoadSettings()
 	gen := core.NewTextGenerator()
@@ -1358,6 +1366,18 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	newTargetActionManual := make([]string, req.Count)
 	newTargetActionManualSettings := make([]string, req.Count)
 	newPriceValues := make([]string, req.Count)
+	newCombinations := make([]string, req.Count)
+
+	addresses := settings.Addresses
+	if len(addresses) == 0 {
+		addresses = []string{"Москва"}
+	}
+	woodTypes := []string{"Ель", "Сосна"}
+	grades := []string{"АВ", "Экстра", "Прима", "I", "II", "III"}
+	thicknessPool := []string{"20 мм", "30 мм", "40 мм", "50 мм"}
+	widthPool := []string{"100 мм", "150 мм", "200 мм"}
+	lengthPool := []string{"2 м", "3 м", "4 м", "6 м"}
+	heightPool := []string{"2 м", "3 м", "4 м"}
 
 	for i, srcRow := range selected {
 		newIDs[i] = core.GenerateUniqueID()
@@ -1367,50 +1387,56 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		if descColIdx >= 0 && descColIdx < len(srcRow) {
 			newDescriptions[i] = gen.GenerateUniqueDescription(srcRow[descColIdx], i)
 		}
-		if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
-			srcImageNames := srcRow[imageNamesIdx]
-			processed, err := storage.ProcessPhotoURLs(srcImageNames, photoDir, i*100)
-			if err != nil {
-				processed = srcImageNames
+		if photoLinksIdx >= 0 && photoLinksIdx < len(srcRow) {
+			srcPhotoLinks := srcRow[photoLinksIdx]
+			links := strings.Split(srcPhotoLinks, "|")
+			var picked []string
+			for j := 0; j < len(links) && j < 10; j++ {
+				link := strings.TrimSpace(links[j])
+				if link != "" {
+					picked = append(picked, link)
+				}
 			}
-			newImageNames[i] = processed
+			if len(picked) > 0 {
+				processed, err := storage.ProcessPhotoURLs(strings.Join(picked, "|"), photoDir, i*100)
+				if err == nil && processed != "" {
+					newImageNames[i] = processed
+				} else if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
+					newImageNames[i] = srcRow[imageNamesIdx]
+				}
+			} else if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
+				newImageNames[i] = srcRow[imageNamesIdx]
+			}
+		} else if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
+			newImageNames[i] = srcRow[imageNamesIdx]
 		}
 		if placementColIdx >= 0 && placementColIdx < len(srcRow) {
 			newPlacements[i] = srcRow[placementColIdx]
 		}
-		newPlacements[i] = "Москва"
 		if conditionColIdx >= 0 && conditionColIdx < len(srcRow) {
 			newConditions[i] = srcRow[conditionColIdx]
 		}
-		newConditions[i] = settings.Condition
 		if availabilityColIdx >= 0 && availabilityColIdx < len(srcRow) {
 			newAvailabilities[i] = srcRow[availabilityColIdx]
 		}
-		newAvailabilities[i] = settings.Availability
 		if adTypeColIdx >= 0 && adTypeColIdx < len(srcRow) {
 			newAdTypes[i] = srcRow[adTypeColIdx]
 		}
-		newAdTypes[i] = settings.AdType
 		if salesTypeColIdx >= 0 && salesTypeColIdx < len(srcRow) {
 			newSalesTypes[i] = srcRow[salesTypeColIdx]
 		}
-		newSalesTypes[i] = settings.SalesType
 		if processingColIdx >= 0 && processingColIdx < len(srcRow) {
 			newProcessing[i] = srcRow[processingColIdx]
 		}
-		newProcessing[i] = "Строгание | Шлифование | Камерная сушка"
 		if purposeColIdx >= 0 && purposeColIdx < len(srcRow) {
 			newPurpose[i] = srcRow[purposeColIdx]
 		}
-		newPurpose[i] = "Баня | Дверь | Дом | Забор | Кровля | Лестница | Мебель | Окна | Опалубка | Поддоны | Пол | Полка | Потолок | Стена | Стропила | Терраса | Фасад"
 		if targetActionManualColIdx >= 0 && targetActionManualColIdx < len(srcRow) {
 			newTargetActionManual[i] = srcRow[targetActionManualColIdx]
 		}
-		newTargetActionManual[i] = "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5\nВладимирская область|5"
 		if targetActionColIdx >= 0 && targetActionColIdx < len(srcRow) {
 			newTargetActionManualSettings[i] = srcRow[targetActionColIdx]
 		}
-		newTargetActionManualSettings[i] = "Москва|5\nМосковская область|5\nКалужская область|5\nТверская область|5\nТульская область|5\nЯрославская область|5\nВладимирская область|5"
 		if contactMethodColIdx >= 0 && contactMethodColIdx < len(srcRow) {
 			newContactMethods[i] = srcRow[contactMethodColIdx]
 		}
@@ -1453,18 +1479,34 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		if lumberProfileColIdx >= 0 && lumberProfileColIdx < len(srcRow) {
 			newLumberProfiles[i] = srcRow[lumberProfileColIdx]
 		}
-		if thicknessColIdx >= 0 && thicknessColIdx < len(srcRow) {
-			newThicknesses[i] = srcRow[thicknessColIdx]
+		if thicknessColIdx >= 0 && thicknessColIdx < len(srcRow) && widthColIdx >= 0 && widthColIdx < len(srcRow) && lengthColIdx >= 0 && lengthColIdx < len(srcRow) {
+			t := strings.TrimSpace(srcRow[thicknessColIdx])
+			w := strings.TrimSpace(srcRow[widthColIdx])
+			l := strings.TrimSpace(srcRow[lengthColIdx])
+			if t != "" && w != "" && l != "" {
+				newThicknesses[i] = core.VaryDimension(t, rnd)
+				newWidths[i] = core.VaryDimension(w, rnd)
+				newLengths[i] = core.VaryDimension(l, rnd)
+			} else {
+				newThicknesses[i] = core.PickRandom(rnd, thicknessPool)
+				newWidths[i] = core.PickRandom(rnd, widthPool)
+				newLengths[i] = core.PickRandom(rnd, lengthPool)
+			}
+		} else if heightColIdx >= 0 && heightColIdx < len(srcRow) && widthColIdx >= 0 && widthColIdx < len(srcRow) && lengthColIdx >= 0 && lengthColIdx < len(srcRow) {
+			h := strings.TrimSpace(srcRow[heightColIdx])
+			w := strings.TrimSpace(srcRow[widthColIdx])
+			l := strings.TrimSpace(srcRow[lengthColIdx])
+			if h != "" && w != "" && l != "" {
+				newHeights[i] = core.VaryDimension(h, rnd)
+				newWidths[i] = core.VaryDimension(w, rnd)
+				newLengths[i] = core.VaryDimension(l, rnd)
+			} else {
+				newHeights[i] = core.PickRandom(rnd, heightPool)
+				newWidths[i] = core.PickRandom(rnd, widthPool)
+				newLengths[i] = core.PickRandom(rnd, lengthPool)
+			}
 		}
-		if widthColIdx >= 0 && widthColIdx < len(srcRow) {
-			newWidths[i] = srcRow[widthColIdx]
-		}
-		if lengthColIdx >= 0 && lengthColIdx < len(srcRow) {
-			newLengths[i] = srcRow[lengthColIdx]
-		}
-		if heightColIdx >= 0 && heightColIdx < len(srcRow) {
-			newHeights[i] = srcRow[heightColIdx]
-		}
+
 		if widthDColIdx >= 0 && widthDColIdx < len(srcRow) {
 			newWidthDs[i] = srcRow[widthDColIdx]
 		}
@@ -1477,25 +1519,67 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		if diameterColIdx >= 0 && diameterColIdx < len(srcRow) {
 			newDiameters[i] = srcRow[diameterColIdx]
 		}
-		if len(settings.Contacts) > 0 {
+		if phoneColIdx >= 0 && phoneColIdx < len(srcRow) {
+			newPhones[i] = srcRow[phoneColIdx]
+		}
+		if companyColIdx >= 0 && companyColIdx < len(srcRow) {
+			newCompanies[i] = srcRow[companyColIdx]
+		}
+		if emailColIdx >= 0 && emailColIdx < len(srcRow) {
+			newEmails[i] = srcRow[emailColIdx]
+		}
+		if contactColIdx >= 0 && contactColIdx < len(srcRow) {
+			newContacts[i] = srcRow[contactColIdx]
+		}
+		if len(settings.Contacts) > 0 && strings.TrimSpace(newContacts[i]) == "" {
 			newContacts[i] = settings.Contacts[i%len(settings.Contacts)]
 		}
-		if len(settings.Phones) > 0 {
+		if len(settings.Phones) > 0 && strings.TrimSpace(newPhones[i]) == "" {
 			newPhones[i] = settings.Phones[i%len(settings.Phones)]
 		}
-		if len(settings.Addresses) > 0 && !settings.DisableAddressAutoFill {
-			addr := settings.Addresses[i%len(settings.Addresses)]
+		if len(addresses) > 0 && !settings.DisableAddressAutoFill {
+			addr := addresses[i%len(addresses)]
 			if strings.Contains(addr, "\n") {
 				parts := strings.Split(addr, "\n")
 				addr = parts[rnd.Intn(len(parts))]
 			}
 			newAddresses[i] = strings.TrimSpace(addr)
 		}
-		if len(settings.Companies) > 0 {
+		if len(settings.Companies) > 0 && strings.TrimSpace(newCompanies[i]) == "" {
 			newCompanies[i] = settings.Companies[i%len(settings.Companies)]
 		}
-		if len(settings.Emails) > 0 {
+		if len(settings.Emails) > 0 && strings.TrimSpace(newEmails[i]) == "" {
 			newEmails[i] = settings.Emails[i%len(settings.Emails)]
+		}
+
+		if woodTypeColIdx >= 0 && woodTypeColIdx < len(srcRow) && strings.TrimSpace(srcRow[woodTypeColIdx]) != "" {
+			newWoodTypes[i] = srcRow[woodTypeColIdx]
+		} else {
+			newWoodTypes[i] = woodTypes[rnd.Intn(len(woodTypes))]
+		}
+		if gradeColIdx >= 0 && gradeColIdx < len(srcRow) && strings.TrimSpace(srcRow[gradeColIdx]) != "" {
+			newGrades[i] = srcRow[gradeColIdx]
+		} else {
+			newGrades[i] = grades[rnd.Intn(len(grades))]
+		}
+
+		if combinationColIdx >= 0 {
+			if thicknessColIdx >= 0 && thicknessColIdx < len(srcRow) && widthColIdx >= 0 && widthColIdx < len(srcRow) && lengthColIdx >= 0 && lengthColIdx < len(srcRow) {
+				t := strings.TrimSpace(srcRow[thicknessColIdx])
+				w := strings.TrimSpace(srcRow[widthColIdx])
+				l := strings.TrimSpace(srcRow[lengthColIdx])
+				if t != "" && w != "" && l != "" {
+					newCombinations[i] = fmt.Sprintf("%s + %s + %s", newThicknesses[i], newWidths[i], newLengths[i])
+				}
+			}
+			if newCombinations[i] == "" && heightColIdx >= 0 && heightColIdx < len(srcRow) && widthColIdx >= 0 && widthColIdx < len(srcRow) && lengthColIdx >= 0 && lengthColIdx < len(srcRow) {
+				h := strings.TrimSpace(srcRow[heightColIdx])
+				w := strings.TrimSpace(srcRow[widthColIdx])
+				l := strings.TrimSpace(srcRow[lengthColIdx])
+				if h != "" && w != "" && l != "" {
+					newCombinations[i] = fmt.Sprintf("%s + %s + %s", newHeights[i], newWidths[i], newLengths[i])
+				}
+			}
 		}
 	}
 
@@ -1551,11 +1635,11 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		DescColIdx:                    descColIdx,
 		IDColIdx:                      idColIdx,
 		ImageNamesIdx:                 imageNamesIdx,
-		ContactColIdx:                 -1,
-		PhoneColIdx:                   -1,
-		AddressColIdx:                 -1,
-		CompanyColIdx:                 -1,
-		EmailColIdx:                   -1,
+		ContactColIdx:                 contactColIdx,
+		PhoneColIdx:                   phoneColIdx,
+		AddressColIdx:                 addressColIdx,
+		CompanyColIdx:                 companyColIdx,
+		EmailColIdx:                   emailColIdx,
 		PlacementColIdx:               placementColIdx,
 		ContactMethodColIdx:           contactMethodColIdx,
 		CategoryColIdx:                categoryColIdx,
@@ -1574,6 +1658,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		TargetActionColIdx:            targetActionColIdx,
 		TargetActionManualColIdx:      targetActionManualColIdx,
 		DiameterColIdx:                diameterColIdx,
+		CombinationColIdx:             combinationColIdx,
 		NewIDs:                        newIDs,
 		NewTitles:                     newTitles,
 		NewDescriptions:               newDescriptions,
@@ -1588,6 +1673,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		NewProductTypes:               newProductTypes,
 		NewSubProductTypes:            newSubProductTypes,
 		NewPriceUnits:                 newPriceUnits,
+		NewPriceValues:                newPriceValues,
 		NewConditions:                 newConditions,
 		NewAvailabilities:             newAvailabilities,
 		NewAdTypes:                    newAdTypes,
@@ -1614,7 +1700,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		NewContactMethods:             newContactMethods,
 		NewTargetActionManual:         newTargetActionManual,
 		NewTargetActionManualSettings: newTargetActionManualSettings,
-		NewPriceValues:                newPriceValues,
+		NewCombinations:               newCombinations,
 	}
 	if err := storage.SaveExcelWithNewRows(saveParams); err != nil {
 		app.jsonError(w, http.StatusInternalServerError, "Ошибка сохранения Excel: "+err.Error())
