@@ -422,6 +422,13 @@ func firstOrEmpty(vals []string) string {
 	return vals[0]
 }
 
+func cellValue(row []string, idx int) string {
+	if idx >= 0 && idx < len(row) {
+		return strings.TrimSpace(row[idx])
+	}
+	return ""
+}
+
 func (app *App) jsonError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set(ContentTypeHeader, "application/json")
 	w.WriteHeader(status)
@@ -738,15 +745,15 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 	lumberProfilePool := req.LumberProfiles
 	thicknessPool := req.Thicknesses
 	if len(thicknessPool) == 0 {
-		thicknessPool = []string{"20 мм", "30 мм", "40 мм", "50 мм"}
+		thicknessPool = core.DefaultDimensions["thickness"]
 	}
 	widthPool := req.Widths
 	if len(widthPool) == 0 {
-		widthPool = []string{"100 мм", "150 мм", "200 мм"}
+		widthPool = core.DefaultDimensions["width"]
 	}
 	lengthPool := req.Lengths
 	if len(lengthPool) == 0 {
-		lengthPool = []string{"2 м", "3 м", "4 м", "6 м"}
+		lengthPool = core.DefaultDimensions["length"]
 	}
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -994,7 +1001,7 @@ func (app *App) handleGenerateAndExport(w http.ResponseWriter, r *http.Request) 
 		newDescriptions = make([]string, req.VariantCount)
 		for i := 0; i < req.VariantCount; i++ {
 			newTitles[i] = gen.GenerateUniqueTitle(baseTitle, i, dataCopy, titleIdx)
-			newDescriptions[i] = gen.GenerateUniqueDescription(baseDescription, i)
+			newDescriptions[i] = gen.GenerateUniqueDescription(baseDescription, i, core.GenerateDescriptionParams{})
 		}
 	}
 
@@ -1285,7 +1292,16 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	productTypeColIdx := storage.FindColumnIndex(headers, "Тип товара")
 	subProductTypeColIdx := storage.FindColumnIndex(headers, "Подвид товара")
 	priceUnitColIdx := storage.FindColumnIndex(headers, "Цена за")
-	priceValueColIdx := storage.FindColumnIndex(headers, "Цена")
+	priceValueColIdx := -1
+	for i, h := range headers {
+		if strings.EqualFold(strings.TrimSpace(h), "Цена") {
+			priceValueColIdx = i
+			break
+		}
+	}
+	if priceValueColIdx < 0 {
+		priceValueColIdx = storage.FindColumnIndex(headers, "Цена")
+	}
 	conditionColIdx := storage.FindColumnIndex(headers, "Состояние")
 	availabilityColIdx := storage.FindColumnIndex(headers, "Доступность")
 	adTypeColIdx := storage.FindColumnIndex(headers, "Вид объявления")
@@ -1373,11 +1389,11 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		addresses = []string{"Москва"}
 	}
 	woodTypes := []string{"Ель", "Сосна"}
-	grades := []string{"АВ", "Экстра", "Прима", "I", "II", "III"}
-	thicknessPool := []string{"20 мм", "30 мм", "40 мм", "50 мм"}
-	widthPool := []string{"100 мм", "150 мм", "200 мм"}
-	lengthPool := []string{"2 м", "3 м", "4 м", "6 м"}
-	heightPool := []string{"2 м", "3 м", "4 м"}
+	grades := []string{"Отборный, экстра", "1 (A)", "1–2 (AB)", "1–3 (ABC)", "2 (B)", "2–3 (BC)", "3 (C)", "3–4 (CD)", "4 (D)"}
+	thicknessPool := core.DefaultDimensions["thickness"]
+	widthPool := core.DefaultDimensions["width"]
+	lengthPool := core.DefaultDimensions["length"]
+	heightPool := core.DefaultDimensions["height"]
 
 	for i, srcRow := range selected {
 		newIDs[i] = core.GenerateUniqueID()
@@ -1385,7 +1401,16 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 			newTitles[i] = gen.GenerateUniqueTitle(srcRow[titleColIdx], i, data, titleColIdx)
 		}
 		if descColIdx >= 0 && descColIdx < len(srcRow) {
-			newDescriptions[i] = gen.GenerateUniqueDescription(srcRow[descColIdx], i)
+			params := core.GenerateDescriptionParams{
+				LumberType: cellValue(srcRow, lumberTypeColIdx),
+				WoodType:   cellValue(srcRow, woodTypeColIdx),
+				Grade:      cellValue(srcRow, gradeColIdx),
+				Height:     cellValue(srcRow, heightColIdx),
+				Width:      cellValue(srcRow, widthColIdx),
+				Length:     cellValue(srcRow, lengthColIdx),
+				PriceUnit:  cellValue(srcRow, priceUnitColIdx),
+			}
+			newDescriptions[i] = gen.GenerateUniqueDescription(srcRow[descColIdx], i, params)
 		}
 		if photoLinksIdx >= 0 && photoLinksIdx < len(srcRow) {
 			srcPhotoLinks := srcRow[photoLinksIdx]
@@ -1399,6 +1424,9 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 			}
 			if len(picked) > 0 {
 				processed, err := storage.ProcessPhotoURLs(strings.Join(picked, "|"), photoDir, i*100)
+				if err != nil {
+					fmt.Printf("[DEBUG] ProcessPhotoURLs error for ad %d: %v\n", i, err)
+				}
 				if err == nil && processed != "" {
 					newImageNames[i] = processed
 				} else if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
@@ -1594,7 +1622,16 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	defer func() { _ = zipWriter.Close() }()
 
 	files, err := os.ReadDir(photoDir)
+	zipCount := 0
 	if err == nil {
+		var zipEntries []string
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			zipEntries = append(zipEntries, file.Name())
+		}
+		fmt.Printf("[DEBUG] ZIP entries count=%d names=%v\n", len(zipEntries), zipEntries)
 		for _, file := range files {
 			if file.IsDir() {
 				continue
@@ -1623,10 +1660,18 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 				continue
 			}
 			_, _ = writer.Write(fileContent)
+			zipCount++
 		}
+	}
+	if zipCount == 0 {
+		fmt.Printf("[DEBUG] ZIP is empty, returning error to client\n")
+		app.jsonError(w, http.StatusBadRequest, "Не удалось загрузить фото: проверьте, что ссылки на фото корректны и ведут напрямую на изображения")
+		return
 	}
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
+	fmt.Printf("[DEBUG] Column indices - imageNamesIdx=%d productTypeColIdx=%d priceUnitColIdx=%d priceValueColIdx=%d gradeColIdx=%d\n", imageNamesIdx, productTypeColIdx, priceUnitColIdx, priceValueColIdx, gradeColIdx)
+	fmt.Printf("[DEBUG] Sample values - productTypes[0]=%q priceUnits[0]=%q priceValues[0]=%q grades[0]=%q imageNames[0]=%q\n", newProductTypes[0], newPriceUnits[0], newPriceValues[0], newGrades[0], newImageNames[0])
 	saveParams := &storage.SaveExcelParams{
 		TemplatePath:                  path,
 		OutputPath:                    outputXLSX,

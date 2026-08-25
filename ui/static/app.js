@@ -450,6 +450,12 @@ const addServices = async () => {
 };
 
 const duplicateRandom = async () => {
+    const btn = document.getElementById('duplicate-random-btn');
+    const originalText = btn?.textContent || '';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Дублирование...';
+    }
     try {
         const response = await api('/api/duplicate-from-category', {
             method: 'POST',
@@ -458,11 +464,19 @@ const duplicateRandom = async () => {
         });
         let msg = `<div class="success">✅ Добавлено ${response.added} уникальных объявлений в лист "${response.sheet}"</div>`;
         if (response.xlsx_file) {
-            msg += ` <a href="/api/download?file=${encodeURIComponent(response.xlsx_file)}" class="button-link">📄 Скачать Excel</a>`;
+            msg += `<br><a href="/api/download?file=${encodeURIComponent(response.xlsx_file)}" class="button-link">📄 Скачать Excel</a>`;
+        }
+        if (response.zip_file) {
+            msg += ` <a href="/api/download?file=${encodeURIComponent(response.zip_file)}" class="button-link">🗜 Скачать ZIP с фото</a>`;
         }
         showMessage('generation-msg', msg);
     } catch (e) {
         showMessage('generation-msg', `<div class="error">❌ ${escapeHtml(e.message)}</div>`);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
     }
 };
 

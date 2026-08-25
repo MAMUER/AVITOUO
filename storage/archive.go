@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,24 +154,42 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (strin
 	}
 
 	for i, rawURL := range urls {
-		url := strings.TrimSpace(rawURL)
-		if url == "" {
+		photoURL := strings.TrimSpace(rawURL)
+		if photoURL == "" {
 			continue
 		}
 
-		req, err := http.NewRequest("GET", url, nil)
+		parsedURL, err := url.Parse(photoURL)
 		if err != nil {
+			fmt.Printf("[DEBUG] ProcessPhotoURLs parse error base=%d idx=%d: %v\n", baseIndex, i, err)
+			continue
+		}
+		if parsedURL.RawPath == "" {
+			parsedURL.RawPath = parsedURL.EscapedPath()
+		}
+		encodedURL := parsedURL.String()
+
+		req, err := http.NewRequest("GET", encodedURL, nil)
+		if err != nil {
+			fmt.Printf("[DEBUG] ProcessPhotoURLs request error base=%d idx=%d: %v\n", baseIndex, i, err)
 			continue
 		}
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
 		resp, err := client.Do(req)
 		if err != nil {
+			fmt.Printf("[DEBUG] ProcessPhotoURLs download error base=%d idx=%d: %v\n", baseIndex, i, err)
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			fmt.Printf("[DEBUG] ProcessPhotoURLs status error base=%d idx=%d: status=%d url=%s\n", baseIndex, i, resp.StatusCode, encodedURL)
+			_ = resp.Body.Close()
 			continue
 		}
 		body, err := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		if err != nil {
+			fmt.Printf("[DEBUG] ProcessPhotoURLs read error base=%d idx=%d: %v\n", baseIndex, i, err)
 			continue
 		}
 
@@ -188,11 +207,13 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (strin
 
 		srcPath := filepath.Join(outputDir, fmt.Sprintf("src_%d_%d%s", baseIndex, i, ext))
 		if err := os.WriteFile(srcPath, body, 0644); err != nil {
+			fmt.Printf("[DEBUG] ProcessPhotoURLs write src error base=%d idx=%d: %v\n", baseIndex, i, err)
 			continue
 		}
 
 		savePath := filepath.Join(outputDir, fmt.Sprintf("a%d_%d%s", baseIndex, i, ext))
 		if err := processOnePhoto(srcPath, savePath, baseIndex+i); err != nil {
+			fmt.Printf("[DEBUG] ProcessPhotoURLs process error base=%d idx=%d: %v\n", baseIndex, i, err)
 			_ = os.Remove(srcPath)
 			continue
 		}
@@ -201,6 +222,7 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (strin
 		result = append(result, filepath.Base(savePath))
 	}
 
+	fmt.Printf("[DEBUG] ProcessPhotoURLs done base=%d count=%d\n", baseIndex, len(result))
 	return strings.Join(result, " | "), nil
 }
 
@@ -885,6 +907,9 @@ func SaveExcelWithNewRows(p *SaveExcelParams) error {
 		}
 		if p.PriceUnitColIdx >= 0 && i < len(p.NewPriceUnits) {
 			writeCol(p.PriceUnitColIdx, p.NewPriceUnits[i])
+		}
+		if p.PriceValueColIdx >= 0 && i < len(p.NewPriceValues) {
+			writeCol(p.PriceValueColIdx, p.NewPriceValues[i])
 		}
 		if p.ConditionColIdx >= 0 && i < len(p.NewConditions) {
 			writeCol(p.ConditionColIdx, p.NewConditions[i])

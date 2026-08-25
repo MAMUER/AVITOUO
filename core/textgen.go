@@ -10,8 +10,6 @@ import (
 	"unicode"
 )
 
-const pClose = "</p>\n"
-
 // TextGenerator генерирует уникальные вариации текста
 type TextGenerator struct {
 	used map[string]bool
@@ -97,102 +95,102 @@ func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existi
 }
 
 // GenerateUniqueDescription создаёт уникальное описание в HTML формате
-func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index int) string {
-	baseDescription = strings.TrimSpace(baseDescription)
-	if baseDescription == "" {
-		baseDescription = "Качественный пиломатериал премиум-класса для строительства и отделки."
+func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index int, params GenerateDescriptionParams) string {
+	_ = baseDescription
+
+	lumberType := strings.TrimSpace(params.LumberType)
+	if lumberType == "" {
+		lumberType = "пиломатериал"
+	}
+	woodType := strings.TrimSpace(params.WoodType)
+	if woodType == "" {
+		woodType = "сосна/ель"
+	}
+	grade := strings.TrimSpace(params.Grade)
+	if grade == "" {
+		grade = "Экстра"
+	}
+	priceUnit := strings.TrimSpace(params.PriceUnit)
+	if priceUnit == "" {
+		priceUnit = "шт."
+	}
+	height := strings.TrimSpace(params.Height)
+	width := strings.TrimSpace(params.Width)
+	length := strings.TrimSpace(params.Length)
+	if height == "" {
+		height = "50"
+	}
+	if width == "" {
+		width = "150"
+	}
+	if length == "" {
+		length = "3000"
 	}
 
-	paragraphs := strings.Split(baseDescription, "\n")
-	var cleanParagraphs []string
-	for _, p := range paragraphs {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			cleanParagraphs = append(cleanParagraphs, p)
-		}
+	descriptiveWords := []string{
+		"премиум", "высококачественный", "качественный", "отличный", "натуральный", "фабричный", "проверенный",
 	}
-	if len(cleanParagraphs) == 0 {
-		cleanParagraphs = []string{baseDescription}
-	}
+	descWord := descriptiveWords[index%len(descriptiveWords)]
 
-	catalogIntros := []string{
-		"👉 Чтобы увидеть весь ассортимент, напишите в чат: «КАТАЛОГ»",
-		"✍️ Напишите «КАТАЛОГ» — вышлем полный прайс-лист в личные сообщения!",
-		"📋 Актуальный каталог по запросу. Пишите слово «КАТАЛОГ»!",
-		"📑 Чтобы получить полный каталог, напишите «КАТАЛОГ» в чат.",
-		"✉️ Присылайте запрос — вышлем полный прайс-лист с ценами на всю продукцию.",
-		"💬 Жмите «КАТАЛОГ» — вышлем актуальные остатки и цены прямо сейчас!",
-		"📩 Запросите «КАТАЛОГ» — отправим актуальный прайс в личные сообщения.",
+	alsoAvailablePool := []string{
+		"брус строганная доска обрезная доска; имитация бруса хвойная планкен хвоя и лиственница вагонка террасная доска доска пола крепеж",
+		"брус; доска строганная; доска обрезная; имитация бруса; планкен хвойный; вагонка; террасная доска; доска пола; крепеж",
+		"брус, строганная доска, обрезная доска, имитация бруса, хвойная планкен, вагонка, террасная доска, доска пола, крепеж",
 	}
-
-	productLeads := []string{
-		"🔥 ",
-		"🌲 ",
-		"💎 ",
-		"⭐ ",
-		"🏆 ",
-	}
-
-	descriptionLeads := []string{
-		"Высококачественный пиломатериал для строительства и отделки. Камерная сушка и чистовая строжка гарантируют точную геометрию и долговечность.",
-		"Идеальное решение для строительных и отделочных работ. Стабильная геометрия, точные размеры и устойчивость к влаге.",
-		"Премиальный пиломатериал для надёжных конструкций. Обработка на современном оборудовании, контроль влажности 8–12%.",
-		"Готовый материал к монтажу и покраске. Гладкая поверхность, ровные кромки, точный размер по всем сторонам.",
-		"Проверенное качество для частного и коммерческого строительства. Выдерживает нагрузку, не коробится со временем.",
-	}
-
-	suffixPool := []string{
-		" Только натуральные материалы. звоните!",
-		" Гарантия качества. Доставка по Москве и МО.",
-		" Работаем с физ. и юр. лицами. НДС.",
-		" От производителя. Собственное производство.",
-		" Бесплатная консультация. Работаем без выходных.",
-		" Прямые поставки без посредников. Отгружаем сегодня.",
-		" Сертифицированный материал. Соответствует ГОСТ.",
-		" Фото по запросу. Скидки за объём.",
-		" Бесплатный расчёт под ваш проект. Уточняйте актуальные цены.",
-	}
+	alsoAvailable := alsoAvailablePool[index%len(alsoAvailablePool)]
 
 	ctaPool := []string{
-		"📞 Звоните или пишите в чат! Бесплатно проконсультируем, рассчитаем объём и подберём материал под вашу задачу.",
+		"📞 Звоните или пишите в чат Авито! Бесплатно проконсультируем, поможем с расчётом количества под ваш проект.",
 		"📞 ЗВОНИТЕ ИЛИ ПИШИТЕ ПРЯМО СЕЙЧАС! Отправим актуальные фото/видео, рассчитаем стоимость, забронируем объём.",
 		"📞 Пишите или звоните! Рассчитаем объём, подберём материал под проект, забронируем нужную партию.",
 		"📞 Звоните! Бесплатно рассчитаем объём, подберём оптимальный вариант, оформим доставку.",
 	}
+	cta := ctaPool[index%len(ctaPool)]
 
-	var buildDesc = func() string {
-		r := tg.rnd
-		var result strings.Builder
-
-		writeRandomParagraph(&result, r, catalogIntros)
-
-		para := pickRandom(r, cleanParagraphs)
-		result.WriteString("<p>")
-		result.WriteString(pickRandom(r, productLeads))
-		result.WriteString("<strong>")
-		result.WriteString(para)
-		result.WriteString("</strong>")
-		if r.Intn(2) == 0 {
-			result.WriteString(" — ")
-			result.WriteString(pickRandom(r, descriptionLeads))
-		}
-		result.WriteString(pClose)
-
-		if r.Intn(2) == 0 {
-			writeBenefits(&result, r)
-		}
-		writeCharacteristics(&result, r)
-
-		writeAddress(&result)
-		writeDelivery(&result, r)
-		writePayment(&result, r)
-		writeFooter(&result, r, suffixPool, ctaPool)
-
-		return strings.TrimSpace(result.String())
+	build := func(descWord, alsoAvailable, cta string) string {
+		var b strings.Builder
+		fmt.Fprintf(&b, "<p>👉<strong>ЧТОБЫ ОЗНАКОМИТЬСЯ ПОДРОБНЕЕ</strong> с нашим ассортиментом, напишите в чат слово<strong>: \"КАТАЛОГ\"</strong></p>")
+		fmt.Fprintf(&b, "<p><strong>%s %s %s×%s×%s мм, хвоя (%s), сорт %s, камерной сушки. В НАЛИЧИИ на складе в МЫТИЩАХ!</strong></p>", lumberType, descWord, height, width, length, woodType, grade)
+		fmt.Fprintf(&b, "<p><strong>Цена указана за %s!</strong></p>", priceUnit)
+		b.WriteString("<p><strong>Характеристики:</strong></p>")
+		fmt.Fprintf(&b, "<p>• <strong>Порода</strong>: хвоя (%s)</p>", woodType)
+		fmt.Fprintf(&b, "<p>• <strong>Сорт</strong>: %s</p>", grade)
+		fmt.Fprintf(&b, "<p>• <strong>Размер</strong>: %s мм × %s мм × %s мм</p>", height, width, length)
+		b.WriteString("<p>• <strong>Влажность</strong>: 8–15% (камерная сушка — не коробится, не трескается)</p>")
+		b.WriteString("<p>• <strong>Обработка</strong>: строганная с 4 сторон — готова к монтажу</p>")
+		b.WriteString("<ul>")
+		b.WriteString("<li>Камерная сушка</li>")
+		b.WriteString("<li>Строганная с четырех сторон</li>")
+		b.WriteString("<li>Гладкая поверхность без дополнительной обработки</li>")
+		b.WriteString("<li>Подходит для внутренних и наружных работ</li>")
+		b.WriteString("<li>Реальные фотографии товара со склада</li>")
+		b.WriteString("</ul>")
+		fmt.Fprintf(&b, "<p><strong>В НАЛИЧИИ ТАКЖЕ: </strong>%s</p>", alsoAvailable)
+		b.WriteString("<p>📍 <strong>Самовывоз — 2 точки в г. Мытищи:</strong></p>")
+		b.WriteString("<p>• Осташковское ш., 1Б, стр. 7, ангар №15 (у въезда под аркой «Стройдвор Яуза»)</p>")
+		b.WriteString("<p>• Волковское ш., стр. 21А</p>")
+		b.WriteString("<p><strong>Ежедневно 9:00–18:00 (без выходных)</strong></p>")
+		b.WriteString("<p><strong>Доставка по Москве и МО</strong> | Отправка в регионы транспортными компаниями</p>")
+		b.WriteString("<p><strong>Оплата:</strong> наличные, банковская карта, перевод, QR-код, безнал с/без НДС</p>")
+		fmt.Fprintf(&b, "<p>📞 <strong>%s</strong> Бесплатно проконсультируем, поможем с расчётом количества под ваш проект.</p>", cta)
+		b.WriteString("<p><strong>Добавьте в избранное</strong> — всегда в курсе свежих поставок и спецпредложений!</p>")
+		b.WriteString("<p>Работаем с физ. и юр. лицами. Гарантия качества на всю продукцию!</p>")
+		return b.String()
 	}
 
-	for attempt := 0; attempt < 100; attempt++ {
-		desc := buildDesc()
+	desc := build(descWord, alsoAvailable, cta)
+	key := "desc_" + desc
+	if !tg.used[key] {
+		tg.used[key] = true
+		return desc
+	}
+
+	for attempt := 0; attempt < 50; attempt++ {
+		descWord = descriptiveWords[(index+attempt)%len(descriptiveWords)]
+		alsoAvailable = alsoAvailablePool[(index+attempt)%len(alsoAvailablePool)]
+		cta = ctaPool[(index+attempt)%len(ctaPool)]
+
+		desc := build(descWord, alsoAvailable, cta)
 		key := "desc_" + desc
 		if !tg.used[key] {
 			tg.used[key] = true
@@ -200,81 +198,18 @@ func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index
 		}
 	}
 
-	desc := buildDesc()
-	if desc != "" && !tg.used["desc_"+desc] {
-		tg.used["desc_"+desc] = true
-	}
-	return desc
+	return build(descWord, alsoAvailable, cta)
 }
 
-func writeBenefits(result *strings.Builder, r *rand.Rand) {
-	result.WriteString("<p><strong>✅ ПОЧЕМУ ЭТО ЛУЧШИЙ ВЫБОР:</strong>")
-	result.WriteString(pClose)
-	benefits := []string{
-		"✨ Стабильная геометрия — точные размеры по всем сторонам, готов к монтажу.",
-		"✨ Камерная сушка 8–12% — минимальная усадка, устойчивость к перепадам влажности.",
-		"✨ Чистовая строжка с 4-х сторон — гладкая поверхность, готова к покраске.",
-		"✨ Сорт АВ/Экстра — без выпадающих сучков, однородная текстура.",
-		"✨ Прямые поставки с производства — цены ниже рынка без посредников.",
-	}
-	for i := 0; i < 3; i++ {
-		writeParagraph(result, benefits[r.Intn(len(benefits))])
-	}
-}
-
-func writeCharacteristics(result *strings.Builder, r *rand.Rand) {
-	result.WriteString("<p><strong>✅ ХАРАКТЕРИСТИКИ:</strong>")
-	result.WriteString(pClose)
-	chars := []string{
-		"• Размер: по запросу в наличии (ширина × толщина × длина)",
-		"• Материал: хвоя (сосна/ель), лиственница — под запас",
-		"• Обработка: камерная сушка 8-12%, чистовая строжка с 4-х сторон",
-		"• Сорт: АВ, Экстра, Прима — без выпадающих сучков и черноты",
-		"• Поверхность: гладкая, ровная — готова к покраске и монтажу",
-	}
-	for _, c := range chars {
-		if r.Intn(4) != 0 {
-			writeParagraph(result, c)
-		}
-	}
-}
-
-func writeAddress(result *strings.Builder) {
-	result.WriteString("<p><strong>📍 Самовывоз в г. Мытищи (2 точки):</strong>")
-	result.WriteString(pClose)
-	result.WriteString("<p>1️⃣ Осташковское ш., 1Б, стр. 7, ангар №15 (под аркой «Стройдвор Яуза»)")
-	result.WriteString(pClose)
-	result.WriteString("<p>2️⃣ Волковское ш., стр. 21А")
-	result.WriteString(pClose)
-	result.WriteString("<p>🕒 Ежедневно 9:00–18:00 (без выходных)")
-	result.WriteString(pClose)
-}
-
-func writeDelivery(result *strings.Builder, r *rand.Rand) {
-	deliveryOptions := []string{
-		"🚚 Доставка по Москве и МО. Отправка в регионы через ТК",
-		"🚛 Доставка по Москве и области. Регионы — транспортными компаниями",
-	}
-	writeParagraph(result, deliveryOptions[r.Intn(len(deliveryOptions))])
-}
-
-func writePayment(result *strings.Builder, r *rand.Rand) {
-	paymentOptions := []string{
-		"💳 Оплата: наличные, карта, перевод, QR, безнал с НДС / без НДС",
-		"💳 Принимаем: наличные, банковская карта, перевод, безналичный расчёт (с НДС/без НДС)",
-	}
-	writeParagraph(result, paymentOptions[r.Intn(len(paymentOptions))])
-}
-
-func writeFooter(result *strings.Builder, r *rand.Rand, suffixPool, ctaPool []string) {
-	if r.Intn(2) == 0 {
-		writeRandomParagraph(result, r, suffixPool)
-	}
-
-	writeRandomParagraph(result, r, ctaPool)
-
-	result.WriteString("<p>🔹 Добавьте объявление в избранное — всегда в курсе свежих поступлений и спецпредложений!")
-	result.WriteString(pClose)
+// GenerateDescriptionParams содержит параметры для генерации описания
+type GenerateDescriptionParams struct {
+	LumberType string
+	WoodType   string
+	Grade      string
+	Height     string
+	Width      string
+	Length     string
+	PriceUnit  string
 }
 
 // GenerateVariations генерирует N уникальных вариаций из шаблона
@@ -386,26 +321,6 @@ func calculateCombinations(groups []optionGroup) int {
 	return total
 }
 
-func pickRandom(r *rand.Rand, options []string) string {
-	if len(options) == 0 {
-		return ""
-	}
-	return options[r.Intn(len(options))]
-}
-
-func writeParagraph(result *strings.Builder, content string) {
-	result.WriteString("<p>")
-	result.WriteString(content)
-	result.WriteString(pClose)
-}
-
-func writeRandomParagraph(result *strings.Builder, r *rand.Rand, options []string) {
-	if len(options) == 0 {
-		return
-	}
-	writeParagraph(result, options[r.Intn(len(options))])
-}
-
 // ResolvePriceUnit возвращает единицу измерения для типа товара
 func ResolvePriceUnit(productType, defaultUnit string, index int) string {
 	pt := strings.ToLower(strings.TrimSpace(productType))
@@ -429,9 +344,8 @@ func ResolvePriceUnit(productType, defaultUnit string, index int) string {
 	}
 }
 
-// VaryDimension возвращает вариацию размера, близкую к оригиналу.
-// Примеры: "50 мм" -> "55 мм", "0.5 м" -> "0.45 м", "100" -> "90".
-// Если разобрать значение не удалось — возвращает оригинал.
+// VaryDimension возвращает вариацию размера, близкую к оригиналу, только в мм.
+// Значения в других единицах не конвертируются и возвращаются как есть.
 func VaryDimension(value string, r *rand.Rand) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -466,6 +380,13 @@ func VaryDimension(value string, r *rand.Rand) string {
 	}
 
 	unit := strings.TrimSpace(value[numEnd:])
+	unitLower := strings.ToLower(unit)
+	if unitLower == "" || strings.Contains(unitLower, "мм") || strings.Contains(unitLower, "mm") {
+		unit = "мм"
+	} else {
+		return value
+	}
+
 	delta := num * 0.1
 	if delta < 1 {
 		delta = 1
