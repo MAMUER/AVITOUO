@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -138,7 +137,7 @@ func processOnePhoto(srcPath, savePath string, index int) error {
 
 // ProcessPhotoURLs скачивает фото по URL, уникализирует и сохраняет в outputDir.
 // Возвращает строку с новыми именами файлов через " | ".
-func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (string, error) {
+func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int, cookies map[string]string) (string, error) {
 	if strings.TrimSpace(urlsString) == "" {
 		return "", nil
 	}
@@ -147,42 +146,71 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (strin
 	var result []string
 
 	client := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 120 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return nil
 		},
 	}
 
 	for i, rawURL := range urls {
-		photoURL := strings.TrimSpace(rawURL)
-		if photoURL == "" {
+		url := strings.TrimSpace(rawURL)
+		if url == "" {
 			continue
 		}
 
-		parsedURL, err := url.Parse(photoURL)
-		if err != nil {
-			fmt.Printf("[DEBUG] ProcessPhotoURLs parse error base=%d idx=%d: %v\n", baseIndex, i, err)
-			continue
-		}
-		if parsedURL.RawPath == "" {
-			parsedURL.RawPath = parsedURL.EscapedPath()
-		}
-		encodedURL := parsedURL.String()
-
-		req, err := http.NewRequest("GET", encodedURL, nil)
+		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			fmt.Printf("[DEBUG] ProcessPhotoURLs request error base=%d idx=%d: %v\n", baseIndex, i, err)
 			continue
 		}
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		req.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7")
+		req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+		req.Header.Set("Referer", "https://www.avito.ru/")
+		req.Header.Set("Origin", "https://www.avito.ru")
+		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Sec-Fetch-Dest", "image")
+		req.Header.Set("Sec-Fetch-Mode", "no-cors")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
+		req.Header.Set("Sec-Ch-Ua", `"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"`)
+		req.Header.Set("Sec-Ch-Ua-Mobile", "?0")
+		req.Header.Set("Sec-Ch-Ua-Platform", "Windows")
 
-		resp, err := client.Do(req)
+		if len(cookies) > 0 {
+			for name, value := range cookies {
+				req.AddCookie(&http.Cookie{
+					Name:  name,
+					Value: value,
+				})
+			}
+		}
+
+		var resp *http.Response
+		for attempt := 0; attempt < 3; attempt++ {
+			if attempt > 0 {
+				wait := time.Duration(1<<attempt) * time.Second
+				fmt.Printf("[DEBUG] ProcessPhotoURLs retry base=%d idx=%d attempt=%d wait=%v url=%s\n", baseIndex, i, attempt, wait, url)
+				time.Sleep(wait)
+			}
+			resp, err = client.Do(req)
+			if err != nil {
+				if attempt == 2 {
+					fmt.Printf("[DEBUG] ProcessPhotoURLs download error base=%d idx=%d: %v\n", baseIndex, i, err)
+				}
+				continue
+			}
+			if resp.StatusCode == http.StatusTooManyRequests && attempt < 2 {
+				_ = resp.Body.Close()
+				continue
+			}
+			break
+		}
 		if err != nil {
-			fmt.Printf("[DEBUG] ProcessPhotoURLs download error base=%d idx=%d: %v\n", baseIndex, i, err)
 			continue
 		}
 		if resp.StatusCode != http.StatusOK {
-			fmt.Printf("[DEBUG] ProcessPhotoURLs status error base=%d idx=%d: status=%d url=%s\n", baseIndex, i, resp.StatusCode, encodedURL)
+			fmt.Printf("[DEBUG] ProcessPhotoURLs status error base=%d idx=%d: status=%d url=%s\n", baseIndex, i, resp.StatusCode, url)
 			_ = resp.Body.Close()
 			continue
 		}
@@ -193,8 +221,16 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (strin
 			continue
 		}
 
+		if len(body) < 100 {
+			fmt.Printf("[DEBUG] ProcessPhotoURLs response too small base=%d idx=%d: %d bytes\n", baseIndex, i, len(body))
+			continue
+		}
+
 		ext := ".jpg"
 		ct := resp.Header.Get("Content-Type")
+		if ct == "" {
+			ct = http.DetectContentType(body)
+		}
 		if ct != "" {
 			exts, _ := mime.ExtensionsByType(ct)
 			if len(exts) > 0 {
@@ -220,10 +256,52 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int) (strin
 
 		_ = os.Remove(srcPath)
 		result = append(result, filepath.Base(savePath))
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	fmt.Printf("[DEBUG] ProcessPhotoURLs done base=%d count=%d\n", baseIndex, len(result))
 	return strings.Join(result, " | "), nil
+}
+
+func CopyPhotosFromPhotosDir(imageNames string, outputDir string, baseIndex int) int {
+	if strings.TrimSpace(imageNames) == "" {
+		return 0
+	}
+	names := strings.Split(imageNames, "|")
+	copied := 0
+	for i, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		src := filepath.Join(PhotosDir, name)
+		ext := filepath.Ext(name)
+		if ext == "" {
+			ext = ".jpg"
+		}
+		dst := filepath.Join(outputDir, fmt.Sprintf("a%d_%d%s", baseIndex, i, ext))
+		if err := copyFile(src, dst); err != nil {
+			fmt.Printf("[DEBUG] CopyPhotosFromPhotosDir error base=%d idx=%d: %v\n", baseIndex, i, err)
+			continue
+		}
+		copied++
+	}
+	return copied
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
 }
 
 // applyUniqueTransformations применяет уникальные трансформации к изображению

@@ -469,6 +469,9 @@ const duplicateRandom = async () => {
         if (response.zip_file) {
             msg += ` <a href="/api/download?file=${encodeURIComponent(response.zip_file)}" class="button-link">🗜 Скачать ZIP с фото</a>`;
         }
+        if (response.zip_warning) {
+            msg += `<br><div class="warning">⚠️ ${escapeHtml(response.zip_warning)}</div>`;
+        }
         showMessage('generation-msg', msg);
     } catch (e) {
         showMessage('generation-msg', `<div class="error">❌ ${escapeHtml(e.message)}</div>`);

@@ -429,6 +429,30 @@ func cellValue(row []string, idx int) string {
 	return ""
 }
 
+func colIdxToExcelName(col int) string {
+	name := ""
+	for col >= 0 {
+		name = string(rune('A'+col%26)) + name
+		col = col/26 - 1
+	}
+	return name
+}
+
+func buildImageNames(dir string, baseIndex, count int) string {
+	var parts []string
+	for i := 0; i < count; i++ {
+		for _, ext := range []string{".jpg", ".jpeg", ".png", ".webp"} {
+			name := fmt.Sprintf("a%d_%d%s", baseIndex, i, ext)
+			path := filepath.Join(dir, name)
+			if _, err := os.Stat(path); err == nil {
+				parts = append(parts, name)
+				break
+			}
+		}
+	}
+	return strings.Join(parts, " | ")
+}
+
 func (app *App) jsonError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set(ContentTypeHeader, "application/json")
 	w.WriteHeader(status)
@@ -1266,12 +1290,14 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	selected := make([][]string, 0, req.Count)
+	selectedDataIndices := make([]int, 0, req.Count)
 	selectedIndices := make(map[int]bool)
 	for len(selected) < req.Count {
 		idx := rnd.Intn(len(data))
 		if !selectedIndices[idx] {
 			selectedIndices[idx] = true
 			selected = append(selected, data[idx])
+			selectedDataIndices = append(selectedDataIndices, idx)
 		}
 	}
 
@@ -1283,6 +1309,13 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		imageNamesIdx = storage.FindColumnIndex(headers, "Названия фото")
 	}
 	photoLinksIdx := storage.FindColumnIndex(headers, "Ссылки на фото")
+	if photoLinksIdx < 0 {
+		photoLinksIdx = storage.FindColumnIndex(headers, "Ссылка на фото")
+	}
+	if photoLinksIdx < 0 {
+		photoLinksIdx = storage.FindColumnIndex(headers, "Фото")
+	}
+	fmt.Printf("[DEBUG] handleDuplicateFromCategory: photoLinksIdx=%d imageNamesIdx=%d headers=%v\n", photoLinksIdx, imageNamesIdx, headers)
 	placementColIdx := storage.FindColumnIndex(headers, "Способ размещения")
 	contactColIdx := storage.FindColumnIndex(headers, "Контактное лицо")
 	phoneColIdx := storage.FindColumnIndex(headers, "Номер телефона")
@@ -1333,6 +1366,16 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 
 	settings, _ := storage.LoadSettings()
 	gen := core.NewTextGenerator()
+
+	cookies, _ := storage.GetBrowserCookies("avito.ru")
+	if cookies == nil {
+		cookies = make(map[string]string)
+	}
+	var cookieNames []string
+	for name := range cookies {
+		cookieNames = append(cookieNames, name)
+	}
+	fmt.Printf("[DEBUG] Loaded %d cookies for avito.ru: %v\n", len(cookies), cookieNames)
 
 	photoDir, err := os.MkdirTemp("", "avito-photo-*")
 	if err != nil {
@@ -1414,6 +1457,19 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		}
 		if photoLinksIdx >= 0 && photoLinksIdx < len(srcRow) {
 			srcPhotoLinks := srcRow[photoLinksIdx]
+
+			if f != nil && photoLinksIdx >= 0 {
+				excelRowNum := headerRowIdx + selectedDataIndices[i] + 2
+				colName := colIdxToExcelName(photoLinksIdx)
+				cellAddr := fmt.Sprintf("%s%d", colName, excelRowNum)
+				if exists, hyperlink, err := f.GetCellHyperLink(activeSheet, cellAddr); err == nil && exists && hyperlink != "" {
+					srcPhotoLinks = hyperlink
+					if i < 3 {
+						fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d hyperlink at %s: %s\n", i, cellAddr, hyperlink)
+					}
+				}
+			}
+
 			links := strings.Split(srcPhotoLinks, "|")
 			var picked []string
 			for j := 0; j < len(links) && j < 10; j++ {
@@ -1422,15 +1478,76 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 					picked = append(picked, link)
 				}
 			}
-			if len(picked) > 0 {
-				processed, err := storage.ProcessPhotoURLs(strings.Join(picked, "|"), photoDir, i*100)
-				if err != nil {
-					fmt.Printf("[DEBUG] ProcessPhotoURLs error for ad %d: %v\n", i, err)
+			if len(picked) == 0 {
+				links = strings.Split(srcPhotoLinks, "\n")
+				for j := 0; j < len(links) && j < 10; j++ {
+					link := strings.TrimSpace(links[j])
+					if link != "" {
+						picked = append(picked, link)
+					}
 				}
-				if err == nil && processed != "" {
+			}
+			if len(picked) == 0 {
+				links = strings.Split(srcPhotoLinks, "\r\n")
+				for j := 0; j < len(links) && j < 10; j++ {
+					link := strings.TrimSpace(links[j])
+					if link != "" {
+						picked = append(picked, link)
+					}
+				}
+			}
+			if i < 3 {
+				fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d rawLinks=%q picked=%d links=%v\n", i, srcPhotoLinks, len(picked), picked)
+			}
+			if len(picked) > 0 {
+				processed := ""
+				downloaded := 0
+				if i < 3 {
+					fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d trying Playwright download\n", i)
+				}
+				downloaded = storage.DownloadPhotosWithPlaywright(strings.Join(picked, "|"), photoDir, i*100)
+				if i < 3 {
+					fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d Playwright downloaded=%d\n", i, downloaded)
+				}
+				if downloaded > 0 {
+					processed = buildImageNames(photoDir, i*100, downloaded)
 					newImageNames[i] = processed
-				} else if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
-					newImageNames[i] = srcRow[imageNamesIdx]
+				} else {
+					if i < 3 {
+						fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d falling back to HTTP download\n", i)
+					}
+					processed, err := storage.ProcessPhotoURLs(strings.Join(picked, "|"), photoDir, i*100, cookies)
+					if err != nil {
+						fmt.Printf("[DEBUG] ProcessPhotoURLs error for ad %d: %v\n", i, err)
+					}
+					if i < 3 {
+						fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d HTTP processed=%q err=%v\n", i, processed, err)
+					}
+					if err == nil && processed != "" {
+						newImageNames[i] = processed
+					} else {
+						copied := 0
+						if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
+							oldNames := srcRow[imageNamesIdx]
+							if strings.TrimSpace(oldNames) != "" {
+								if i < 3 {
+									fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d fallback copy from photos/ names=%q\n", i, oldNames)
+								}
+								copied = storage.CopyPhotosFromPhotosDir(oldNames, photoDir, i*100)
+								if i < 3 {
+									fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d copied=%d from photos/\n", i, copied)
+								}
+								if copied > 0 {
+									newImageNames[i] = oldNames
+								}
+							}
+						}
+						if copied == 0 {
+							if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
+								newImageNames[i] = srcRow[imageNamesIdx]
+							}
+						}
+					}
 				}
 			} else if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
 				newImageNames[i] = srcRow[imageNamesIdx]
@@ -1611,19 +1728,27 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	zipPath := "photos_" + core.GenerateUniqueID() + ".zip"
-	zipFile, err := os.Create(zipPath)
-	if err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания ZIP: "+err.Error())
-		return
-	}
-	defer func() { _ = zipFile.Close() }()
-	zipWriter := zip.NewWriter(zipFile)
-	defer func() { _ = zipWriter.Close() }()
-
 	files, err := os.ReadDir(photoDir)
 	zipCount := 0
 	if err == nil {
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			zipCount++
+		}
+	}
+	var zipPath string
+	if zipCount > 0 {
+		zipPath = "photos_" + core.GenerateUniqueID() + ".zip"
+		zipFile, err := os.Create(zipPath)
+		if err != nil {
+			app.jsonError(w, http.StatusInternalServerError, "Ошибка создания ZIP: "+err.Error())
+			return
+		}
+		defer func() { _ = zipFile.Close() }()
+		zipWriter := zip.NewWriter(zipFile)
+		defer func() { _ = zipWriter.Close() }()
 		var zipEntries []string
 		for _, file := range files {
 			if file.IsDir() {
@@ -1660,13 +1785,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 				continue
 			}
 			_, _ = writer.Write(fileContent)
-			zipCount++
 		}
-	}
-	if zipCount == 0 {
-		fmt.Printf("[DEBUG] ZIP is empty, returning error to client\n")
-		app.jsonError(w, http.StatusBadRequest, "Не удалось загрузить фото: проверьте, что ссылки на фото корректны и ведут напрямую на изображения")
-		return
 	}
 
 	outputXLSX := "output_" + core.GenerateUniqueID() + ".xlsx"
@@ -1756,13 +1875,19 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	app.currentData = append(app.currentData, selected...)
 	app.mu.Unlock()
 
-	app.jsonResponse(w, map[string]interface{}{
+	respData := map[string]interface{}{
 		"status":    "ok",
 		"added":     len(selected),
 		"sheet":     activeSheet,
 		"xlsx_file": outputXLSX,
-		"zip_file":  zipPath,
-	})
+	}
+	if zipPath != "" {
+		respData["zip_file"] = zipPath
+	} else {
+		respData["zip_file"] = ""
+		respData["zip_warning"] = "Не удалось загрузить фото: сайт ограничивает скачивание (HTTP 429). Excel сохранён без ZIP."
+	}
+	app.jsonResponse(w, respData)
 }
 
 func (app *App) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
