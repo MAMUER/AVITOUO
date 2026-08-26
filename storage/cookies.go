@@ -43,7 +43,7 @@ func decryptDPAPI(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("CryptUnprotectData failed: %v", err)
 	}
 
-	defer syscall.LocalFree(syscall.Handle(uintptr(unsafe.Pointer(outBlob.pbData))))
+	defer func() { _, _ = syscall.LocalFree(syscall.Handle(uintptr(unsafe.Pointer(outBlob.pbData)))) }()
 
 	result := make([]byte, outBlob.cbData)
 	for i := uint32(0); i < outBlob.cbData; i++ {
@@ -136,7 +136,7 @@ func readChromeCookies(domain, cookiesPath string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	rows, err := db.Query(`
 		SELECT name, value, encrypted_value 
@@ -146,7 +146,7 @@ func readChromeCookies(domain, cookiesPath string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	cookies := make(map[string]string)
 	for rows.Next() {
@@ -178,14 +178,14 @@ func readFirefoxCookies(domain, cookiesPath string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	rows, err := db.Query("SELECT name, value FROM moz_cookies WHERE host LIKE ? OR host LIKE ? OR host = ?",
 		"%."+domain, domain, "."+domain)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	cookies := make(map[string]string)
 	for rows.Next() {

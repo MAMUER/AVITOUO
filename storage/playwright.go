@@ -20,7 +20,7 @@ func DownloadPhotosWithPlaywright(urlsString, outputDir string, baseIndex int) i
 		fmt.Printf("[DEBUG] Playwright run error: %v\n", err)
 		return 0
 	}
-	defer pw.Stop()
+	defer func() { _ = pw.Stop() }()
 
 	localAppData := os.Getenv("LOCALAPPDATA")
 	if localAppData == "" {
@@ -47,14 +47,14 @@ func DownloadPhotosWithPlaywright(urlsString, outputDir string, baseIndex int) i
 		fmt.Printf("[DEBUG] Playwright persistent context error: %v\n", err)
 		return 0
 	}
-	defer context.Close()
+	defer func() { _ = context.Close() }()
 
 	page, err := context.NewPage()
 	if err != nil {
 		fmt.Printf("[DEBUG] Playwright page error: %v\n", err)
 		return 0
 	}
-	defer page.Close()
+	defer func() { _ = page.Close() }()
 
 	urls := strings.Split(urlsString, "|")
 	downloaded := 0
@@ -82,7 +82,7 @@ func DownloadPhotosWithPlaywright(urlsString, outputDir string, baseIndex int) i
 		}
 
 		if !response.Ok() {
-			fmt.Printf("[DEBUG] Playwright bad status base=%d idx=%d: status=%s\n", baseIndex, i, response.Status())
+			fmt.Printf("[DEBUG] Playwright bad status base=%d idx=%d: status=%d\n", baseIndex, i, response.Status())
 			continue
 		}
 

@@ -13,7 +13,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "playwright run error: %v\n", err)
 		os.Exit(1)
 	}
-	defer pw.Stop()
+	defer func() { _ = pw.Stop() }()
 
 	_, err = pw.Chromium.Launch()
 	if err != nil {
