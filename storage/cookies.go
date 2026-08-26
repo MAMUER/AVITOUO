@@ -237,7 +237,7 @@ func findChromeCookies(domain string) (map[string]string, error) {
 
 	chromeBase := filepath.Join(localAppData, "Google", "Chrome", "User Data")
 
-	profiles := []string{"Default", "Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5"}
+	profiles := []string{"Default", "Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5", "Profile 6", "Profile 7", "Profile 8", "Profile 9"}
 
 	for _, profile := range profiles {
 		cookiesPath := filepath.Join(chromeBase, profile, "Network", "Cookies")
@@ -254,7 +254,32 @@ func findChromeCookies(domain string) (map[string]string, error) {
 	return nil, fmt.Errorf("no Chrome cookies found")
 }
 
-// GetBrowserCookies tries to get cookies from Firefox or Chrome for the given domain
+func findEdgeCookies(domain string) (map[string]string, error) {
+	localAppData := os.Getenv("LOCALAPPDATA")
+	if localAppData == "" {
+		return nil, fmt.Errorf("LOCALAPPDATA not set")
+	}
+
+	edgeBase := filepath.Join(localAppData, "Microsoft", "Edge", "User Data")
+
+	profiles := []string{"Default", "Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5", "Profile 6", "Profile 7", "Profile 8", "Profile 9"}
+
+	for _, profile := range profiles {
+		cookiesPath := filepath.Join(edgeBase, profile, "Network", "Cookies")
+		if _, err := os.Stat(cookiesPath); err != nil {
+			continue
+		}
+
+		cookies, err := readChromeCookies(domain, cookiesPath)
+		if err == nil && len(cookies) > 0 {
+			return cookies, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no Edge cookies found")
+}
+
+// GetBrowserCookies tries to get cookies from Firefox, Chrome, or Edge for the given domain
 func GetBrowserCookies(domain string) (map[string]string, error) {
 	if cookies, err := findFirefoxCookies(domain); err == nil && len(cookies) > 0 {
 		fmt.Printf("[DEBUG] Loaded %d cookies from Firefox for %s\n", len(cookies), domain)
@@ -263,6 +288,11 @@ func GetBrowserCookies(domain string) (map[string]string, error) {
 
 	if cookies, err := findChromeCookies(domain); err == nil && len(cookies) > 0 {
 		fmt.Printf("[DEBUG] Loaded %d cookies from Chrome for %s\n", len(cookies), domain)
+		return cookies, nil
+	}
+
+	if cookies, err := findEdgeCookies(domain); err == nil && len(cookies) > 0 {
+		fmt.Printf("[DEBUG] Loaded %d cookies from Edge for %s\n", len(cookies), domain)
 		return cookies, nil
 	}
 

@@ -28,25 +28,50 @@ func DownloadPhotosWithPlaywright(urlsString, outputDir string, baseIndex int) i
 	}
 
 	userDataDir := filepath.Join(localAppData, "Google", "Chrome", "User Data")
-	profileDir := filepath.Join(userDataDir, "Default")
 
-	if _, err := os.Stat(profileDir); err != nil {
-		fmt.Printf("[DEBUG] Chrome profile not found at %s: %v\n", profileDir, err)
-		return 0
+	var context playwright.BrowserContext
+
+	if _, err := os.Stat(userDataDir); err == nil {
+		context, err = pw.Chromium.LaunchPersistentContext(userDataDir, playwright.BrowserTypeLaunchPersistentContextOptions{
+			Headless: playwright.Bool(true),
+			Args: []string{
+				"--no-sandbox",
+				"--disable-setuid-sandbox",
+				"--disable-dev-shm-usage",
+			},
+		})
+		if err != nil {
+			fmt.Printf("[DEBUG] Playwright persistent context error: %v\n", err)
+			context = nil
+		}
+	} else {
+		fmt.Printf("[DEBUG] Chrome user data dir not found at %s: %v\n", userDataDir, err)
 	}
 
-	context, err := pw.Chromium.LaunchPersistentContext(userDataDir, playwright.BrowserTypeLaunchPersistentContextOptions{
-		Headless: playwright.Bool(true),
-		Args: []string{
-			"--no-sandbox",
-			"--disable-setuid-sandbox",
-			"--disable-dev-shm-usage",
-		},
-	})
-	if err != nil {
-		fmt.Printf("[DEBUG] Playwright persistent context error: %v\n", err)
-		return 0
+	// Fallback: launch regular browser without persistent context
+	if context == nil {
+		fmt.Printf("[DEBUG] Falling back to non-persistent browser launch\n")
+		browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+			Headless: playwright.Bool(true),
+			Args: []string{
+				"--no-sandbox",
+				"--disable-setuid-sandbox",
+				"--disable-dev-shm-usage",
+			},
+		})
+		if err != nil {
+			fmt.Printf("[DEBUG] Playwright browser launch error: %v\n", err)
+			return 0
+		}
+		defer func() { _ = browser.Close() }()
+
+		context, err = browser.NewContext()
+		if err != nil {
+			fmt.Printf("[DEBUG] Playwright context error: %v\n", err)
+			return 0
+		}
 	}
+
 	defer func() { _ = context.Close() }()
 
 	page, err := context.NewPage()
@@ -55,6 +80,21 @@ func DownloadPhotosWithPlaywright(urlsString, outputDir string, baseIndex int) i
 		return 0
 	}
 	defer func() { _ = page.Close() }()
+
+	// Inject cookies if we have them
+	if cookies, err := GetBrowserCookies("avito.ru"); err == nil && len(cookies) > 0 {
+		fmt.Printf("[DEBUG] Injecting %d cookies into Playwright context\n", len(cookies))
+		playwrightCookies := make([]playwright.OptionalCookie, 0, len(cookies))
+		for name, value := range cookies {
+			playwrightCookies = append(playwrightCookies, playwright.OptionalCookie{
+				Name:   name,
+				Value:  value,
+				Domain: playwright.String(".avito.ru"),
+				Path:   playwright.String("/"),
+			})
+		}
+		_ = context.AddCookies(playwrightCookies)
+	}
 
 	urls := strings.Split(urlsString, "|")
 	downloaded := 0

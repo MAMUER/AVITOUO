@@ -166,16 +166,8 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int, cookie
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 		req.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
 		req.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7")
-		req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 		req.Header.Set("Referer", "https://www.avito.ru/")
-		req.Header.Set("Origin", "https://www.avito.ru")
 		req.Header.Set("Connection", "keep-alive")
-		req.Header.Set("Sec-Fetch-Dest", "image")
-		req.Header.Set("Sec-Fetch-Mode", "no-cors")
-		req.Header.Set("Sec-Fetch-Site", "same-origin")
-		req.Header.Set("Sec-Ch-Ua", `"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"`)
-		req.Header.Set("Sec-Ch-Ua-Mobile", "?0")
-		req.Header.Set("Sec-Ch-Ua-Platform", "Windows")
 
 		if len(cookies) > 0 {
 			for name, value := range cookies {
