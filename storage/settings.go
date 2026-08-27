@@ -69,6 +69,9 @@ func LoadSettings() (*core.Settings, error) {
 	if s.Connect == "" {
 		s.Connect = "Да"
 	}
+	if s.Proxy == "" {
+		s.Proxy = ""
+	}
 
 	return &s, nil
 }

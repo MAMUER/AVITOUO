@@ -188,7 +188,7 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int, cookie
 		downloadErr := false
 		for attempt := 0; attempt < 5; attempt++ {
 			if attempt > 0 {
-				wait := jitteredBackoff(attempt, 2*time.Second)
+				wait := jitteredBackoff(attempt, 5*time.Second)
 				fmt.Printf("[DEBUG] ProcessPhotoURLs retry base=%d idx=%d attempt=%d wait=%v url=%s\n", baseIndex, i, attempt, wait, url)
 				time.Sleep(wait)
 			}
@@ -256,7 +256,7 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int, cookie
 
 		_ = os.Remove(srcPath)
 		result = append(result, filepath.Base(savePath))
-		pause := time.Duration(1+baseIndex%3) * time.Second
+		pause := time.Duration(15+baseIndex%15) * time.Second
 		time.Sleep(pause)
 	}
 

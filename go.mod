@@ -7,6 +7,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.50
 	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/xuri/excelize/v2 v2.8.0
+	golang.org/x/net v0.14.0
 )
 
 require (
@@ -19,6 +20,5 @@ require (
 	github.com/xuri/nfp v0.0.0-20230819163627-dc951e3ffe1a // indirect
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/image v0.21.0 // indirect
-	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
 )

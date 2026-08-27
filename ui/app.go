@@ -1505,7 +1505,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 				if i < 3 {
 					fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d trying Playwright download\n", i)
 				}
-				downloaded = storage.DownloadPhotosWithPlaywright(strings.Join(picked, "|"), photoDir, i*100)
+				downloaded = storage.DownloadPhotosWithPlaywright(strings.Join(picked, "|"), photoDir, i*100, settings.Proxy)
 				if i < 3 {
 					fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d Playwright downloaded=%d\n", i, downloaded)
 				}
@@ -1738,6 +1738,11 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 					newCombinations[i] = fmt.Sprintf("%s + %s + %s", newHeights[i], newWidths[i], newLengths[i])
 				}
 			}
+		}
+		if i < len(selected)-1 {
+			pause := time.Duration(15+rnd.Intn(15)) * time.Second
+			fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d pause=%v before next ad\n", i, pause)
+			time.Sleep(pause)
 		}
 	}
 

@@ -17,6 +17,7 @@ type Settings struct {
 	SalesType              string   `json:"sales_type"`
 	PriceUnit              string   `json:"price_unit"`
 	Connect                string   `json:"connect"`
+	Proxy                  string   `json:"proxy"`
 }
 
 // AdRow представляет строку объявления для редактирования
