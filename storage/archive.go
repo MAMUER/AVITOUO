@@ -152,6 +152,11 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int, cookie
 		},
 	}
 
+	userAgents := []string{
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+	}
+
 	for i, rawURL := range urls {
 		url := strings.TrimSpace(rawURL)
 		if url == "" {
@@ -163,7 +168,8 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int, cookie
 			fmt.Printf("[DEBUG] ProcessPhotoURLs request error base=%d idx=%d: %v\n", baseIndex, i, err)
 			continue
 		}
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		ua := userAgents[i%len(userAgents)]
+		req.Header.Set("User-Agent", ua)
 		req.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
 		req.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7")
 		req.Header.Set("Referer", "https://www.avito.ru/")
@@ -179,26 +185,28 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int, cookie
 		}
 
 		var resp *http.Response
-		for attempt := 0; attempt < 3; attempt++ {
+		downloadErr := false
+		for attempt := 0; attempt < 5; attempt++ {
 			if attempt > 0 {
-				wait := time.Duration(1<<attempt) * time.Second
+				wait := jitteredBackoff(attempt, 2*time.Second)
 				fmt.Printf("[DEBUG] ProcessPhotoURLs retry base=%d idx=%d attempt=%d wait=%v url=%s\n", baseIndex, i, attempt, wait, url)
 				time.Sleep(wait)
 			}
 			resp, err = client.Do(req)
 			if err != nil {
-				if attempt == 2 {
+				if attempt == 4 {
 					fmt.Printf("[DEBUG] ProcessPhotoURLs download error base=%d idx=%d: %v\n", baseIndex, i, err)
+					downloadErr = true
 				}
 				continue
 			}
-			if resp.StatusCode == http.StatusTooManyRequests && attempt < 2 {
+			if resp.StatusCode == http.StatusTooManyRequests && attempt < 4 {
 				_ = resp.Body.Close()
 				continue
 			}
 			break
 		}
-		if err != nil {
+		if downloadErr || resp == nil {
 			continue
 		}
 		if resp.StatusCode != http.StatusOK {
@@ -248,7 +256,8 @@ func ProcessPhotoURLs(urlsString string, outputDir string, baseIndex int, cookie
 
 		_ = os.Remove(srcPath)
 		result = append(result, filepath.Base(savePath))
-		time.Sleep(500 * time.Millisecond)
+		pause := time.Duration(1+baseIndex%3) * time.Second
+		time.Sleep(pause)
 	}
 
 	fmt.Printf("[DEBUG] ProcessPhotoURLs done base=%d count=%d\n", baseIndex, len(result))
@@ -279,6 +288,44 @@ func CopyPhotosFromPhotosDir(imageNames string, outputDir string, baseIndex int)
 		copied++
 	}
 	return copied
+}
+
+func FindAvailablePhotoNames(dir string, max int) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, entry := range entries {
+		if entry.IsDir() || !isImage(entry.Name()) {
+			continue
+		}
+		names = append(names, entry.Name())
+		if max > 0 && len(names) >= max {
+			break
+		}
+	}
+	return names
+}
+
+func CopyAvailableLocalPhotos(outputDir string, baseIndex int, max int) int {
+	names := FindAvailablePhotoNames(PhotosDir, max)
+	if len(names) == 0 {
+		return 0
+	}
+	for i, name := range names {
+		src := filepath.Join(PhotosDir, name)
+		ext := filepath.Ext(name)
+		if ext == "" {
+			ext = ".jpg"
+		}
+		dst := filepath.Join(outputDir, fmt.Sprintf("a%d_%d%s", baseIndex, i, ext))
+		if err := copyFile(src, dst); err != nil {
+			fmt.Printf("[DEBUG] CopyAvailableLocalPhotos error base=%d idx=%d: %v\n", baseIndex, i, err)
+			continue
+		}
+	}
+	return len(names)
 }
 
 func copyFile(src, dst string) error {

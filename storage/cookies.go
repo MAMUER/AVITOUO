@@ -15,6 +15,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const chromeUserDataDir = "User Data"
+
 type dataBlob struct {
 	cbData uint32
 	pbData *byte
@@ -90,7 +92,7 @@ func decryptChromeCookie(encrypted []byte, key []byte) ([]byte, error) {
 }
 
 func getChromeMasterKey() ([]byte, error) {
-	localStatePath := filepath.Join(os.Getenv("LOCALAPPDATA"), "Google", "Chrome", "User Data", "Local State")
+	localStatePath := filepath.Join(os.Getenv("LOCALAPPDATA"), "Google", "Chrome", chromeUserDataDir, "Local State")
 
 	data, err := os.ReadFile(localStatePath)
 	if err != nil {
@@ -168,6 +170,9 @@ func readChromeCookies(domain, cookiesPath string) (map[string]string, error) {
 			cookies[name] = value
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("chrome cookies scan error: %w", err)
+	}
 
 	return cookies, nil
 }
@@ -194,6 +199,9 @@ func readFirefoxCookies(domain, cookiesPath string) (map[string]string, error) {
 			continue
 		}
 		cookies[name] = value
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("firefox cookies scan error: %w", err)
 	}
 
 	return cookies, nil
@@ -235,7 +243,7 @@ func findChromeCookies(domain string) (map[string]string, error) {
 		return nil, fmt.Errorf("LOCALAPPDATA not set")
 	}
 
-	chromeBase := filepath.Join(localAppData, "Google", "Chrome", "User Data")
+	chromeBase := filepath.Join(localAppData, "Google", "Chrome", chromeUserDataDir)
 
 	profiles := []string{"Default", "Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5", "Profile 6", "Profile 7", "Profile 8", "Profile 9"}
 
@@ -260,7 +268,7 @@ func findEdgeCookies(domain string) (map[string]string, error) {
 		return nil, fmt.Errorf("LOCALAPPDATA not set")
 	}
 
-	edgeBase := filepath.Join(localAppData, "Microsoft", "Edge", "User Data")
+	edgeBase := filepath.Join(localAppData, "Microsoft", "Edge", chromeUserDataDir)
 
 	profiles := []string{"Default", "Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5", "Profile 6", "Profile 7", "Profile 8", "Profile 9"}
 

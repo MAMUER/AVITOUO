@@ -1527,6 +1527,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 						newImageNames[i] = processed
 					} else {
 						copied := 0
+						fallbackNames := ""
 						if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
 							oldNames := srcRow[imageNamesIdx]
 							if strings.TrimSpace(oldNames) != "" {
@@ -1538,14 +1539,26 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 									fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d copied=%d from photos/\n", i, copied)
 								}
 								if copied > 0 {
-									newImageNames[i] = oldNames
+									fallbackNames = oldNames
 								}
 							}
 						}
 						if copied == 0 {
-							if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
-								newImageNames[i] = srcRow[imageNamesIdx]
+							if i < 3 {
+								fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d fallback copy any local photos from photos/\n", i)
 							}
+							localCopied := storage.CopyAvailableLocalPhotos(photoDir, i*100, 10)
+							if i < 3 {
+								fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d local fallback copied=%d\n", i, localCopied)
+							}
+							if localCopied > 0 {
+								fallbackNames = buildImageNames(photoDir, i*100, localCopied)
+							}
+						}
+						if fallbackNames != "" {
+							newImageNames[i] = fallbackNames
+						} else if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
+							newImageNames[i] = srcRow[imageNamesIdx]
 						}
 					}
 				}
