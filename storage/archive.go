@@ -116,6 +116,77 @@ func (pg *PhotoGenerator) GenerateUniquePhotos(sourceDir string, count int) ([]s
 	return result, nil
 }
 
+// ProcessManualPhotos уникализирует фото из папки пользователя для N объявлений.
+// sourceDir — папка, куда пользователь уже скачал фото вручную.
+// outputDir — папка, куда будут сохранены уникализированные фото с именами a{baseIndex}_{imgIdx}.ext.
+// count — количество объявлений, photosPerAd — максимум фото на объявление.
+// Возвращает слайс строк, где каждая строка — имена фото для одного объявления через " | ".
+func ProcessManualPhotos(sourceDir string, outputDir string, count int, photosPerAd int) ([]string, error) {
+	if strings.TrimSpace(sourceDir) == "" {
+		return nil, fmt.Errorf("папка с фото не указана")
+	}
+	if count <= 0 {
+		count = 1
+	}
+	if photosPerAd <= 0 {
+		photosPerAd = 10
+	}
+	if photosPerAd > 20 {
+		photosPerAd = 20
+	}
+
+	fullDir := filepath.Join(PhotosDir, filepath.Clean(sourceDir))
+	if err := os.MkdirAll(fullDir, 0755); err != nil {
+		return nil, fmt.Errorf("не удалось создать папку: %w", err)
+	}
+
+	entries, err := os.ReadDir(fullDir)
+	if err != nil {
+		return nil, fmt.Errorf("папка не найдена: %w", err)
+	}
+
+	var sourceImages []string
+	for _, entry := range entries {
+		if !entry.IsDir() && isImage(entry.Name()) {
+			sourceImages = append(sourceImages, filepath.Join(fullDir, entry.Name()))
+		}
+	}
+
+	if len(sourceImages) == 0 {
+		return nil, fmt.Errorf("в папке нет изображений")
+	}
+
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return nil, fmt.Errorf("не удалось создать выходную папку: %w", err)
+	}
+
+	var result []string
+	globalPhotoIdx := 0
+
+	for adIdx := 0; adIdx < count; adIdx++ {
+		var names []string
+		for photoIdx := 0; photoIdx < photosPerAd && photoIdx < len(sourceImages); photoIdx++ {
+			srcPath := sourceImages[photoIdx]
+			ext := strings.ToLower(filepath.Ext(srcPath))
+			baseName := fmt.Sprintf("a%d_%d%s", adIdx, photoIdx, ext)
+			savePath := filepath.Join(outputDir, baseName)
+
+			if err := processOnePhoto(srcPath, savePath, globalPhotoIdx); err != nil {
+				fmt.Printf("[DEBUG] ProcessManualPhotos error ad=%d photo=%d: %v\n", adIdx, photoIdx, err)
+				continue
+			}
+			names = append(names, baseName)
+			globalPhotoIdx++
+		}
+		if len(names) > 0 {
+			result = append(result, strings.Join(names, " | "))
+		}
+	}
+
+	fmt.Printf("[DEBUG] ProcessManualPhotos done count=%d total_photos=%d\n", len(result), globalPhotoIdx)
+	return result, nil
+}
+
 func processOnePhoto(srcPath, savePath string, index int) error {
 	srcData, err := os.ReadFile(srcPath)
 	if err != nil {

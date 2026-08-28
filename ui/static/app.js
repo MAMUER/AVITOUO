@@ -472,6 +472,14 @@ const duplicateRandom = async () => {
         if (response.zip_warning) {
             msg += `<br><div class="warning">⚠️ ${escapeHtml(response.zip_warning)}</div>`;
         }
+        if (response.source_mapping && response.source_mapping.length > 0) {
+            let mapText = '<br><div class="warning">📋 Связь новых объявлений с исходными:</div><div style="max-height:200px;overflow:auto;font-size:12px;background:#f5f5f5;padding:10px;border:1px solid #ddd;">';
+            for (const m of response.source_mapping) {
+                mapText += `<div><b>#${m.ad_index}</b> ${escapeHtml(m.title)} — исходный ряд ${m.source_index} | <a href="${escapeHtml(m.photo_links)}" target="_blank">фото</a></div>`;
+            }
+            mapText += '</div>';
+            msg += mapText;
+        }
         showMessage('generation-msg', msg);
     } catch (e) {
         showMessage('generation-msg', `<div class="error">❌ ${escapeHtml(e.message)}</div>`);
@@ -482,6 +490,45 @@ const duplicateRandom = async () => {
         }
     }
 };
+
+const uniquifyManualPhotos = async () => {
+    const btn = document.getElementById('uniquify-manual-btn');
+    const originalText = btn?.textContent || '';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Уникализация...';
+    }
+    try {
+        const sourceDir = document.getElementById('manual-source-dir').value.trim();
+        const outputDir = document.getElementById('manual-output-dir').value.trim();
+        const count = parseInt(document.getElementById('manual-count').value, 10) || 10;
+        const photosPerAd = parseInt(document.getElementById('manual-photos-per-ad').value, 10) || 5;
+
+        if (!sourceDir || !outputDir) {
+            throw new Error('Укажите папку с исходными фото и выходную папку');
+        }
+
+        const response = await api('/api/uniquify-manual-photos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_dir: sourceDir, output_dir: outputDir, count, photos_per_ad: photosPerAd })
+        });
+        let msg = `<div class="success">✅ Уникализировано объявлений: ${response.count}</div>`;
+        if (response.zip_file) {
+            msg += `<br><a href="/api/download?file=${encodeURIComponent(response.zip_file)}" class="button-link">🗜 Скачать ZIP с уникализированными фото</a>`;
+        }
+        showMessage('manual-photo-msg', msg);
+    } catch (e) {
+        showMessage('manual-photo-msg', `<div class="error">❌ ${escapeHtml(e.message)}</div>`);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+};
+
+document.getElementById('uniquify-manual-btn')?.addEventListener('click', uniquifyManualPhotos);
 
 try {
     await loadSettings();

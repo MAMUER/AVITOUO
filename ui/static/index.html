@@ -258,6 +258,29 @@
             <div id="generation-msg" style="margin-top: 15px;"></div>
         </div>
 
+        <div class="card" style="margin-top: 20px;">
+            <h2>🖼 Уникализация вручную скачанных фото</h2>
+            <div class="form-group">
+                <label for="manual-source-dir">Папка с исходными фото (в photos/):</label>
+                <input type="text" id="manual-source-dir" placeholder="manual" style="width:300px">
+            </div>
+            <div class="form-group">
+                <label for="manual-output-dir">Папка для уникализированных фото (в photos/):</label>
+                <input type="text" id="manual-output-dir" placeholder="manual_unique" style="width:300px">
+            </div>
+            <div class="form-group">
+                <label for="manual-count">Количество объявлений:</label>
+                <input type="number" id="manual-count" value="10" min="1" max="50000" style="width:120px">
+            </div>
+            <div class="form-group">
+                <label for="manual-photos-per-ad">Фото на объявление:</label>
+                <input type="number" id="manual-photos-per-ad" value="5" min="1" max="20" style="width:120px">
+            </div>
+            <button id="uniquify-manual-btn" type="button" style="background: #5d4037; font-size: 16px; padding: 12px 24px; margin-left: 10px;">✨ Уникализировать фото</button>
+            <div id="manual-photo-msg" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+
         <!-- Блок 6: Результат -->
         <div id="download-block" class="card hidden">
             <h2>📥 6. Результат</h2>
