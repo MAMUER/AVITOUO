@@ -6,8 +6,16 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
+)
+
+var (
+	globalUsedMu     sync.Mutex
+	globalUsedTitles = make(map[string]bool)
+	globalUsedDescs  = make(map[string]bool)
+	globalUsedSigs   = make(map[string]bool)
 )
 
 // TextGenerator генерирует уникальные вариации текста
@@ -42,8 +50,14 @@ func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existi
 			continue
 		}
 		c = toUpperFirst(c)
-		if !tg.used["title_"+c] {
+		globalUsedMu.Lock()
+		exists := globalUsedTitles["title_"+c]
+		globalUsedMu.Unlock()
+		if !exists {
+			globalUsedMu.Lock()
+			globalUsedTitles["title_"+c] = true
 			tg.used["title_"+c] = true
+			globalUsedMu.Unlock()
 			return c
 		}
 	}
@@ -81,8 +95,14 @@ func (tg *TextGenerator) GenerateUniqueTitle(baseTitle string, index int, existi
 		suffix := suffixes[tg.rnd.Intn(len(suffixes))]
 		title := baseTitle + suffix
 		title = toUpperFirst(title)
-		if !tg.used["title_"+title] {
+		globalUsedMu.Lock()
+		exists := globalUsedTitles["title_"+title]
+		globalUsedMu.Unlock()
+		if !exists {
+			globalUsedMu.Lock()
+			globalUsedTitles["title_"+title] = true
 			tg.used["title_"+title] = true
+			globalUsedMu.Unlock()
 			return title
 		}
 	}
@@ -180,8 +200,14 @@ func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index
 
 	desc := build(descWord, alsoAvailable, cta)
 	key := "desc_" + desc
-	if !tg.used[key] {
+	globalUsedMu.Lock()
+	exists := globalUsedDescs[key]
+	globalUsedMu.Unlock()
+	if !exists {
+		globalUsedMu.Lock()
+		globalUsedDescs[key] = true
 		tg.used[key] = true
+		globalUsedMu.Unlock()
 		return desc
 	}
 
@@ -192,8 +218,14 @@ func (tg *TextGenerator) GenerateUniqueDescription(baseDescription string, index
 
 		desc := build(descWord, alsoAvailable, cta)
 		key := "desc_" + desc
-		if !tg.used[key] {
+		globalUsedMu.Lock()
+		exists := globalUsedDescs[key]
+		globalUsedMu.Unlock()
+		if !exists {
+			globalUsedMu.Lock()
+			globalUsedDescs[key] = true
 			tg.used[key] = true
+			globalUsedMu.Unlock()
 			return desc
 		}
 	}

@@ -145,15 +145,44 @@ func ProcessManualPhotos(sourceDir string, outputDir string, count int, photosPe
 		return nil, fmt.Errorf("папка не найдена: %w", err)
 	}
 
-	var sourceImages []string
-	for _, entry := range entries {
-		if !entry.IsDir() && isImage(entry.Name()) {
-			sourceImages = append(sourceImages, filepath.Join(fullDir, entry.Name()))
+	adImages := make([][]string, count)
+	useSubfolders := false
+	for adIdx := 0; adIdx < count; adIdx++ {
+		subfolder := filepath.Join(fullDir, fmt.Sprintf("%d", adIdx))
+		if st, err := os.Stat(subfolder); err == nil && st.IsDir() {
+			useSubfolders = true
+			files, err := os.ReadDir(subfolder)
+			if err == nil {
+				for _, entry := range files {
+					if !entry.IsDir() && isImage(entry.Name()) {
+						adImages[adIdx] = append(adImages[adIdx], filepath.Join(subfolder, entry.Name()))
+					}
+				}
+			}
 		}
 	}
 
-	if len(sourceImages) == 0 {
-		return nil, fmt.Errorf("в папке нет изображений")
+	if !useSubfolders {
+		var flatImages []string
+		for _, entry := range entries {
+			if !entry.IsDir() && isImage(entry.Name()) {
+				flatImages = append(flatImages, filepath.Join(fullDir, entry.Name()))
+			}
+		}
+		if len(flatImages) == 0 {
+			return nil, fmt.Errorf("в папке нет изображений")
+		}
+		cursor := 0
+		for adIdx := 0; adIdx < count; adIdx++ {
+			end := cursor + photosPerAd
+			if end > len(flatImages) {
+				end = len(flatImages)
+			}
+			if cursor < len(flatImages) {
+				adImages[adIdx] = flatImages[cursor:end]
+				cursor = end
+			}
+		}
 	}
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -165,12 +194,13 @@ func ProcessManualPhotos(sourceDir string, outputDir string, count int, photosPe
 
 	for adIdx := 0; adIdx < count; adIdx++ {
 		var names []string
-		for photoIdx := 0; photoIdx < photosPerAd && photoIdx < len(sourceImages); photoIdx++ {
-			srcPath := sourceImages[photoIdx]
-			ext := strings.ToLower(filepath.Ext(srcPath))
-			baseName := fmt.Sprintf("a%d_%d%s", adIdx, photoIdx, ext)
+		photos := adImages[adIdx]
+		if len(photos) > photosPerAd {
+			photos = photos[:photosPerAd]
+		}
+		for photoIdx, srcPath := range photos {
+			baseName := fmt.Sprintf("a%d_%d.jpg", adIdx, photoIdx)
 			savePath := filepath.Join(outputDir, baseName)
-
 			if err := processOnePhoto(srcPath, savePath, globalPhotoIdx); err != nil {
 				fmt.Printf("[DEBUG] ProcessManualPhotos error ad=%d photo=%d: %v\n", adIdx, photoIdx, err)
 				continue
@@ -183,7 +213,7 @@ func ProcessManualPhotos(sourceDir string, outputDir string, count int, photosPe
 		}
 	}
 
-	fmt.Printf("[DEBUG] ProcessManualPhotos done count=%d total_photos=%d\n", len(result), globalPhotoIdx)
+	fmt.Printf("[DEBUG] ProcessManualPhotos done count=%d total_photos=%d mode=%s\n", len(result), globalPhotoIdx, map[bool]string{true: "subfolders", false: "flat"}[useSubfolders])
 	return result, nil
 }
 
@@ -1332,4 +1362,83 @@ func extractRegion(addr string) string {
 		}
 	}
 	return ""
+}
+
+// WritePhotoNamesToExcel записывает имена сгенерированных фото в столбец "Названия фото"
+// последних добавленных строк Excel файла.
+func WritePhotoNamesToExcel(filename string, sheetName string, imageNames []string, count int) error {
+	if strings.TrimSpace(filename) == "" {
+		return fmt.Errorf("имя файла не указано")
+	}
+	if len(imageNames) == 0 {
+		return nil
+	}
+
+	f, err := excelize.OpenFile(filename)
+	if err != nil {
+		return fmt.Errorf("ошибка открытия файла: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		return fmt.Errorf("в файле нет листов")
+	}
+
+	targetSheet := sheetName
+	if targetSheet == "" {
+		targetSheet = sheets[0]
+	}
+
+	rows, err := f.GetRows(targetSheet)
+	if err != nil {
+		return fmt.Errorf("ошибка чтения листа: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+
+	headerRowIdx := findHeaderRow(rows)
+	headerRow := rows[headerRowIdx]
+
+	imageNamesIdx := -1
+	for i, h := range headerRow {
+		if strings.Contains(strings.ToLower(h), "названия фото") ||
+			strings.Contains(strings.ToLower(h), "image") ||
+			strings.Contains(strings.ToLower(h), "фото") {
+			imageNamesIdx = i
+			break
+		}
+	}
+	if imageNamesIdx < 0 {
+		return fmt.Errorf("столбец 'Названия фото' не найден")
+	}
+
+	writeCount := len(imageNames)
+	if count > 0 && count < writeCount {
+		writeCount = count
+	}
+	startRow := len(rows) - writeCount
+	if startRow < headerRowIdx+1 {
+		startRow = headerRowIdx + 1
+	}
+
+	colName, err := excelize.ColumnNumberToName(imageNamesIdx + 1)
+	if err != nil {
+		return fmt.Errorf("ошибка определения столбца: %w", err)
+	}
+
+	for i := 0; i < writeCount; i++ {
+		cell := fmt.Sprintf("%s%d", colName, startRow+i+1)
+		if err := f.SetCellValue(targetSheet, cell, imageNames[i]); err != nil {
+			fmt.Printf("[DEBUG] WritePhotoNamesToExcel SetCellValue error at %s: %v\n", cell, err)
+		}
+	}
+
+	if err := f.SaveAs(filename); err != nil {
+		return fmt.Errorf("ошибка сохранения файла: %w", err)
+	}
+
+	fmt.Printf("[DEBUG] WritePhotoNamesToExcel: updated %d rows in sheet '%s' column '%s'\n", writeCount, targetSheet, colName)
+	return nil
 }

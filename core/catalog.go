@@ -1,6 +1,11 @@
 package core
 
-import "math/rand"
+import (
+	"math"
+	"math/rand"
+	"strconv"
+	"strings"
+)
 
 const (
 	Birch                   = "Берёза"
@@ -269,4 +274,98 @@ func GetDependentDimensions(dimension, availability, lumberType string) []string
 		}
 	}
 	return nil
+}
+
+func ParseDimensionNumber(value string) float64 {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0
+	}
+	lower := strings.ToLower(value)
+	if strings.Contains(lower, "по запросу") || strings.Contains(lower, "нет") || strings.Contains(lower, "не указан") {
+		return 0
+	}
+
+	numEnd := 0
+	for i := 0; i < len(value); i++ {
+		ch := value[i]
+		if ch >= '0' && ch <= '9' {
+			numEnd = i + 1
+			continue
+		}
+		if ch == '.' || ch == ',' {
+			continue
+		}
+		break
+	}
+	if numEnd == 0 {
+		return 0
+	}
+
+	num, err := strconv.ParseFloat(strings.ReplaceAll(value[:numEnd], ",", "."), 64)
+	if err != nil || num <= 0 {
+		return 0
+	}
+	return num
+}
+
+func DimensionUnit(value string) string {
+	value = strings.TrimSpace(value)
+	numEnd := 0
+	for i := 0; i < len(value); i++ {
+		ch := value[i]
+		if ch >= '0' && ch <= '9' {
+			numEnd = i + 1
+			continue
+		}
+		if ch == '.' || ch == ',' {
+			continue
+		}
+		break
+	}
+	return strings.TrimSpace(value[numEnd:])
+}
+
+// SelectNearestDimension возвращает ближайшее значение из каталога к оригиналу.
+// Если каталог пустой — возвращает оригинал.
+func SelectNearestDimension(original string, options []string) string {
+	if len(options) == 0 {
+		return original
+	}
+
+	origNum := ParseDimensionNumber(original)
+	if origNum == 0 {
+		return original
+	}
+
+	unit := DimensionUnit(original)
+	best := options[0]
+	bestDiff := math.MaxFloat64
+	for _, opt := range options {
+		optNum := ParseDimensionNumber(opt)
+		if optNum == 0 {
+			continue
+		}
+		optUnit := DimensionUnit(opt)
+		if unit != "" && optUnit != "" && unit != optUnit {
+			continue
+		}
+		diff := math.Abs(origNum - optNum)
+		if diff < bestDiff {
+			bestDiff = diff
+			best = opt
+		}
+	}
+	return best
+}
+
+// IsConfigurationUnique проверяет, уникальна ли конфигурация глобально.
+func IsConfigurationUnique(sig string) bool {
+	globalUsedMu.Lock()
+	defer globalUsedMu.Unlock()
+	if globalUsedSigs[sig] {
+		return false
+	}
+	globalUsedSigs[sig] = true
+	return true
 }

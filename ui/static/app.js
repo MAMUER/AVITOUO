@@ -464,6 +464,7 @@ const duplicateRandom = async () => {
         });
         let msg = `<div class="success">✅ Добавлено ${response.added} уникальных объявлений в лист "${response.sheet}"</div>`;
         if (response.xlsx_file) {
+            lastGeneratedFile = response.xlsx_file;
             msg += `<br><a href="/api/download?file=${encodeURIComponent(response.xlsx_file)}" class="button-link">📄 Скачать Excel</a>`;
         }
         if (response.zip_file) {
@@ -472,14 +473,16 @@ const duplicateRandom = async () => {
         if (response.zip_warning) {
             msg += `<br><div class="warning">⚠️ ${escapeHtml(response.zip_warning)}</div>`;
         }
-        if (response.source_mapping && response.source_mapping.length > 0) {
-            let mapText = '<br><div class="warning">📋 Связь новых объявлений с исходными:</div><div style="max-height:200px;overflow:auto;font-size:12px;background:#f5f5f5;padding:10px;border:1px solid #ddd;">';
-            for (const m of response.source_mapping) {
-                mapText += `<div><b>#${m.ad_index}</b> ${escapeHtml(m.title)} — исходный ряд ${m.source_index} | <a href="${escapeHtml(m.photo_links)}" target="_blank">фото</a></div>`;
+            if (response.source_mapping && response.source_mapping.length > 0) {
+                let mapText = '<br><div class="warning">📋 Связь новых объявлений с исходными:</div><div style="max-height:200px;overflow:auto;font-size:12px;background:#f5f5f5;padding:10px;border:1px solid #ddd;">';
+                for (const m of response.source_mapping) {
+                    const links = (m.photo_links || '').split('|').map(s => s.trim()).filter(Boolean);
+                    const linksHtml = links.map(url => `<a href="${escapeHtml(url)}" target="_blank">фото</a>`).join(' | ');
+                    mapText += `<div><b>#${m.ad_index}</b> ${escapeHtml(m.title)} — исходный ряд ${m.source_index} | ${linksHtml}</div>`;
+                }
+                mapText += '</div>';
+                msg += mapText;
             }
-            mapText += '</div>';
-            msg += mapText;
-        }
         showMessage('generation-msg', msg);
     } catch (e) {
         showMessage('generation-msg', `<div class="error">❌ ${escapeHtml(e.message)}</div>`);
@@ -511,11 +514,25 @@ const uniquifyManualPhotos = async () => {
         const response = await api('/api/uniquify-manual-photos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ source_dir: sourceDir, output_dir: outputDir, count, photos_per_ad: photosPerAd })
+            body: JSON.stringify({ 
+                source_dir: sourceDir, 
+                output_dir: outputDir, 
+                count, 
+                photos_per_ad: photosPerAd,
+                filename: lastGeneratedFile || '',
+                sheet_name: currentActiveSheet || ''
+            })
         });
         let msg = `<div class="success">✅ Уникализировано объявлений: ${response.count}</div>`;
         if (response.zip_file) {
             msg += `<br><a href="/api/download?file=${encodeURIComponent(response.zip_file)}" class="button-link">🗜 Скачать ZIP с уникализированными фото</a>`;
+        }
+        if (response.filename) {
+            lastGeneratedFile = response.filename;
+            msg += `<br><a href="/api/download?file=${encodeURIComponent(response.filename)}" class="button-link">📄 Скачать обновленный Excel</a>`;
+        }
+        if (response.excel_updated) {
+            msg += `<br><div class="success">✅ Имена фото записаны в столбец «Названия фото»</div>`;
         }
         showMessage('manual-photo-msg', msg);
     } catch (e) {

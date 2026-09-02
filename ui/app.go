@@ -18,6 +18,7 @@ import (
 	"AVITOUO/storage"
 
 	"github.com/xuri/excelize/v2"
+	"golang.org/x/net/html"
 )
 
 const (
@@ -1197,6 +1198,55 @@ func (app *App) handleAddServices(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func extractPhotoLinksFromCell(value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+
+	var links []string
+
+	doc, err := html.Parse(strings.NewReader(value))
+	if err == nil {
+		var walk func(*html.Node)
+		walk = func(n *html.Node) {
+			if n.Type == html.ElementNode && n.Data == "a" {
+				for _, attr := range n.Attr {
+					if attr.Key == "href" {
+						href := strings.TrimSpace(attr.Val)
+						if href != "" {
+							parts := strings.Split(href, "|")
+							for _, p := range parts {
+								p = strings.TrimSpace(p)
+								if p != "" {
+									links = append(links, p)
+								}
+							}
+						}
+						break
+					}
+				}
+			}
+			for child := n.FirstChild; child != nil; child = child.NextSibling {
+				walk(child)
+			}
+		}
+		walk(doc)
+	}
+
+	if len(links) == 0 {
+		parts := strings.Split(value, "|")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				links = append(links, p)
+			}
+		}
+	}
+
+	return links
+}
+
 func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, MethodNotAllowed, http.StatusMethodNotAllowed)
@@ -1309,7 +1359,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 	contactMethodColIdx := storage.FindColumnIndex(headers, ContactMethodHeader)
 	addressColIdx := storage.FindColumnIndex(headers, "Адрес")
 	categoryColIdx := storage.FindColumnIndex(headers, "Категория")
-	productTypeColIdx := storage.FindColumnIndex(headers, "Тип товара")
+	productTypeColIdx := storage.FindColumnIndex(headers, "Вид товара")
 	subProductTypeColIdx := storage.FindColumnIndex(headers, "Подвид товара")
 	priceUnitColIdx := storage.FindColumnIndex(headers, "Цена за")
 	priceValueColIdx := -1
@@ -1353,16 +1403,6 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 
 	settings, _ := storage.LoadSettings()
 	gen := core.NewTextGenerator()
-
-	cookies, _ := storage.GetBrowserCookies("avito.ru")
-	if cookies == nil {
-		cookies = make(map[string]string)
-	}
-	var cookieNames []string
-	for name := range cookies {
-		cookieNames = append(cookieNames, name)
-	}
-	fmt.Printf("[DEBUG] Loaded %d cookies for avito.ru: %v\n", len(cookies), cookieNames)
 
 	photoDir, err := os.MkdirTemp("", "avito-photo-*")
 	if err != nil {
@@ -1455,21 +1495,23 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 				}
 			}
 
-			newImageNames[i] = srcPhotoLinks
+			links := extractPhotoLinksFromCell(srcPhotoLinks)
+			newImageNames[i] = strings.Join(links, " | ")
 			sourceMapping = append(sourceMapping, map[string]interface{}{
 				"ad_index":     i,
 				"new_id":       newIDs[i],
 				"title":        newTitles[i],
-				"photo_links":  srcPhotoLinks,
+				"photo_links":  strings.Join(links, " | "),
 				"source_index": selectedDataIndices[i],
 			})
 		} else if imageNamesIdx >= 0 && imageNamesIdx < len(srcRow) {
-			newImageNames[i] = strings.TrimSpace(srcRow[imageNamesIdx])
+			links := extractPhotoLinksFromCell(strings.TrimSpace(srcRow[imageNamesIdx]))
+			newImageNames[i] = strings.Join(links, " | ")
 			sourceMapping = append(sourceMapping, map[string]interface{}{
 				"ad_index":     i,
 				"new_id":       newIDs[i],
 				"title":        newTitles[i],
-				"photo_links":  strings.TrimSpace(srcRow[imageNamesIdx]),
+				"photo_links":  strings.Join(links, " | "),
 				"source_index": selectedDataIndices[i],
 			})
 		}
@@ -1507,7 +1549,7 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 			newCategories[i] = srcRow[categoryColIdx]
 		}
 		if productTypeColIdx >= 0 && productTypeColIdx < len(srcRow) {
-			newProductTypes[i] = srcRow[productTypeColIdx]
+			newProductTypes[i] = strings.TrimSpace(srcRow[productTypeColIdx])
 		}
 		if subProductTypeColIdx >= 0 && subProductTypeColIdx < len(srcRow) {
 			newSubProductTypes[i] = srcRow[subProductTypeColIdx]
@@ -1547,9 +1589,17 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 			w := strings.TrimSpace(srcRow[widthColIdx])
 			l := strings.TrimSpace(srcRow[lengthColIdx])
 			if t != "" && w != "" && l != "" {
-				newThicknesses[i] = core.VaryDimension(t, rnd)
-				newWidths[i] = core.VaryDimension(w, rnd)
-				newLengths[i] = core.VaryDimension(l, rnd)
+				lt := cellValue(srcRow, lumberTypeColIdx)
+				avail := cellValue(srcRow, availabilityColIdx)
+				if avail == "" {
+					avail = "В наличии"
+				}
+				thicknessOpts := core.GetDependentDimensions("thickness", avail, lt)
+				widthOpts := core.GetDependentDimensions("width", avail, lt)
+				lengthOpts := core.GetDependentDimensions("length", avail, lt)
+				newThicknesses[i] = core.SelectNearestDimension(t, thicknessOpts)
+				newWidths[i] = core.SelectNearestDimension(w, widthOpts)
+				newLengths[i] = core.SelectNearestDimension(l, lengthOpts)
 			} else {
 				newThicknesses[i] = core.PickRandom(rnd, thicknessPool)
 				newWidths[i] = core.PickRandom(rnd, widthPool)
@@ -1560,9 +1610,13 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 			w := strings.TrimSpace(srcRow[widthColIdx])
 			l := strings.TrimSpace(srcRow[lengthColIdx])
 			if h != "" && w != "" && l != "" {
-				newHeights[i] = core.VaryDimension(h, rnd)
-				newWidths[i] = core.VaryDimension(w, rnd)
-				newLengths[i] = core.VaryDimension(l, rnd)
+				lt := cellValue(srcRow, lumberTypeColIdx)
+				heightOpts := core.GetDependentDimensions("height", "", lt)
+				widthOpts := core.GetDependentDimensions("width", "", lt)
+				lengthOpts := core.GetDependentDimensions("length", "", lt)
+				newHeights[i] = core.SelectNearestDimension(h, heightOpts)
+				newWidths[i] = core.SelectNearestDimension(w, widthOpts)
+				newLengths[i] = core.SelectNearestDimension(l, lengthOpts)
 			} else {
 				newHeights[i] = core.PickRandom(rnd, heightPool)
 				newWidths[i] = core.PickRandom(rnd, widthPool)
@@ -1644,10 +1698,28 @@ func (app *App) handleDuplicateFromCategory(w http.ResponseWriter, r *http.Reque
 				}
 			}
 		}
-		if i < len(selected)-1 {
-			pause := time.Duration(15+rnd.Intn(15)) * time.Second
-			fmt.Printf("[DEBUG] handleDuplicateFromCategory ad=%d pause=%v before next ad\n", i, pause)
-			time.Sleep(pause)
+
+		configSig := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
+			newLumberTypes[i], newWoodTypes[i], newEdges[i], newGrades[i], newMoistures[i],
+			newProfiles[i], newStructures[i], newLumberProfiles[i],
+			newThicknesses[i], newWidths[i], newLengths[i], newWidthDs[i], newLengthDs[i], newAddresses[i])
+		if !core.IsConfigurationUnique(configSig) {
+			newLumberTypes[i] = core.PickRandom(rnd, core.AllLumberTypes)
+			newWoodTypes[i] = core.PickRandom(rnd, core.GetValidWoodTypes(newLumberTypes[i]))
+			newEdges[i] = core.PickRandom(rnd, core.EdgeOptions)
+			newGrades[i] = core.PickRandom(rnd, core.GradeOptions)
+			newMoistures[i] = core.PickRandom(rnd, core.MoistureOptions)
+			newProfiles[i] = core.PickRandom(rnd, core.ProfileOptions)
+			newStructures[i] = core.PickRandom(rnd, core.StructureOptions)
+			newLumberProfiles[i] = core.PickRandom(rnd, core.GetValidLumberProfiles(newLumberTypes[i]))
+			avail := newAvailabilities[i]
+			if avail == "" {
+				avail = "В наличии"
+			}
+			newThicknesses[i] = core.SelectNearestDimension(newThicknesses[i], core.GetDependentDimensions("thickness", avail, newLumberTypes[i]))
+			newWidths[i] = core.SelectNearestDimension(newWidths[i], core.GetDependentDimensions("width", avail, newLumberTypes[i]))
+			newLengths[i] = core.SelectNearestDimension(newLengths[i], core.GetDependentDimensions("length", avail, newLumberTypes[i]))
+			newCombinations[i] = fmt.Sprintf("%s + %s + %s", newThicknesses[i], newWidths[i], newLengths[i])
 		}
 	}
 
@@ -1825,6 +1897,8 @@ func (app *App) handleUniquifyManualPhotos(w http.ResponseWriter, r *http.Reques
 		OutputDir   string `json:"output_dir"`
 		Count       int    `json:"count"`
 		PhotosPerAd int    `json:"photos_per_ad"`
+		Filename    string `json:"filename"`
+		SheetName   string `json:"sheet_name"`
 	}
 	if err := app.decodeJSON(r, &req); err != nil {
 		app.jsonError(w, http.StatusBadRequest, InvalidJSONError)
@@ -1858,18 +1932,32 @@ func (app *App) handleUniquifyManualPhotos(w http.ResponseWriter, r *http.Reques
 	zipPath := "photos_" + core.GenerateUniqueID() + ".zip"
 	files, err := storage.CreatePhotoZip(req.OutputDir, zipPath)
 	if err != nil {
-		app.jsonError(w, http.StatusInternalServerError, "Ошибка создания ZIP: "+err.Error())
+		app.jsonError(w, http.StatusInternalServerError, ZipErrorPrefix+err.Error())
 		return
 	}
 
-	app.jsonResponse(w, map[string]interface{}{
-		"status":      "ok",
-		"image_names": imageNames,
-		"zip_file":    zipPath,
-		"files":       files,
-		"output_dir":  req.OutputDir,
-		"count":       len(imageNames),
-	})
+	excelUpdated := false
+	if req.Filename != "" && len(imageNames) > 0 {
+		if err := storage.WritePhotoNamesToExcel(req.Filename, req.SheetName, imageNames, req.Count); err != nil {
+			fmt.Printf("[DEBUG] WritePhotoNamesToExcel error: %v\n", err)
+		} else {
+			excelUpdated = true
+		}
+	}
+
+	resp := map[string]interface{}{
+		"status":        "ok",
+		"image_names":   imageNames,
+		"zip_file":      zipPath,
+		"files":         files,
+		"output_dir":    req.OutputDir,
+		"count":         len(imageNames),
+		"excel_updated": excelUpdated,
+	}
+	if req.Filename != "" {
+		resp["filename"] = req.Filename
+	}
+	app.jsonResponse(w, resp)
 }
 
 func (app *App) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
